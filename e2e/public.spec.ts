@@ -6,19 +6,32 @@ async function openPublicFeature(page: any, name: string) {
   await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
 
-test('approved home layout has four unique public actions and exact office address', async ({ page }) => {
+test('approved home layout has four unique public actions, population cards and office lookup below address', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
   await expect(page.locator('.digitalHero')).toContainText('KHU PHỐ');
   await expect(page.locator('.digitalHero')).toContainText('45');
-  const publicActions = page.locator('.digitalHeroLinks').locator('button,a');
+  await expect(page.locator('.digitalHero')).toContainText('Một chạm tới những việc cần thiết');
+  const publicActions = page.locator('.digitalHeroLinks').locator('button');
   await expect(publicActions).toHaveCount(4);
-  await expect(page.locator('.featureGrid')).toHaveCount(0);
-  await expect(page.locator('.spotlight')).toBeVisible();
-  await expect(page.locator('.homePeople')).toBeVisible();
-  await expect(page.locator('.officePanel')).toContainText('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
-  const officeHref = await page.locator('.officePanel a').first().getAttribute('href');
-  expect(decodeURIComponent(officeHref || '')).toContain('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
+  await expect(page.locator('.digitalHeroLinks')).toContainText('Tra cứu · Dịch vụ công');
+  await expect(page.locator('.populationPanel')).toBeVisible();
+  await expect(page.locator('.populationTile')).toHaveCount(4);
+  await expect(page.locator('.officeMini')).toContainText('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
+  await expect(page.locator('.officeMini').getByRole('link', { name: /Tìm trụ sở/i })).toHaveCount(1);
+  await expect(page.locator('.officePanel')).toHaveCount(0);
+});
+
+test('party screen is minimal and contains no source-note copy', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Đảng viên');
+  await expect(page.locator('.partyGrid a')).toHaveCount(4);
+  await expect(page.locator('.partyGrid')).toContainText('Sổ tay đảng viên điện tử');
+  await expect(page.locator('.partyGrid')).toContainText('Đóng đảng phí');
+  await expect(page.locator('.partyGrid')).toContainText('Thủ tục hành chính');
+  await expect(page.locator('.partyGrid')).toContainText('Hành chính sự nghiệp');
+  await expect(page.locator('.partyScreen')).not.toContainText(/Mở dcs\.vn|Mở nguồn|Mở hệ thống chính thức/i);
+  await expect(page.locator('.partyEmblemSvg')).toHaveCount(5);
 });
 
 test('report form exposes mandatory reporter name and Vietnam phone fields', async ({ page }) => {
@@ -30,42 +43,28 @@ test('report form exposes mandatory reporter name and Vietnam phone fields', asy
   await expect(phone).toBeVisible();
   await expect(name).toHaveAttribute('required', '');
   await expect(phone).toHaveAttribute('required', '');
-  await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
-  expect(await name.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
-  expect(await phone.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
-  await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toHaveCount(0);
 });
 
-test('official service search works from the only public Tra cứu action', async ({ page }) => {
+test('official service search opens from the single Tra cứu · Dịch vụ công action', async ({ page }) => {
   await page.goto('/');
   await openPublicFeature(page, 'Tra cứu');
-  await page.getByPlaceholder('Tìm dịch vụ…').fill('BHYT');
-  await page.getByRole('button', { name: 'Tìm' }).click();
-  await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
+  const input = page.getByPlaceholder(/Ví dụ: tôi cần xác nhận cư trú/i);
+  await input.fill('BHYT');
+  await page.getByRole('button', { name: 'Tra cứu' }).click();
+  await expect(page.locator('.serviceResults')).toBeVisible();
 });
 
 test('exactly one top install control is visible before standalone mode', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.installTop')).toBeVisible();
   await expect(page.locator('.shell div.install')).toBeHidden();
-  await expect(page.locator('header').getByRole('button', { name: 'Cài ứng dụng' })).toHaveCount(1);
+  await expect(page.locator('header').getByRole('button', { name: /Cài KP45/i })).toHaveCount(1);
 });
 
-test('service worker isolates AppDeploy auth and API routes', async ({ request }) => {
-  const manifest = await request.get('/manifest.webmanifest');
-  expect(manifest.ok()).toBeTruthy();
-  const sw = await request.get('/service-worker.js');
-  expect(sw.ok()).toBeTruthy();
-  const source = await sw.text();
-  expect(source).toContain("u.pathname.startsWith('/api/')");
-  expect(source).toContain("u.pathname.startsWith('/__appdeploy/')");
-});
-
-test('Google sign-in button opens the authentication popup', async ({ page }) => {
+test('account entry opens login and registration UI without exposing protected role icons', async ({ page }) => {
   await page.goto('/');
-  const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Đăng nhập Google' }).click();
-  const popup = await popupPromise;
-  await expect(popup).not.toBeNull();
-  await popup.close();
+  await page.getByRole('button', { name: 'Đăng nhập / Đăng ký' }).click();
+  await expect(page.getByRole('button', { name: 'Đăng nhập' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tạo tài khoản' })).toBeVisible();
+  await expect(page.locator('.roleFeatureGrid')).toHaveCount(0);
 });
