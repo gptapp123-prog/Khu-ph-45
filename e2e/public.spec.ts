@@ -32,7 +32,7 @@ test('official service search works through the real UI', async ({ page }) => {
 test('PWA install fallback remains visible on an uninstalled browser', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Cài Khu phố 45')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cài ứng dụng|Cách cài/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cài ứng dụng|Kiểm tra cài đặt/ })).toBeVisible();
 });
 
 test('service worker isolates AppDeploy auth and API routes', async ({ request }) => {
