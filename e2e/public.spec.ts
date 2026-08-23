@@ -6,9 +6,12 @@ async function openHomeFeature(page: any, name: string) {
   await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
 
-test('production home uses icons without a visible menu and shows public personnel columns', async ({ page }) => {
+test('production home uses the digital KHU PHỐ SỐ panel, icons, and public personnel columns', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
+  await expect(page.locator('.digitalHero')).toBeVisible();
+  await expect(page.locator('.digitalHero')).toContainText('KHU PHỐ SỐ');
+  await expect(page.locator('.digitalHero')).toContainText('Một chạm tới những việc cần thiết');
   await expect(page.locator('nav')).toBeHidden();
   await expect(page.locator('.hamb')).toBeHidden();
   await expect(page.locator('.featureGrid')).toBeVisible();
