@@ -63,8 +63,9 @@ test('exactly one top install control is visible before standalone mode', async 
 
 test('account entry opens login and registration UI without exposing protected role icons', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Đăng nhập / Đăng ký' }).click();
-  await expect(page.getByRole('button', { name: 'Đăng nhập' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Tạo tài khoản' })).toBeVisible();
+  await page.getByRole('button', { name: 'Đăng nhập / Đăng ký', exact: true }).click();
+  const tabs = page.locator('.accountTabs');
+  await expect(tabs.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeVisible();
+  await expect(tabs.getByRole('button', { name: 'Tạo tài khoản', exact: true })).toBeVisible();
   await expect(page.locator('.roleFeatureGrid')).toHaveCount(0);
 });
