@@ -8,7 +8,7 @@ async function login(page: any) {
   await page.getByRole('button', { name: 'Đăng nhập / Đăng ký' }).click();
   await page.getByPlaceholder('Tên người dùng / email / số điện thoại').fill(username);
   await page.getByPlaceholder('Mật khẩu').fill(password);
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await page.locator('.accountForm button.primary').click();
   await expect(page.locator('header')).toContainText(username);
   await expect(page.getByRole('button', { name: 'Tài khoản' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Đăng xuất' })).toBeVisible();
