@@ -1,10 +1,21 @@
 import { test, expect } from '@playwright/test';
 
+const liveOrigin = 'https://khu-pho-45-phuong-binh-tan-iwhddk.v2.appdeploy.ai';
+const backendBase = 'https://api-v2.appdeploy.ai/app/khu-pho-45-phuong-binh-tan-iwhddk';
+
 async function openPublicFeature(page: any, name: string) {
   const grid = page.locator('.digitalHeroLinks');
   await expect(grid).toBeVisible();
   await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
+
+test('production health confirms PostgreSQL connectivity', async ({ request }) => {
+  const response = await request.get(`${backendBase}/api/_healthcheck`, { headers: { Origin: liveOrigin } });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(body.message).toBe('Success');
+  expect(body.postgres).toBe(true);
+});
 
 test('approved home layout has four unique public actions and exact office address', async ({ page }) => {
   await page.goto('/');
@@ -33,7 +44,6 @@ test('report form exposes mandatory reporter name and Vietnam phone fields', asy
   await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
   expect(await name.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
   expect(await phone.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
-  await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toHaveCount(0);
 });
 
 test('official service search works from the only public Tra cứu action', async ({ page }) => {
@@ -61,11 +71,11 @@ test('service worker isolates AppDeploy auth and API routes', async ({ request }
   expect(source).toContain("u.pathname.startsWith('/__appdeploy/')");
 });
 
-test('Google sign-in button opens the authentication popup', async ({ page }) => {
+test('local account sign-in and registration entry is available', async ({ page }) => {
   await page.goto('/');
-  const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Đăng nhập Google' }).click();
-  const popup = await popupPromise;
-  await expect(popup).not.toBeNull();
-  await popup.close();
+  await page.getByRole('button', { name: 'Đăng nhập / Đăng ký' }).click();
+  await expect(page.getByText('Đăng nhập tài khoản')).toBeVisible();
+  await expect(page.getByPlaceholder('Tên người dùng / email / số điện thoại')).toBeVisible();
+  await expect(page.getByPlaceholder('Mật khẩu')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tạo tài khoản' })).toBeVisible();
 });
