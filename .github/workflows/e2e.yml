@@ -2,6 +2,7 @@ name: KP45 E2E
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 permissions:
