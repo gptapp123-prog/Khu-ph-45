@@ -37,7 +37,7 @@ test('official service search works through the home icon', async ({ page }) => 
 test('exactly one top install control is visible before standalone mode', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.installTop')).toBeVisible();
-  await expect(page.locator('.install')).toBeHidden();
+  await expect(page.locator('.shell div.install')).toBeHidden();
   await expect(page.locator('header').getByRole('button', { name: 'Cài ứng dụng' })).toHaveCount(1);
 });
 
