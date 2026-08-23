@@ -26,16 +26,6 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npx playwright install --with-deps chromium
-      - name: Restore authenticated browser state
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.E2E_STORAGE_STATE_B64 }}" ]; then
-            echo "AUTH_STATE_MISSING: configure E2E_STORAGE_STATE_B64 from a real Google session"
-            exit 20
-          fi
-          mkdir -p playwright/.auth
-          printf '%s' "${{ secrets.E2E_STORAGE_STATE_B64 }}" | base64 --decode > playwright/.auth/user.json || { echo "AUTH_STATE_INVALID_BASE64"; exit 21; }
-          node -e "const fs=require('fs');const p='playwright/.auth/user.json';const x=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(x.cookies)||!Array.isArray(x.origins))process.exit(22);"
       - name: Run authenticated tests
         run: npx playwright test e2e/authenticated-live.spec.ts --project=chromium-desktop
       - name: Upload report
