@@ -40,8 +40,9 @@ test('sign in entry has no lock icon and account panel opens', async ({ page }) 
   await expect(login).toBeVisible();
   await expect(login.locator('svg')).toHaveCount(0);
   await login.click();
-  await expect(page.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Tạo tài khoản', exact: true })).toBeVisible();
+  const tabs = page.locator('.accountTabs');
+  await expect(tabs.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeVisible();
+  await expect(tabs.getByRole('button', { name: 'Tạo tài khoản', exact: true })).toBeVisible();
 });
 
 test('official free-text service search still works', async ({ page }) => {
