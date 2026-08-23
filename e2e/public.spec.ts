@@ -1,38 +1,43 @@
 import { test, expect } from '@playwright/test';
 
-async function openFeature(page: any, name: string) {
-  const hamburger = page.getByRole('button').filter({ has: page.locator('svg') }).first();
-  const navButton = page.getByRole('button', { name });
-  if (!(await navButton.isVisible().catch(() => false))) await hamburger.click();
-  await navButton.click();
+async function openHomeFeature(page: any, name: string) {
+  const grid = page.locator('.featureGrid');
+  await expect(grid).toBeVisible();
+  await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
 
-test('production home loads', async ({ page }) => {
+test('production home uses icons without a visible menu and shows public personnel columns', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
-  await expect(page.locator('body')).toContainText('Khu phố 45');
+  await expect(page.locator('nav')).toBeHidden();
+  await expect(page.locator('.hamb')).toBeHidden();
+  await expect(page.locator('.featureGrid')).toBeVisible();
+  await expect(page.getByText('Lãnh đạo · Cảnh sát khu vực')).toBeVisible();
+  await expect(page.getByText('Tổ trưởng Tổ dân phố')).toBeVisible();
+  await expect(page.locator('.featureGrid').getByRole('button', { name: /Nhân sự/i })).toHaveCount(0);
 });
 
-test('anonymous user is blocked from submitting a report through the real UI', async ({ page }) => {
+test('anonymous user is blocked from submitting a report through the home icon', async ({ page }) => {
   await page.goto('/');
-  await openFeature(page, 'Phản ánh');
+  await openHomeFeature(page, 'Phản ánh');
   await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
   await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toBeVisible();
   await expect(page.getByText('Đăng nhập để xem phản ánh của bạn.')).toBeVisible();
 });
 
-test('official service search works through the real UI', async ({ page }) => {
+test('official service search works through the home icon', async ({ page }) => {
   await page.goto('/');
-  await openFeature(page, 'Dịch vụ công');
+  await openHomeFeature(page, 'Dịch vụ công');
   await page.getByPlaceholder('Tìm dịch vụ…').fill('BHYT');
   await page.getByRole('button', { name: 'Tìm' }).click();
   await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
 });
 
-test('PWA install fallback remains visible on an uninstalled browser', async ({ page }) => {
+test('exactly one top install control is visible before standalone mode', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Cài Khu phố 45')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cài ứng dụng|Kiểm tra cài đặt/ })).toBeVisible();
+  await expect(page.locator('.installTop')).toBeVisible();
+  await expect(page.locator('.install')).toBeHidden();
+  await expect(page.locator('header').getByRole('button', { name: 'Cài ứng dụng' })).toHaveCount(1);
 });
 
 test('service worker isolates AppDeploy auth and API routes', async ({ request }) => {
