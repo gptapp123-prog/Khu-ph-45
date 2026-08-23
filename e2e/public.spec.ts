@@ -24,12 +24,16 @@ test('approved home layout has four unique public actions and exact office addre
 test('report form exposes mandatory reporter name and Vietnam phone fields', async ({ page }) => {
   await page.goto('/');
   await openPublicFeature(page, 'Phản ánh');
-  await expect(page.getByPlaceholder('Nhập họ và tên')).toBeVisible();
-  await expect(page.getByPlaceholder('Ví dụ: 0901234567')).toBeVisible();
-  await expect(page.getByPlaceholder('Nhập họ và tên')).toHaveAttribute('required', '');
-  await expect(page.getByPlaceholder('Ví dụ: 0901234567')).toHaveAttribute('required', '');
+  const name = page.getByPlaceholder('Nhập họ và tên');
+  const phone = page.getByPlaceholder('Ví dụ: 0901234567');
+  await expect(name).toBeVisible();
+  await expect(phone).toBeVisible();
+  await expect(name).toHaveAttribute('required', '');
+  await expect(phone).toHaveAttribute('required', '');
   await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
-  await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toBeVisible();
+  expect(await name.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
+  expect(await phone.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
+  await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toHaveCount(0);
 });
 
 test('official service search works from the only public Tra cứu action', async ({ page }) => {
