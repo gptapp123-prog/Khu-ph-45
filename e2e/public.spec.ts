@@ -1,33 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-async function openHomeFeature(page: any, name: string) {
-  const grid = page.locator('.featureGrid');
+async function openPublicFeature(page: any, name: string) {
+  const grid = page.locator('.digitalHeroLinks');
   await expect(grid).toBeVisible();
   await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
 
-test('production home uses icons without a visible menu and shows public personnel columns', async ({ page }) => {
+test('approved home layout has four unique public actions and exact office address', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
-  await expect(page.locator('nav')).toBeHidden();
-  await expect(page.locator('.hamb')).toBeHidden();
-  await expect(page.locator('.featureGrid')).toBeVisible();
-  await expect(page.getByText('Lãnh đạo · Cảnh sát khu vực')).toBeVisible();
-  await expect(page.getByText('Tổ trưởng Tổ dân phố')).toBeVisible();
-  await expect(page.locator('.featureGrid').getByRole('button', { name: /Nhân sự/i })).toHaveCount(0);
+  await expect(page.locator('.digitalHero')).toContainText('KHU PHỐ');
+  await expect(page.locator('.digitalHero')).toContainText('45');
+  const publicActions = page.locator('.digitalHeroLinks').locator('button,a');
+  await expect(publicActions).toHaveCount(4);
+  await expect(page.locator('.featureGrid')).toHaveCount(0);
+  await expect(page.locator('.spotlight')).toBeVisible();
+  await expect(page.locator('.homePeople')).toBeVisible();
+  await expect(page.locator('.officePanel')).toContainText('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
+  const officeHref = await page.locator('.officePanel a').first().getAttribute('href');
+  expect(decodeURIComponent(officeHref || '')).toContain('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
 });
 
-test('anonymous user is blocked from submitting a report through the home icon', async ({ page }) => {
+test('report form exposes mandatory reporter name and Vietnam phone fields', async ({ page }) => {
   await page.goto('/');
-  await openHomeFeature(page, 'Phản ánh');
+  await openPublicFeature(page, 'Phản ánh');
+  await expect(page.getByPlaceholder('Nhập họ và tên')).toBeVisible();
+  await expect(page.getByPlaceholder('Ví dụ: 0901234567')).toBeVisible();
+  await expect(page.getByPlaceholder('Nhập họ và tên')).toHaveAttribute('required', '');
+  await expect(page.getByPlaceholder('Ví dụ: 0901234567')).toHaveAttribute('required', '');
   await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
   await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toBeVisible();
-  await expect(page.getByText('Đăng nhập để xem phản ánh của bạn.')).toBeVisible();
 });
 
-test('official service search works through the home icon', async ({ page }) => {
+test('official service search works from the only public Tra cứu action', async ({ page }) => {
   await page.goto('/');
-  await openHomeFeature(page, 'Dịch vụ công');
+  await openPublicFeature(page, 'Tra cứu');
   await page.getByPlaceholder('Tìm dịch vụ…').fill('BHYT');
   await page.getByRole('button', { name: 'Tìm' }).click();
   await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
