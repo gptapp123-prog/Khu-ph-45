@@ -8,6 +8,8 @@ test('production home loads', async ({ page }) => {
 
 test('protected reports API rejects anonymous access', async ({ request }) => {
   const response = await request.get('/api/reports');
+  const body = await response.text();
+  console.log('REPORTS_PROBE', JSON.stringify({ status: response.status(), contentType: response.headers()['content-type'], body: body.slice(0, 300) }));
   expect(response.status()).toBe(401);
 });
 
