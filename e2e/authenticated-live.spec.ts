@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+const enabled = process.env.E2E_AUTH_ENABLED === '1';
 const state = 'playwright/.auth/user.json';
 
 test.describe('authenticated production', () => {
+  test.skip(!enabled, 'Authenticated browser state is not configured');
   test.use({ storageState: state });
 
   test('authenticated account loads its profile and private area', async ({ page }) => {
