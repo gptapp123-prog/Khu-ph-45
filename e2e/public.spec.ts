@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+const liveOrigin = 'https://khu-pho-45-phuong-binh-tan-iwhddk.v2.appdeploy.ai';
+const backendBase = 'https://api-v2.appdeploy.ai/app/khu-pho-45-phuong-binh-tan-iwhddk';
+
 async function openPublicFeature(page: any, name: string) {
   const grid = page.locator('.digitalHeroLinks');
   await expect(grid).toBeVisible();
@@ -7,7 +10,7 @@ async function openPublicFeature(page: any, name: string) {
 }
 
 test('production health confirms PostgreSQL connectivity', async ({ request }) => {
-  const response = await request.get('/api/_healthcheck');
+  const response = await request.get(`${backendBase}/api/_healthcheck`, { headers: { Origin: liveOrigin } });
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body.message).toBe('Success');
