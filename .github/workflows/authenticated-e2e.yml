@@ -22,10 +22,13 @@ jobs:
       - name: Restore authenticated browser state
         shell: bash
         run: |
-          test -n "${{ secrets.E2E_STORAGE_STATE_B64 }}" || { echo "Missing E2E_STORAGE_STATE_B64"; exit 1; }
+          if [ -z "${{ secrets.E2E_STORAGE_STATE_B64 }}" ]; then
+            echo "AUTH_STATE_MISSING: configure E2E_STORAGE_STATE_B64 from a real Google session"
+            exit 20
+          fi
           mkdir -p playwright/.auth
-          printf '%s' "${{ secrets.E2E_STORAGE_STATE_B64 }}" | base64 --decode > playwright/.auth/user.json
-          echo "E2E_AUTH_ENABLED=1" >> "$GITHUB_ENV"
+          printf '%s' "${{ secrets.E2E_STORAGE_STATE_B64 }}" | base64 --decode > playwright/.auth/user.json || { echo "AUTH_STATE_INVALID_BASE64"; exit 21; }
+          node -e "const fs=require('fs');const p='playwright/.auth/user.json';const x=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(x.cookies)||!Array.isArray(x.origins))process.exit(22);"
       - name: Run authenticated tests
         run: npx playwright test e2e/authenticated-live.spec.ts --project=chromium-desktop
       - name: Upload report
