@@ -25,6 +25,7 @@ jobs:
           test -n "${{ secrets.E2E_STORAGE_STATE_B64 }}" || { echo "Missing E2E_STORAGE_STATE_B64"; exit 1; }
           mkdir -p playwright/.auth
           printf '%s' "${{ secrets.E2E_STORAGE_STATE_B64 }}" | base64 --decode > playwright/.auth/user.json
+          echo "E2E_AUTH_ENABLED=1" >> "$GITHUB_ENV"
       - name: Run authenticated tests
         run: npx playwright test e2e/authenticated-live.spec.ts --project=chromium-desktop
       - name: Upload report
