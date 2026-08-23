@@ -1,0 +1,38 @@
+name: KP45 Authenticated E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-e2e:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://khu-pho-45-phuong-binh-tan-iwhddk.v2.appdeploy.ai/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Restore authenticated browser state
+        shell: bash
+        run: |
+          test -n "${{ secrets.E2E_STORAGE_STATE_B64 }}" || { echo "Missing E2E_STORAGE_STATE_B64"; exit 1; }
+          mkdir -p playwright/.auth
+          printf '%s' "${{ secrets.E2E_STORAGE_STATE_B64 }}" | base64 --decode > playwright/.auth/user.json
+      - name: Run authenticated tests
+        run: npx playwright test e2e/authenticated-live.spec.ts --project=chromium-desktop
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
