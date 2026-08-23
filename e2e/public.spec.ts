@@ -29,10 +29,40 @@ test('official service search works through the real UI', async ({ page }) => {
   await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
 });
 
-test('PWA install fallback remains visible on an uninstalled browser', async ({ page }) => {
+test('PWA install diagnostic remains visible on an uninstalled browser', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Cài Khu phố 45')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cài ứng dụng|Cách cài/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cài ứng dụng|Kiểm tra cài đặt/ })).toBeVisible();
+});
+
+test('simulated beforeinstallprompt invokes the application install prompt handler', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const evt: any = new Event('beforeinstallprompt');
+    evt.prompt = async () => { (window as any).__kp45PromptCalled = true; };
+    evt.userChoice = Promise.resolve({ outcome: 'accepted', platform: 'web' });
+    window.dispatchEvent(evt);
+  });
+  const install = page.getByRole('button', { name: 'Cài ứng dụng' });
+  await expect(install).toBeVisible();
+  await install.click();
+  await expect.poll(() => page.evaluate(() => Boolean((window as any).__kp45PromptCalled))).toBe(true);
+});
+
+test('standalone mode hides the install section after simulated installation', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = window.matchMedia.bind(window);
+    window.matchMedia = ((query: string) => {
+      if (query === '(display-mode: standalone)') return {
+        matches: true, media: query, onchange: null,
+        addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {},
+        dispatchEvent() { return true; }
+      } as MediaQueryList;
+      return original(query);
+    }) as typeof window.matchMedia;
+  });
+  await page.goto('/');
+  await expect(page.getByText('Cài Khu phố 45')).toHaveCount(0);
 });
 
 test('service worker isolates AppDeploy auth and API routes', async ({ request }) => {
