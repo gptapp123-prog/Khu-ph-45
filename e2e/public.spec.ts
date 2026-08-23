@@ -1,3 +1,4 @@
+// QA regression gate: icon-home navigation, public personnel columns, linked-news layout, single top install control.
 import { test, expect } from '@playwright/test';
 
 async function openHomeFeature(page: any, name: string) {
