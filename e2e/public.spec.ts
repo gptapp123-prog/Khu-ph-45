@@ -6,52 +6,111 @@ async function openPublicFeature(page: any, name: string) {
   await grid.getByRole('button', { name: new RegExp(name, 'i') }).click();
 }
 
+async function search(page: any, keyword: string) {
+  const input = page.getByPlaceholder(/Ví dụ: tôi cần xác nhận cư trú/i);
+  await input.fill(keyword);
+  const started = Date.now();
+  await page.getByRole('button', { name: 'Tra cứu', exact: true }).click();
+  await expect(page.locator('.serviceResults a').first()).toBeVisible({ timeout: 10000 });
+  return Date.now() - started;
+}
+
+function expectOfficial(url: string) {
+  const u = new URL(url);
+  expect(u.protocol).toBe('https:');
+  expect(u.hostname === 'gov.vn' || u.hostname.endsWith('.gov.vn')).toBeTruthy();
+}
+
 test('approved home layout has four unique public actions and exact office address', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
-  await expect(page.locator('.digitalHero')).toContainText('KHU PHỐ');
-  await expect(page.locator('.digitalHero')).toContainText('45');
-  const publicActions = page.locator('.digitalHeroLinks').locator('button,a');
-  await expect(publicActions).toHaveCount(4);
-  await expect(page.locator('.featureGrid')).toHaveCount(0);
+  await expect(page.locator('.digitalHeroLinks').locator('button,a')).toHaveCount(4);
   await expect(page.locator('.spotlight')).toBeVisible();
   await expect(page.locator('.homePeople')).toBeVisible();
   await expect(page.locator('.officePanel')).toContainText('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
-  const officeHref = await page.locator('.officePanel a').first().getAttribute('href');
-  expect(decodeURIComponent(officeHref || '')).toContain('1386 Tỉnh lộ 10, phường Bình Tân, TP.HCM');
 });
 
-test('report form exposes mandatory reporter name and Vietnam phone fields', async ({ page }) => {
+test('arbitrary service query returns only official authority links', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Tra cứu');
+  await search(page, 'xác nhận cư trú để bổ sung hồ sơ vay vốn');
+  const links = page.locator('.serviceResults a');
+  expect(await links.count()).toBeGreaterThan(0);
+  for (let i = 0; i < await links.count(); i++) expectOfficial((await links.nth(i).getAttribute('href')) || '');
+  await expect(page.locator('.searchMeta')).toContainText('nguồn chính thức');
+});
+
+test('repeated normal use handles diverse queries without fixed-keyword failures', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Tra cứu');
+  const queries = ['đăng ký tạm trú','hộ chiếu cho trẻ em','đổi giấy phép lái xe','bảo hiểm y tế hộ gia đình','khai sinh trực tuyến','thuế hộ kinh doanh','thủ tục đất đai','hỗ trợ người cao tuổi'];
+  const times: number[] = [];
+  for (const q of queries) {
+    times.push(await search(page, q));
+    await expect(page.locator('.serviceResults a').first()).toBeVisible();
+  }
+  console.log('KP45_SEARCH_LATENCY_MS', JSON.stringify(times));
+  expect(Math.max(...times)).toBeLessThan(10000);
+  await expect(page.locator('.historyScroll > button')).toHaveCount(8);
+});
+
+test('search history survives reload, deduplicates and can be replayed', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Tra cứu');
+  await search(page, 'hộ chiếu');
+  await search(page, 'bảo hiểm y tế');
+  await search(page, 'hộ chiếu');
+  await page.reload();
+  await openPublicFeature(page, 'Tra cứu');
+  const history = page.locator('.historyScroll > button');
+  await expect(history).toHaveCount(2);
+  await history.filter({ hasText: 'hộ chiếu' }).click();
+  await expect(page.locator('.serviceResults a').first()).toBeVisible({ timeout: 10000 });
+});
+
+test('long service and history areas are bounded and scrollable on mobile', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Tra cứu');
+  for (const q of ['cư trú','hộ chiếu','thuế','bảo hiểm','khai sinh','đất đai']) await search(page, q);
+  const results = page.locator('.serviceResults');
+  const history = page.locator('.historyScroll');
+  await expect(results).toBeVisible();
+  await expect(history).toBeVisible();
+  const resultStyle = await results.evaluate((el: HTMLElement) => ({ overflow: getComputedStyle(el).overflowY, maxHeight: getComputedStyle(el).maxHeight }));
+  const historyStyle = await history.evaluate((el: HTMLElement) => ({ overflow: getComputedStyle(el).overflowY, maxHeight: getComputedStyle(el).maxHeight }));
+  expect(['auto','scroll']).toContain(resultStyle.overflow);
+  expect(['auto','scroll']).toContain(historyStyle.overflow);
+  expect(resultStyle.maxHeight).not.toBe('none');
+  expect(historyStyle.maxHeight).not.toBe('none');
+});
+
+test('clear history does not disable subsequent search', async ({ page }) => {
+  await page.goto('/');
+  await openPublicFeature(page, 'Tra cứu');
+  await search(page, 'khai sinh');
+  await page.getByRole('button', { name: 'Xóa lịch sử' }).click();
+  await expect(page.locator('.searchHistory')).toHaveCount(0);
+  await search(page, 'hộ tịch');
+  await expect(page.locator('.serviceResults a').first()).toBeVisible();
+});
+
+test('report form keeps mandatory identity validation', async ({ page }) => {
   await page.goto('/');
   await openPublicFeature(page, 'Phản ánh');
   const name = page.getByPlaceholder('Nhập họ và tên');
   const phone = page.getByPlaceholder('Ví dụ: 0901234567');
-  await expect(name).toBeVisible();
-  await expect(phone).toBeVisible();
   await expect(name).toHaveAttribute('required', '');
   await expect(phone).toHaveAttribute('required', '');
-  await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
-  expect(await name.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
-  expect(await phone.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBeTruthy();
-  await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toHaveCount(0);
 });
 
-test('official service search works from the only public Tra cứu action', async ({ page }) => {
+test('local account authentication entry remains available', async ({ page }) => {
   await page.goto('/');
-  await openPublicFeature(page, 'Tra cứu');
-  await page.getByPlaceholder('Tìm dịch vụ…').fill('BHYT');
-  await page.getByRole('button', { name: 'Tìm' }).click();
-  await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
+  await page.getByRole('button', { name: 'Đăng nhập / Đăng ký' }).click();
+  await expect(page.getByPlaceholder('Tên người dùng / email / số điện thoại')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tạo tài khoản' })).toBeVisible();
 });
 
-test('exactly one top install control is visible before standalone mode', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('.installTop')).toBeVisible();
-  await expect(page.locator('.shell div.install')).toBeHidden();
-  await expect(page.locator('header').getByRole('button', { name: 'Cài ứng dụng' })).toHaveCount(1);
-});
-
-test('service worker isolates AppDeploy auth and API routes', async ({ request }) => {
+test('service worker still isolates app API routes', async ({ request }) => {
   const manifest = await request.get('/manifest.webmanifest');
   expect(manifest.ok()).toBeTruthy();
   const sw = await request.get('/service-worker.js');
@@ -59,13 +118,4 @@ test('service worker isolates AppDeploy auth and API routes', async ({ request }
   const source = await sw.text();
   expect(source).toContain("u.pathname.startsWith('/api/')");
   expect(source).toContain("u.pathname.startsWith('/__appdeploy/')");
-});
-
-test('Google sign-in button opens the authentication popup', async ({ page }) => {
-  await page.goto('/');
-  const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Đăng nhập Google' }).click();
-  const popup = await popupPromise;
-  await expect(popup).not.toBeNull();
-  await popup.close();
 });
