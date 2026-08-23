@@ -2,6 +2,10 @@ name: KP45 Authenticated E2E
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'e2e/authenticated-live.spec.ts'
+      - '.github/workflows/authenticated-e2e.yml'
 
 permissions:
   contents: read
