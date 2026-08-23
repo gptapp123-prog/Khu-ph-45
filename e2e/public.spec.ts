@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+async function openFeature(page: any, name: string) {
+  const hamburger = page.getByRole('button').filter({ has: page.locator('svg') }).first();
+  const navButton = page.getByRole('button', { name });
+  if (!(await navButton.isVisible().catch(() => false))) {
+    await hamburger.click();
+  }
+  await navButton.click();
+}
+
 test('production home loads', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Khu phố 45/i);
@@ -8,7 +17,7 @@ test('production home loads', async ({ page }) => {
 
 test('anonymous user is blocked from submitting a report through the real UI', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Phản ánh' }).first().click();
+  await openFeature(page, 'Phản ánh');
   await page.getByRole('button', { name: 'Gửi phản ánh' }).click();
   await expect(page.getByText('Cần đăng nhập để gửi phản ánh.')).toBeVisible();
   await expect(page.getByText('Đăng nhập để xem phản ánh của bạn.')).toBeVisible();
@@ -16,7 +25,7 @@ test('anonymous user is blocked from submitting a report through the real UI', a
 
 test('official service search works through the real UI', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Dịch vụ công' }).first().click();
+  await openFeature(page, 'Dịch vụ công');
   await page.getByPlaceholder('Tìm dịch vụ…').fill('BHYT');
   await page.getByRole('button', { name: 'Tìm' }).click();
   await expect(page.locator('.results')).toContainText(/Bảo hiểm|BHXH/i);
