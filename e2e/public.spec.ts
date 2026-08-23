@@ -15,6 +15,13 @@ test('production home loads', async ({ page }) => {
   await expect(page.locator('body')).toContainText('Khu phố 45');
 });
 
+test('home has one primary entry per public feature', async ({ page }) => {
+  await page.goto('/');
+  for (const name of ['Bản tin', 'Nhân sự', 'Dịch vụ công', 'Phản ánh']) {
+    await expect(page.getByRole('button', { name })).toHaveCount(1);
+  }
+});
+
 test('anonymous user is blocked from submitting a report through the real UI', async ({ page }) => {
   await page.goto('/');
   await openFeature(page, 'Phản ánh');
