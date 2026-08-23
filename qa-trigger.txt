@@ -1,1 +1,2 @@
 Trigger external QA for install/auth fix.
+PR validation after production service-worker v5 and install fallback update.
