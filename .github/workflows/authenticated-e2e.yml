@@ -6,6 +6,10 @@ on:
     paths:
       - 'e2e/authenticated-live.spec.ts'
       - '.github/workflows/authenticated-e2e.yml'
+  pull_request:
+    paths:
+      - 'e2e/authenticated-live.spec.ts'
+      - '.github/workflows/authenticated-e2e.yml'
 
 permissions:
   contents: read
