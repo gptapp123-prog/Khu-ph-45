@@ -95,3 +95,20 @@ def test_pydantic_v1_v2_compat_helpers():
     assert declared_fields(SimpleOld)=={'ho_ten','to'}
     assert copy_with(record,{'to':4}).to==4
     assert record.to==1
+
+
+def test_backup_checksum_restore_and_rollback(tmp_path):
+    path=tmp_path/'primary.vault';vault=Vault(path,PASS)
+    vault.conn.execute('CREATE TABLE records(id INTEGER PRIMARY KEY, value TEXT)');vault.conn.execute('INSERT INTO records(value) VALUES(?)',('bản gốc',));vault.conn.commit();vault.persist()
+    backup=vault.backup(tmp_path/'backups');assert Path(str(backup)+'.sha256').is_file()
+    vault.conn.execute('UPDATE records SET value=?',('đã thay đổi',));vault.conn.commit();vault.persist()
+    rollback=vault.restore(backup,tmp_path/'rollbacks')
+    assert vault.conn.execute('SELECT value FROM records').fetchone()[0]=='bản gốc'
+    changed=Vault(rollback,PASS);assert changed.conn.execute('SELECT value FROM records').fetchone()[0]=='đã thay đổi';changed.conn.close();vault.conn.close()
+
+def test_restore_rejects_bad_checksum_without_changing_data(tmp_path):
+    path=tmp_path/'primary.vault';vault=Vault(path,PASS)
+    vault.conn.execute('CREATE TABLE records(value TEXT)');vault.conn.execute('INSERT INTO records VALUES(?)',('an toàn',));vault.conn.commit();vault.persist()
+    backup=vault.backup(tmp_path/'backups');original=path.read_bytes();Path(str(backup)+'.sha256').write_text('0'*64+'  '+backup.name+'\\n',encoding='ascii')
+    with pytest.raises(ValueError,match='Checksum'):vault.restore(backup,tmp_path/'rollbacks')
+    assert path.read_bytes()==original;vault.conn.close()
