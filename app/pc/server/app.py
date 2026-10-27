@@ -366,7 +366,7 @@ def display_date(value:Any)->Any:
     except ValueError:return value
 
 def validate_custom_values(values:Dict[str,Any],role:str)->Dict[str,str]:
-    definitions={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions')}
+    definitions={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions WHERE active=1')}
     modes=field_modes(role);clean={}
     unknown=set(values)-set(definitions)
     if unknown:raise HTTPException(422,'Trường tùy biến không tồn tại: '+', '.join(sorted(unknown)))
@@ -408,7 +408,7 @@ def custom_values_for(resident_ids:List[str],role:str)->Dict[str,Dict[str,str]]:
     if not resident_ids:return result
     modes=field_modes(role);marks=','.join('?' for _ in resident_ids)
     query=('SELECT v.resident_id,d.name,d.type,v.value FROM field_values v '
-           'JOIN field_definitions d ON d.id=v.field_id WHERE v.resident_id IN ('+marks+')')
+           'JOIN field_definitions d ON d.id=v.field_id WHERE d.active=1 AND v.resident_id IN ('+marks+')')
     for row in db().execute(query,resident_ids):
         mode=modes.get(row['name'],'hidden')
         if mode=='hidden':continue
@@ -578,12 +578,14 @@ def add_household(p:HouseholdIn,account:dict=Depends(user)):
     return {'id':rid}
 
 @app.get('/api/fields')
-def fields(account:dict=Depends(user)):
+def fields(include_inactive:bool=False,account:dict=Depends(user)):
     capability(account,'read_residents')
+    if include_inactive:capability(account,'manage_fields')
     with LOCK:
         modes=field_modes(account['role'])
         custom=[]
-        for r in db().execute('SELECT * FROM field_definitions ORDER BY label'):
+        query='SELECT * FROM field_definitions'+('' if include_inactive else ' WHERE active=1')+' ORDER BY display_order,label'
+        for r in db().execute(query):
             mode=modes.get(r['name'],'hidden')
             if mode!='hidden':
                 item=dict(r);item['mode']=mode;custom.append(item)
@@ -595,15 +597,29 @@ class FieldIn(BaseModel):
     label:str=Field(min_length=2,max_length=100)
     type:str='text';options:List[str]=[]
 
+def clean_field_options(field_type:str,options:List[str])->List[str]:
+    clean=[]
+    for item in options:
+        value=str(item).strip()
+        if value and value not in clean:clean.append(value)
+    if field_type=='dropdown' and not clean:raise HTTPException(422,'Trường danh sách phải có ít nhất một lựa chọn.')
+    if field_type!='dropdown' and clean:raise HTTPException(422,'Chỉ trường danh sách mới được cấu hình lựa chọn.')
+    if len(clean)>100 or any(len(x)>100 for x in clean):raise HTTPException(422,'Danh sách tối đa 100 lựa chọn, mỗi lựa chọn tối đa 100 ký tự.')
+    return clean
+
 @app.post('/api/fields')
 def add_field(p:FieldIn,account:dict=Depends(user)):
     capability(account,'manage_fields')
     permit(account,'admin_kp','admin_root','super_admin')
     if not re.fullmatch(r'[a-z][a-z0-9_]{1,40}',p.name):raise HTTPException(422,'Mã trường chỉ gồm a-z, 0-9, gạch dưới và bắt đầu bằng chữ.')
     if p.type not in ('text','number','date','dropdown','checkbox'):raise HTTPException(422,'Kiểu cột không hỗ trợ.')
+    options=clean_field_options(p.type,p.options)
     with LOCK:
         id_=uuid.uuid4().hex
-        try:db().execute('INSERT INTO field_definitions VALUES(?,?,?,?,?,?)',(id_,p.name,p.label,p.type,json.dumps(p.options,ensure_ascii=False),now()))
+        next_order=db().execute('SELECT COALESCE(MAX(display_order),0)+1 FROM field_definitions').fetchone()[0]
+        try:db().execute('''INSERT INTO field_definitions
+            (id,name,label,type,options_json,created_at,display_order,active) VALUES(?,?,?,?,?,?,?,1)''',
+            (id_,p.name,p.label.strip(),p.type,json.dumps(options,ensure_ascii=False),now(),next_order))
         except Exception as e:
             if 'UNIQUE' in str(e):raise HTTPException(409,'Trường đã tồn tại.')
             raise
@@ -612,6 +628,31 @@ def add_field(p:FieldIn,account:dict=Depends(user)):
                          (role,p.name,'hidden' if role=='viewer' else 'optional'))
         record(account['id'],'CREATE_FIELD','field',id_);commit()
     return {'id':id_}
+
+class FieldUpdate(BaseModel):
+    label:Optional[str]=Field(default=None,min_length=2,max_length=100)
+    options:Optional[List[str]]=None
+    display_order:Optional[int]=Field(default=None,ge=0,le=10000)
+    active:Optional[bool]=None
+
+@app.patch('/api/fields/{field_id}')
+def update_field(field_id:str,p:FieldUpdate,account:dict=Depends(user)):
+    capability(account,'manage_fields');permit(account,'admin_kp','admin_root','super_admin')
+    with LOCK:
+        row=db().execute('SELECT * FROM field_definitions WHERE id=?',(field_id,)).fetchone()
+        if not row:raise HTTPException(404,'Không tìm thấy trường tùy biến.')
+        label=p.label.strip() if p.label is not None else row['label']
+        options=json.loads(row['options_json'] or '[]') if p.options is None else clean_field_options(row['type'],p.options)
+        order=row['display_order'] if p.display_order is None else p.display_order
+        active=row['active'] if p.active is None else int(p.active)
+        try:db().execute('UPDATE field_definitions SET label=?,options_json=?,display_order=?,active=? WHERE id=?',
+                         (label,json.dumps(options,ensure_ascii=False),order,active,field_id))
+        except Exception as e:
+            if 'UNIQUE' in str(e):raise HTTPException(409,'Tên hiển thị đã được sử dụng.')
+            raise
+        record(account['id'],'UPDATE_FIELD','field',field_id,{'active':bool(active),'display_order':order})
+        commit()
+        return {'ok':True}
 
 @app.get('/api/accounts')
 def accounts(account:dict=Depends(user)):
@@ -844,8 +885,8 @@ async def import_preview(file:UploadFile=File(...),account:dict=Depends(user)):
     if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
     try:
         result=parse_file(raw,file.filename or '')
-        custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions')}
-        custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions')})
+        custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')}
+        custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')})
         for header in result['headers']:
             if header not in result['mapping'] and strip_accents(header) in custom:
                 result['mapping'][header]=custom[strip_accents(header)]
@@ -867,7 +908,7 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
     targets=[v for v in p.mapping.values() if v in p.selected]
     if len(targets)!=len(set(targets)):raise HTTPException(422,'Nhiều cột nguồn đang ánh xạ vào cùng một trường đích.')
     allowed=declared_fields(ResidentIn)-{'custom_values'}
-    custom_names={r['name'] for r in db().execute('SELECT name FROM field_definitions')}
+    custom_names={r['name'] for r in db().execute('SELECT name FROM field_definitions WHERE active=1')}
     custom_targets={'custom:'+name for name in custom_names}
     all_targets=allowed|custom_targets
     if any(k not in all_targets for k in p.selected):raise HTTPException(422,'Trường đích không hợp lệ.')
@@ -921,7 +962,7 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     selected=[x.strip() for x in fields.split(',') if x.strip()]
     modes=field_modes(account['role'])
-    custom_defs={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions')}
+    custom_defs={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions WHERE active=1')}
     valid=set(BASE_FIELDS)|{'custom:'+name for name in custom_defs}
     def mode_for(key):return modes.get(key[7:] if key.startswith('custom:') else key,'hidden')
     if not selected or any(k not in valid or mode_for(k)=='hidden' for k in selected):
