@@ -15,7 +15,8 @@
 7. Nhập CSV kiểm tra tiêu đề trùng/rỗng; xuất CSV/XLSX vô hiệu hóa công thức nguy hiểm nhưng JSON giữ nguyên văn bản.
 8. Excel nhiều sheet cùng cấu trúc được gộp; sheet lệch tiêu đề, công thức, ô gộp, tiêu đề đặt sai dòng và ánh xạ đích trùng bị từ chối; sheet ẩn không được tự động nhập.
 9. Hồ sơ không có CCCD được cảnh báo trùng tiềm năng khi cùng họ tên chuẩn hóa, ngày sinh và tổ; hệ thống không tự gộp hoặc xóa hồ sơ.
-10. **37 bài kiểm thử đạt** trong môi trường phát triển.
+10. Trường tùy biến được phân quyền mặc định an toàn, kiểm tra kiểu dữ liệu, lưu theo hồ sơ, tự ánh xạ khi nhập CSV/Excel và xuất được qua XLSX/CSV/JSON; người xem mặc định không thấy trường mới.
+11. **39 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
