@@ -35,13 +35,31 @@ def parse_file(raw:bytes,filename:str):
     ext=filename.lower().rsplit('.',1)[-1] if '.' in filename else ''
     rows=[]
     if ext in ('xlsx','xlsm'):
-        wb=load_workbook(io.BytesIO(raw),read_only=True,data_only=False)
+        # Normal worksheet mode is intentional: read-only worksheets do not expose
+        # merged-cell ranges, while rejecting merged input is required to prevent
+        # columns from being shifted into the wrong resident fields. The upload is
+        # already capped at 10 MB and row ingestion at 5,000.
+        wb=load_workbook(io.BytesIO(raw),read_only=False,data_only=False)
         headers=[]
         try:
             for sh in wb.worksheets:
+                # Hidden sheets are commonly lookup/configuration data. Importing them
+                # silently can disclose or duplicate records, so only visible sheets
+                # participate in a resident import.
+                if sh.sheet_state!='visible':continue
+                if sh.merged_cells.ranges:
+                    raise ValueError(f'Sheet "{sh.title}" có ô gộp. Hãy bỏ gộp ô trước khi nhập.')
                 it=sh.iter_rows()
                 first=next(it,None)
-                if not first or not any(c.value is not None and str(c.value).strip() for c in first):continue
+                if not first:continue
+                if not any(c.value is not None and str(c.value).strip() for c in first):
+                    # Do not guess which later row is the header: that can map data to
+                    # the wrong fields. Empty visible sheets are ignored; populated
+                    # sheets must put the header on row 1.
+                    if any(any(c.value is not None and str(c.value).strip() for c in row)
+                           for row in it):
+                        raise ValueError(f'Sheet "{sh.title}" phải đặt tiêu đề ở dòng đầu tiên.')
+                    continue
                 if any(c.data_type=='f' for c in first):raise ValueError('Tiêu đề Excel không được chứa công thức.')
                 sheet_headers=validate_headers([str(c.value).strip() if c.value is not None else f'Cột {i+1}' for i,c in enumerate(first)])
                 if headers and [strip_accents(x) for x in sheet_headers]!=[strip_accents(x) for x in headers]:
