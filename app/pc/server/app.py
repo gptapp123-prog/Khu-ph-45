@@ -15,7 +15,7 @@ from openpyxl import Workbook
 from .crypto import Vault
 from .schema import initialize,BASE_FIELDS,CAPABILITIES,DEFAULT_CAPABILITIES
 from .security import SessionStore,ROLES,hash_password,verify_password,masking,now
-from .parsers import parse_file
+from .parsers import parse_file,strip_accents
 from .model_compat import fields_set, copy_with, declared_fields, validate_model
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -350,6 +350,58 @@ class ResidentIn(BaseModel):
     permanent_address:Optional[str]=None;team_id:int=Field(ge=1,le=15)
     phone:Optional[str]=None;health_insurance:Optional[str]=None;occupation:Optional[str]=None
     note:str='';household_id:Optional[str]=None
+    custom_values:Dict[str,Any]=Field(default_factory=dict)
+
+def validate_custom_values(values:Dict[str,Any],role:str)->Dict[str,str]:
+    definitions={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions')}
+    modes=field_modes(role);clean={}
+    unknown=set(values)-set(definitions)
+    if unknown:raise HTTPException(422,'Trường tùy biến không tồn tại: '+', '.join(sorted(unknown)))
+    for name,value in values.items():
+        mode=modes.get(name,'hidden')
+        if mode in ('hidden','masked'):raise HTTPException(403,'Không được ghi trường tùy biến: '+name)
+        if value in (None,''):
+            clean[name]='';continue
+        d=definitions[name];text=str(value).strip()
+        if len(text)>3000:raise HTTPException(422,'Giá trị trường tùy biến quá dài: '+name)
+        if d['type']=='number':
+            try:float(text.replace(',','.'))
+            except ValueError:raise HTTPException(422,'Trường '+d['label']+' phải là số.')
+        elif d['type']=='date':
+            try:datetime.strptime(text,'%Y-%m-%d')
+            except ValueError:raise HTTPException(422,'Trường '+d['label']+' phải theo YYYY-MM-DD.')
+        elif d['type']=='checkbox':
+            normalized=text.casefold()
+            if normalized not in ('1','0','true','false','có','không','co','khong'):
+                raise HTTPException(422,'Trường '+d['label']+' phải là Có/Không.')
+            text='1' if normalized in ('1','true','có','co') else '0'
+        elif d['type']=='dropdown':
+            options=json.loads(d['options_json'] or '[]')
+            if text not in options:raise HTTPException(422,'Giá trị không thuộc danh sách của '+d['label']+'.')
+        clean[name]=text
+    for name,d in definitions.items():
+        if modes.get(name)=='required' and clean.get(name,'')=='':
+            raise HTTPException(422,'Thiếu trường tùy biến bắt buộc: '+d['label'])
+    return clean
+
+def save_custom_values(resident_id:str,values:Dict[str,str]):
+    definitions={r['name']:r['id'] for r in db().execute('SELECT id,name FROM field_definitions')}
+    for name,value in values.items():
+        db().execute('INSERT INTO field_values(resident_id,field_id,value) VALUES(?,?,?) '
+                     'ON CONFLICT(resident_id,field_id) DO UPDATE SET value=excluded.value',
+                     (resident_id,definitions[name],value))
+
+def custom_values_for(resident_ids:List[str],role:str)->Dict[str,Dict[str,str]]:
+    result={rid:{} for rid in resident_ids}
+    if not resident_ids:return result
+    modes=field_modes(role);marks=','.join('?' for _ in resident_ids)
+    query=('SELECT v.resident_id,d.name,v.value FROM field_values v '
+           'JOIN field_definitions d ON d.id=v.field_id WHERE v.resident_id IN ('+marks+')')
+    for row in db().execute(query,resident_ids):
+        mode=modes.get(row['name'],'hidden')
+        if mode=='hidden':continue
+        result[row['resident_id']][row['name']]='***' if mode=='masked' and row['value'] else row['value']
+    return result
 
 def validate_resident(p:ResidentIn,account:dict):
     if account['role'] in ('viewer',):raise HTTPException(403,'Không có quyền sửa dân cư.')
@@ -372,6 +424,7 @@ def validate_resident(p:ResidentIn,account:dict):
     if p.household_id:
         h=db().execute('SELECT team_id FROM households WHERE id=?',(p.household_id,)).fetchone()
         if not h or h['team_id']!=p.team_id:raise HTTPException(422,'Hộ không tồn tại hoặc khác tổ.')
+    p.custom_values=validate_custom_values(p.custom_values,account['role'])
 
 def person_params(p:ResidentIn):
     return [p.full_name.strip(),p.cccd or None,p.dob,p.gender,p.hometown,p.permanent_address,p.team_id,
@@ -428,7 +481,10 @@ def list_residents(q:str='',team:Optional[int]=None,limit:int=100,offset:int=0,a
         w=' AND '.join(where)
         count=db().execute('SELECT count(*) FROM residents WHERE '+w,args).fetchone()[0]
         rows=db().execute('SELECT * FROM residents WHERE '+w+' ORDER BY full_name LIMIT ? OFFSET ?',args+[limit,offset]).fetchall()
-        return {'total':count,'items':[protect(dict(r),account['role']) for r in rows]}
+        custom=custom_values_for([r['id'] for r in rows],account['role']);items=[]
+        for r in rows:
+            item=protect(dict(r),account['role']);item['custom_values']=custom[r['id']];items.append(item)
+        return {'total':count,'items':items}
 
 @app.post('/api/residents')
 def create_resident(p:ResidentIn,account:dict=Depends(user)):
@@ -441,6 +497,7 @@ def create_resident(p:ResidentIn,account:dict=Depends(user)):
         except Exception as e:
             if 'UNIQUE' in str(e):raise HTTPException(409,'CCCD đã tồn tại trong hệ thống.')
             raise
+        save_custom_values(rid,p.custom_values)
         record(account['id'],'CREATE_RESIDENT','resident',rid)
         commit()
     return {'id':rid}
@@ -463,6 +520,7 @@ def update_resident(rid:str,p:ResidentIn,account:dict=Depends(user)):
         except Exception as e:
             if 'UNIQUE' in str(e):raise HTTPException(409,'CCCD đã tồn tại.')
             raise
+        save_custom_values(rid,p.custom_values)
         record(account['id'],'UPDATE_RESIDENT','resident',rid);commit()
     return {'ok':True}
 
@@ -509,8 +567,13 @@ def fields(account:dict=Depends(user)):
     capability(account,'read_residents')
     with LOCK:
         modes=field_modes(account['role'])
+        custom=[]
+        for r in db().execute('SELECT * FROM field_definitions ORDER BY label'):
+            mode=modes.get(r['name'],'hidden')
+            if mode!='hidden':
+                item=dict(r);item['mode']=mode;custom.append(item)
         return {'standard':[{'id':k,'label':v,'mode':modes.get(k,'optional')} for k,v in BASE_FIELDS.items() if modes.get(k)!='hidden'],
-                'custom':[dict(r) for r in db().execute('SELECT * FROM field_definitions ORDER BY label')]}
+                'custom':custom}
 
 class FieldIn(BaseModel):
     name:str=Field(min_length=2,max_length=41)
@@ -529,6 +592,9 @@ def add_field(p:FieldIn,account:dict=Depends(user)):
         except Exception as e:
             if 'UNIQUE' in str(e):raise HTTPException(409,'Trường đã tồn tại.')
             raise
+        for role in ROLES:
+            db().execute('INSERT INTO field_permissions(role,field,mode) VALUES(?,?,?)',
+                         (role,p.name,'hidden' if role=='viewer' else 'optional'))
         record(account['id'],'CREATE_FIELD','field',id_);commit()
     return {'id':id_}
 
@@ -692,11 +758,13 @@ def permission_matrix(request:Request,account:dict=Depends(user)):
     with LOCK:
         grants={(r['role'],r['capability']):bool(r['allowed']) for r in db().execute('SELECT * FROM role_permissions')}
         field_grants={(r['role'],r['field']):r['mode'] for r in db().execute('SELECT * FROM field_permissions')}
+        custom_labels={r['name']:r['label'] for r in db().execute('SELECT name,label FROM field_definitions')}
+        all_labels=dict(BASE_FIELDS);all_labels.update(custom_labels)
         return {'roles':ROLES,'capabilities':CAPABILITIES,
                 'default_capabilities':{r:sorted(v) for r,v in DEFAULT_CAPABILITIES.items()},
                 'role_grants':{r:{c:grants.get((r,c),False) for c in CAPABILITIES} for r in ROLES},
-                'field_labels':BASE_FIELDS,
-                'field_grants':{r:{f:field_grants.get((r,f),'hidden') for f in BASE_FIELDS} for r in ROLES}}
+                'field_labels':all_labels,
+                'field_grants':{r:{f:field_grants.get((r,f),'hidden') for f in all_labels} for r in ROLES}}
 
 class PermissionUpdate(BaseModel):
     role:str;capability:str;allowed:bool
@@ -721,7 +789,8 @@ class FieldPermissionUpdate(BaseModel):
 @app.put('/api/permissions/field')
 def field_permission_update(p:FieldPermissionUpdate,request:Request,account:dict=Depends(user)):
     pc_only(request);permit(account,'super_admin')
-    if p.role not in ROLES or p.field not in BASE_FIELDS or p.mode not in ('required','optional','hidden','masked'):
+    valid_fields=set(BASE_FIELDS)|{r['name'] for r in db().execute('SELECT name FROM field_definitions')}
+    if p.role not in ROLES or p.field not in valid_fields or p.mode not in ('required','optional','hidden','masked'):
         raise HTTPException(422,'Trường, vai trò hoặc kiểu quyền không hợp lệ.')
     if p.role=='super_admin' and p.mode in ('hidden','masked'):
         raise HTTPException(403,'Không được che trường dữ liệu với quản trị cao nhất.')
@@ -758,7 +827,14 @@ async def import_preview(file:UploadFile=File(...),account:dict=Depends(user)):
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     raw=await file.read(10*1024*1024+1)
     if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
-    try:return parse_file(raw,file.filename or '')
+    try:
+        result=parse_file(raw,file.filename or '')
+        custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions')}
+        custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions')})
+        for header in result['headers']:
+            if header not in result['mapping'] and strip_accents(header) in custom:
+                result['mapping'][header]=custom[strip_accents(header)]
+        return result
     except (ValueError,RuntimeError,ImportError) as e:raise HTTPException(422,str(e))
     except Exception:raise HTTPException(422,'Không đọc được nội dung tệp. Kiểm tra định dạng hoặc phần mềm OCR trên PC.')
 
@@ -775,16 +851,20 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
     if len(p.selected)!=len(set(p.selected)):raise HTTPException(422,'Danh sách trường đích bị trùng.')
     targets=[v for v in p.mapping.values() if v in p.selected]
     if len(targets)!=len(set(targets)):raise HTTPException(422,'Nhiều cột nguồn đang ánh xạ vào cùng một trường đích.')
-    allowed=declared_fields(ResidentIn)
-    if any(k not in allowed for k in p.selected):raise HTTPException(422,'Trường đích không hợp lệ.')
-    if any(v not in allowed for v in p.mapping.values()):raise HTTPException(422,'Ánh xạ chứa trường không hợp lệ.')
+    allowed=declared_fields(ResidentIn)-{'custom_values'}
+    custom_names={r['name'] for r in db().execute('SELECT name FROM field_definitions')}
+    custom_targets={'custom:'+name for name in custom_names}
+    all_targets=allowed|custom_targets
+    if any(k not in all_targets for k in p.selected):raise HTTPException(422,'Trường đích không hợp lệ.')
+    if any(v not in all_targets for v in p.mapping.values()):raise HTTPException(422,'Ánh xạ chứa trường không hợp lệ.')
     if len(p.rows)>5000:raise HTTPException(422,'Quá 5.000 dòng.')
     if 'full_name' not in p.selected or 'team_id' not in p.selected:raise HTTPException(422,'Bắt buộc chọn Họ tên và Tổ.')
     summary={'inserted':0,'duplicates':0,'possible_duplicates':0,'warnings':[],
              'invalid':0,'errors':[]}
     with LOCK:
         for idx,row in enumerate(p.rows):
-            data={v:row.get(k) for k,v in p.mapping.items() if v in p.selected}
+            data={v:row.get(k) for k,v in p.mapping.items() if v in p.selected and not v.startswith('custom:')}
+            data['custom_values']={v[7:]:row.get(k) for k,v in p.mapping.items() if v in p.selected and v.startswith('custom:')}
             if not data.get('team_id') and account['team_id']:data['team_id']=account['team_id']
             try:
                 data['team_id']=int(str(data.get('team_id','')).replace('Tổ','').strip())
@@ -805,6 +885,7 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
                 rid=uuid.uuid4().hex;t=now()
                 db().execute('''INSERT INTO residents(id,full_name,cccd,dob,gender,hometown,permanent_address,team_id,phone,health_insurance,occupation,note,household_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                              [rid]+person_params(ri)+[t,t])
+                save_custom_values(rid,ri.custom_values)
                 summary['inserted']+=1
             except Exception as e:
                 if 'UNIQUE' in str(e):summary['duplicates']+=1
@@ -828,7 +909,10 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     selected=[x.strip() for x in fields.split(',') if x.strip()]
     modes=field_modes(account['role'])
-    if not selected or any(k not in BASE_FIELDS or modes.get(k)=='hidden' for k in selected):
+    custom_defs={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions')}
+    valid=set(BASE_FIELDS)|{'custom:'+name for name in custom_defs}
+    def mode_for(key):return modes.get(key[7:] if key.startswith('custom:') else key,'hidden')
+    if not selected or any(k not in valid or mode_for(k)=='hidden' for k in selected):
         raise HTTPException(422,'Có trường xuất không được phép.')
     if format not in ('xlsx','csv','json'):raise HTTPException(422,'Định dạng không hợp lệ.')
     with LOCK:
@@ -836,7 +920,14 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
         scope,args=team_scope(account)
         where+=scope;params+=args
         if team:where+=' AND team_id=?';params.append(team)
-        rows=[{k:r[k] for k in selected} for r in db().execute('SELECT * FROM residents WHERE '+where+' ORDER BY full_name',params)]
+        resident_rows=db().execute('SELECT * FROM residents WHERE '+where+' ORDER BY full_name',params).fetchall()
+        custom=custom_values_for([r['id'] for r in resident_rows],account['role'])
+        rows=[]
+        for resident in resident_rows:
+            row={}
+            for key in selected:
+                row[key]=custom[resident['id']].get(key[7:],'') if key.startswith('custom:') else resident[key]
+            rows.append(row)
         if account['role']=='reviewer' and len(rows)>=100:
             raise HTTPException(403,'Vai trò Rà soát chỉ được xuất dưới 100 dòng.')
         for r in rows:
@@ -844,7 +935,7 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
             r.clear();r.update(masked)
         record(account['id'],'EXPORT','resident','',{'format':format,'count':len(rows),'fields':selected})
         commit()
-    headers=[BASE_FIELDS[x] for x in selected]
+    headers=[custom_defs[x[7:]]['label'] if x.startswith('custom:') else BASE_FIELDS[x] for x in selected]
     stream=io.BytesIO()
     if format=='xlsx':
         wb=Workbook();ws=wb.active;ws.title='Dữ liệu dân cư';ws.append(headers)
