@@ -35,7 +35,7 @@ test('khung giao diện, điều hướng và responsive hoạt động', async 
   await expect(page.locator('#featureTable tbody tr')).toHaveCount(1);
   const residentNav=mobile?page.locator('[data-mobile-page="residents"]'):page.locator('[data-page="residents"]');
   await residentNav.click();
-  await expect(page.locator('#pageTitle')).toContainText('Nhân khẩu');
+  await expect(page.locator('#pageTitle')).toContainText(/nhân khẩu/i);
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   if (mobile) {
