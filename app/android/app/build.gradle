@@ -1,0 +1,10 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'vn.quanlykhu.mobile'
+    compileSdk 35
+    defaultConfig { applicationId 'vn.quanlykhu.mobile'; minSdk 26; targetSdk 34; versionCode 703; versionName '7.3.0-source' }
+    buildTypes {
+      release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

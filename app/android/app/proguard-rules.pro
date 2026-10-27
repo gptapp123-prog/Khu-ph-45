@@ -1,0 +1,1 @@
+-keepclassmembers class vn.quanlykhu.mobile.MainActivity$DeviceBridge { @android.webkit.JavascriptInterface <methods>; }
