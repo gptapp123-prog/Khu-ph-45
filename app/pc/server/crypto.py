@@ -8,8 +8,10 @@ KPHO1 is readable on modern Python only for in-place migration to KPHO2.
 from __future__ import annotations
 import os
 import hashlib
+import hmac
 import sqlite3
 import tempfile
+from datetime import datetime,timezone
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
@@ -87,16 +89,65 @@ class Vault:
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
 
+
+    @staticmethod
+    def _atomic_write(path:Path,data:bytes):
+        path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+        if path.is_symlink():raise ValueError('Không cho phép đường dẫn dạng liên kết.')
+        fd,tmp=tempfile.mkstemp(prefix='.quanlykp-',dir=str(path.parent))
+        try:
+            os.chmod(tmp,0o600)
+            with os.fdopen(fd,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+            os.replace(tmp,str(path))
+        finally:
+            if os.path.exists(tmp):os.unlink(tmp)
+
+    def _validate_blob(self,raw:bytes)->str:
+        if len(raw)<len(MAGIC)+44 or raw[:len(MAGIC)]!=MAGIC:raise ValueError('Bản sao lưu không đúng định dạng KPHO2.')
+        salt=raw[len(MAGIC):len(MAGIC)+16]
+        if not hmac.compare_digest(salt,self._salt):raise ValueError('Bản sao lưu không thuộc kho dữ liệu đang mở.')
+        nonce=raw[len(MAGIC)+16:len(MAGIC)+28]
+        try:plain=AESGCM(self.key).decrypt(nonce,raw[len(MAGIC)+28:],MAGIC)
+        except InvalidTag as e:raise ValueError('Bản sao lưu sai khóa hoặc đã bị chỉnh sửa.') from e
+        try:sql=plain.decode('utf-8')
+        except UnicodeDecodeError as e:raise ValueError('Bản sao lưu không chứa dữ liệu UTF-8 hợp lệ.') from e
+        check=sqlite3.connect(':memory:')
+        try:
+            check.executescript(sql);result=check.execute('PRAGMA integrity_check').fetchone()
+            if not result or result[0]!='ok':raise ValueError('Kiểm tra toàn vẹn bản sao lưu không đạt.')
+        except sqlite3.Error as e:raise ValueError('Cấu trúc bản sao lưu không hợp lệ.') from e
+        finally:check.close()
+        return sql
+
     def backup(self,backup_dir:Path)->Path:
         backup_dir=Path(backup_dir)
         backup_dir.mkdir(parents=True,exist_ok=True)
-        from datetime import datetime,timezone
-        stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
         path=backup_dir/('quanlykp_'+stamp+'.kpbak')
         if path.exists():raise ValueError('Bản sao lưu đã tồn tại.')
         self.persist()
-        path.write_bytes(self.path.read_bytes())
-        os.chmod(path,0o600)
+        raw=self.path.read_bytes();self._validate_blob(raw);self._atomic_write(path,raw)
+        digest=hashlib.sha256(raw).hexdigest()
+        self._atomic_write(Path(str(path)+'.sha256'),(digest+'  '+path.name+'\\n').encode('ascii'))
+        if not hmac.compare_digest(hashlib.sha256(path.read_bytes()).hexdigest(),digest):raise ValueError('Đọc lại bản sao lưu không khớp checksum.')
         backups=sorted(backup_dir.glob('quanlykp_*.kpbak'))
-        for old in backups[:-3]:old.unlink()
+        for old in backups[:-3]:
+            old.unlink();sidecar=Path(str(old)+'.sha256')
+            if sidecar.exists():sidecar.unlink()
         return path
+
+    def restore(self,backup_path:Path,rollback_dir:Path)->Path:
+        backup_path=Path(backup_path)
+        if backup_path.is_symlink() or not backup_path.is_file():raise ValueError('Không tìm thấy bản sao lưu hợp lệ.')
+        raw=backup_path.read_bytes();checksum_path=Path(str(backup_path)+'.sha256')
+        if not checksum_path.is_file():raise ValueError('Thiếu tệp checksum của bản sao lưu.')
+        expected=checksum_path.read_text(encoding='ascii').split()[0].lower();actual=hashlib.sha256(raw).hexdigest()
+        if len(expected)!=64 or not hmac.compare_digest(expected,actual):raise ValueError('Checksum bản sao lưu không khớp.')
+        sql=self._validate_blob(raw);rollback=self.backup(Path(rollback_dir));self._atomic_write(self.path,raw)
+        replacement=sqlite3.connect(':memory:',check_same_thread=False);replacement.row_factory=sqlite3.Row
+        try:
+            replacement.executescript(sql);replacement.execute('PRAGMA foreign_keys=ON');replacement.execute('PRAGMA secure_delete=ON');replacement.execute('PRAGMA trusted_schema=OFF')
+        except Exception:
+            replacement.close();self._atomic_write(self.path,rollback.read_bytes());raise
+        old=self.conn;self.conn=replacement;old.close();self._was_legacy=False
+        return rollback
