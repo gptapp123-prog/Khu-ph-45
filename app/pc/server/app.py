@@ -744,6 +744,9 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
     capability(account,'import')
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     if not p.selected:raise HTTPException(422,'Chưa chọn trường nhập.')
+    if len(p.selected)!=len(set(p.selected)):raise HTTPException(422,'Danh sách trường đích bị trùng.')
+    targets=[v for v in p.mapping.values() if v in p.selected]
+    if len(targets)!=len(set(targets)):raise HTTPException(422,'Nhiều cột nguồn đang ánh xạ vào cùng một trường đích.')
     allowed=declared_fields(ResidentIn)
     if any(k not in allowed for k in p.selected):raise HTTPException(422,'Trường đích không hợp lệ.')
     if any(v not in allowed for v in p.mapping.values()):raise HTTPException(422,'Ánh xạ chứa trường không hợp lệ.')
