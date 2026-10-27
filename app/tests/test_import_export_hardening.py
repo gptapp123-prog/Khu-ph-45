@@ -161,7 +161,31 @@ def test_custom_field_validation_and_fail_closed_viewer_default(api):
         'name':'ngay_dang_ky','label':'Ngày đăng ký','type':'date'}).status_code==200
     bad=client.post('/api/residents',headers=headers,json={
         'full_name':'Nguyễn Sai Ngày','team_id':1,
-        'custom_values':{'ngay_dang_ky':'31/12/2026'}})
-    assert bad.status_code==422 and 'YYYY-MM-DD' in bad.json()['detail']
+        'custom_values':{'ngay_dang_ky':'2026.12.31'}})
+    assert bad.status_code==422 and 'DD-MM-YYYY' in bad.json()['detail']
     matrix=client.get('/api/permissions',headers=headers).json()
     assert matrix['field_grants']['viewer']['ngay_dang_ky']=='hidden'
+
+def test_dates_use_day_month_year_for_input_display_and_export(api):
+    client,headers=api
+    assert client.post('/api/fields',headers=headers,json={
+        'name':'ngay_vao_o','label':'Ngày vào ở','type':'date'}).status_code==200
+    created=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Đúng Ngày','dob':'03-02-1990','team_id':2,
+        'custom_values':{'ngay_vao_o':'27-10-2026'}})
+    assert created.status_code==200,created.text
+    listed=client.get('/api/residents',headers=headers).json()['items'][0]
+    assert listed['dob']=='03-02-1990'
+    assert listed['custom_values']['ngay_vao_o']=='27-10-2026'
+    exported=client.get('/api/export',headers=headers,params={
+        'fields':'full_name,dob,custom:ngay_vao_o','format':'json'})
+    assert exported.status_code==200
+    assert exported.json()[0]['dob']=='03-02-1990'
+    assert exported.json()[0]['custom:ngay_vao_o']=='27-10-2026'
+
+def test_legacy_iso_date_remains_readable_but_is_presented_dd_mm_yyyy(api):
+    client,headers=api
+    created=client.post('/api/residents',headers=headers,json={
+        'full_name':'Hồ Sơ Cũ','dob':'1995-12-31','team_id':1})
+    assert created.status_code==200
+    assert client.get('/api/residents',headers=headers).json()['items'][0]['dob']=='31-12-1995'
