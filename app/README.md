@@ -1,7 +1,7 @@
-# QUẢN LÝ KHU PHỐ — BẢN 7.3, GIAI ĐOẠN 3
+# QUẢN LÝ KHU PHỐ MỚI — NHÁNH PHÁT TRIỂN 7.5
 
 **Ngày:** 27/10/2026  
-**Nguồn kế thừa:** 7.2 → 7.3, không dựng lại hệ thống.  
+**Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
 **Trạng thái:** mã nguồn + script cài đặt thử; **CHƯA phải bộ cài Windows EXE/MSI hoặc APK ký phát hành.**
 
 ## 1. Đã làm được trong lượt này
@@ -11,7 +11,7 @@
 3. Kho dữ liệu `KPHO2` mã hóa AES-256-GCM vẫn **chỉ ghi trên đĩa PC**, dùng API `sqlite3.Connection.iterdump`/`executescript` tương thích với Python 3.8; không phát sinh SQLite dữ liệu rõ trên đĩa. Kho `KPHO1` của 7.2 tự chuyển đổi trên runtime mới có `deserialize()` rồi ghi an toàn sang KPHO2.
 4. Sửa mã nguồn phụ thuộc Pydantic 2 để tương thích Pydantic 1 ở nhánh cũ; bỏ `str.removeprefix()` (Python 3.9+). Giữ logic xác thực/ma trận 16 quyền/11 trường, phạm vi tổ, duyệt mobile của 7.2.
 5. Giữ biểu tượng khiên quấn xích vàng (`pc/web/icon.svg`, `pc/web/QuanLyKhuPho.ico`, `android/.../app_icon.png`).
-6. **23 bài kiểm thử đạt** trong môi trường phát triển; gồm 17 bài kế thừa và 6 bài riêng cho tương thích, mã hóa, di trú và Pydantic cũ.
+6. Backup/restore KPHO2 có checksum SHA-256, kiểm tra AES-GCM + SQLite, rollback và thay tệp atomic.\n7. **28 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
