@@ -16,7 +16,9 @@
 8. Excel nhiều sheet cùng cấu trúc được gộp; sheet lệch tiêu đề, công thức, ô gộp, tiêu đề đặt sai dòng và ánh xạ đích trùng bị từ chối; sheet ẩn không được tự động nhập.
 9. Hồ sơ không có CCCD được cảnh báo trùng tiềm năng khi cùng họ tên chuẩn hóa, ngày sinh và tổ; hệ thống không tự gộp hoặc xóa hồ sơ.
 10. Trường tùy biến được phân quyền mặc định an toàn, kiểm tra kiểu dữ liệu, lưu theo hồ sơ, tự ánh xạ khi nhập CSV/Excel và xuất được qua XLSX/CSV/JSON; người xem mặc định không thấy trường mới.
-11. **39 bài kiểm thử đạt** trong môi trường phát triển.
+11. Ngày sinh và trường ngày tùy biến dùng chuẩn hiển thị/nhập mới `DD-MM-YYYY`; dữ liệu ISO hoặc dấu gạch chéo cũ vẫn đọc được và được chuẩn hóa để không phá kho hiện hữu.
+12. Giao diện hồ sơ sinh tự động điều khiển cho trường tùy biến theo kiểu văn bản, số, ngày, danh sách và đánh dấu; nhập/xuất cũng nhận các trường này.
+13. **41 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
