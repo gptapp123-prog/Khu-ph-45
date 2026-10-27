@@ -32,7 +32,8 @@ def test_csv_semicolon_preview_commit_and_json_export(api):
         'rows':data['rows'],'mapping':data['mapping'],
         'selected':['full_name','cccd','team_id','note']})
     assert commit.status_code==200,commit.text
-    assert commit.json()=={'inserted':1,'duplicates':0,'invalid':0,'errors':[]}
+    assert commit.json()=={'inserted':1,'duplicates':0,'possible_duplicates':0,
+                           'warnings':[],'invalid':0,'errors':[]}
     exported=client.get('/api/export',headers=headers,params={'fields':'full_name,cccd,team_id,note','format':'json'})
     assert exported.status_code==200
     assert exported.json()[0]['full_name']=='Nguyễn Thị Ánh'
@@ -91,6 +92,40 @@ def test_excel_rejects_mismatched_sheets_and_formulas(api):
     formula=workbook_bytes([('A',[['Họ tên','Tổ'],['=CONCAT("Nguyễn"," A")',1]])])
     response=client.post('/api/import/preview',headers=headers,files={'file':('cong-thuc.xlsx',formula,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
     assert response.status_code==422 and 'công thức' in response.json()['detail']
+
+def test_excel_skips_hidden_sheet_and_rejects_merged_or_late_header(api):
+    client,headers=api
+    from openpyxl import Workbook
+    wb=Workbook();visible=wb.active;visible.title='Dữ liệu'
+    visible.append(['Họ tên','Tổ']);visible.append(['Nguyễn A',1])
+    hidden=wb.create_sheet('Danh mục ẩn');hidden.append(['Khác','Cấu hình']);hidden.sheet_state='hidden'
+    output=io.BytesIO();wb.save(output);wb.close()
+    response=client.post('/api/import/preview',headers=headers,files={'file':('an.xlsx',output.getvalue(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert response.status_code==200 and response.json()['count']==1
+
+    wb=Workbook();ws=wb.active;ws.append(['Họ tên','Tổ']);ws.append(['Nguyễn A',1]);ws.merge_cells('A1:B1')
+    output=io.BytesIO();wb.save(output);wb.close()
+    response=client.post('/api/import/preview',headers=headers,files={'file':('gop.xlsx',output.getvalue(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert response.status_code==422 and 'ô gộp' in response.json()['detail']
+
+    raw=workbook_bytes([('Dữ liệu',[[None,None],['Họ tên','Tổ'],['Nguyễn A',1]])])
+    response=client.post('/api/import/preview',headers=headers,files={'file':('tieu-de-muon.xlsx',raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert response.status_code==422 and 'dòng đầu tiên' in response.json()['detail']
+
+def test_possible_duplicate_without_cccd_is_warning_not_auto_merge(api):
+    client,headers=api
+    payload={'full_name':'Nguyễn Thị Ánh','dob':'1990-02-03','team_id':3}
+    assert client.post('/api/residents',headers=headers,json=payload).status_code==200
+    check=client.post('/api/residents/duplicate-check',headers=headers,json={
+        'full_name':'  NGUYEN thi anh ','dob':'1990-02-03','team_id':3})
+    assert check.status_code==200 and check.json()['possible_duplicate'] is True
+    commit=client.post('/api/import/commit',headers=headers,json={
+        'rows':[{'Họ tên':'Nguyễn Thị Ánh','Ngày sinh':'03/02/1990','Tổ':'3'}],
+        'mapping':{'Họ tên':'full_name','Ngày sinh':'dob','Tổ':'team_id'},
+        'selected':['full_name','dob','team_id']})
+    assert commit.status_code==200,commit.text
+    assert commit.json()['inserted']==1 and commit.json()['possible_duplicates']==1
+    assert len(commit.json()['warnings'])==1
 
 def test_import_commit_rejects_duplicate_destination_mapping(api):
     client,headers=api
