@@ -352,6 +352,19 @@ class ResidentIn(BaseModel):
     note:str='';household_id:Optional[str]=None
     custom_values:Dict[str,Any]=Field(default_factory=dict)
 
+def normalize_date(value:Any,field_label:str)->str:
+    """Accept legacy ISO/slash input, store ISO, present DD-MM-YYYY to users."""
+    text=str(value or '').strip()
+    for pattern in ('%d-%m-%Y','%Y-%m-%d','%d/%m/%Y'):
+        try:return datetime.strptime(text,pattern).strftime('%Y-%m-%d')
+        except ValueError:pass
+    raise HTTPException(422,field_label+' phải theo định dạng DD-MM-YYYY.')
+
+def display_date(value:Any)->Any:
+    if not value:return value
+    try:return datetime.strptime(str(value),'%Y-%m-%d').strftime('%d-%m-%Y')
+    except ValueError:return value
+
 def validate_custom_values(values:Dict[str,Any],role:str)->Dict[str,str]:
     definitions={r['name']:dict(r) for r in db().execute('SELECT * FROM field_definitions')}
     modes=field_modes(role);clean={}
@@ -368,8 +381,7 @@ def validate_custom_values(values:Dict[str,Any],role:str)->Dict[str,str]:
             try:float(text.replace(',','.'))
             except ValueError:raise HTTPException(422,'Trường '+d['label']+' phải là số.')
         elif d['type']=='date':
-            try:datetime.strptime(text,'%Y-%m-%d')
-            except ValueError:raise HTTPException(422,'Trường '+d['label']+' phải theo YYYY-MM-DD.')
+            text=normalize_date(text,'Trường '+d['label'])
         elif d['type']=='checkbox':
             normalized=text.casefold()
             if normalized not in ('1','0','true','false','có','không','co','khong'):
@@ -395,12 +407,13 @@ def custom_values_for(resident_ids:List[str],role:str)->Dict[str,Dict[str,str]]:
     result={rid:{} for rid in resident_ids}
     if not resident_ids:return result
     modes=field_modes(role);marks=','.join('?' for _ in resident_ids)
-    query=('SELECT v.resident_id,d.name,v.value FROM field_values v '
+    query=('SELECT v.resident_id,d.name,d.type,v.value FROM field_values v '
            'JOIN field_definitions d ON d.id=v.field_id WHERE v.resident_id IN ('+marks+')')
     for row in db().execute(query,resident_ids):
         mode=modes.get(row['name'],'hidden')
         if mode=='hidden':continue
-        result[row['resident_id']][row['name']]='***' if mode=='masked' and row['value'] else row['value']
+        value=display_date(row['value']) if row['type']=='date' else row['value']
+        result[row['resident_id']][row['name']]='***' if mode=='masked' and value else value
     return result
 
 def validate_resident(p:ResidentIn,account:dict):
@@ -418,8 +431,7 @@ def validate_resident(p:ResidentIn,account:dict):
     if p.cccd and not re.fullmatch(r'\d{12}',p.cccd):raise HTTPException(422,'CCCD phải gồm đúng 12 chữ số.')
     if p.phone and not re.fullmatch(r'0\d{9}',p.phone):raise HTTPException(422,'Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
     if p.dob:
-        try:datetime.strptime(p.dob,'%Y-%m-%d')
-        except ValueError:raise HTTPException(422,'Ngày sinh theo định dạng YYYY-MM-DD.')
+        p.dob=normalize_date(p.dob,'Ngày sinh')
     if len(p.note)>3000:raise HTTPException(422,'Ghi chú quá dài.')
     if p.household_id:
         h=db().execute('SELECT team_id FROM households WHERE id=?',(p.household_id,)).fetchone()
@@ -454,6 +466,7 @@ def duplicate_check(p:ResidentIn,account:dict=Depends(user)):
     validate_resident(p,account)
     with LOCK:
         rows=possible_duplicate_rows(p.full_name,p.dob,p.team_id)
+        for row in rows:row['dob']=display_date(row.get('dob'))
         return {'possible_duplicate':bool(rows),'count':len(rows),
                 'items':[protect(r,account['role']) for r in rows],
                 'rule':'Cùng họ tên chuẩn hóa, ngày sinh và tổ; chỉ cảnh báo, không tự gộp.'}
@@ -483,7 +496,9 @@ def list_residents(q:str='',team:Optional[int]=None,limit:int=100,offset:int=0,a
         rows=db().execute('SELECT * FROM residents WHERE '+w+' ORDER BY full_name LIMIT ? OFFSET ?',args+[limit,offset]).fetchall()
         custom=custom_values_for([r['id'] for r in rows],account['role']);items=[]
         for r in rows:
-            item=protect(dict(r),account['role']);item['custom_values']=custom[r['id']];items.append(item)
+            item=protect(dict(r),account['role'])
+            if 'dob' in item:item['dob']=display_date(item['dob'])
+            item['custom_values']=custom[r['id']];items.append(item)
         return {'total':count,'items':items}
 
 @app.post('/api/residents')
@@ -868,9 +883,6 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
             if not data.get('team_id') and account['team_id']:data['team_id']=account['team_id']
             try:
                 data['team_id']=int(str(data.get('team_id','')).replace('Tổ','').strip())
-                if data.get('dob'):
-                    dt=str(data['dob']).strip()
-                    if re.fullmatch(r'\d\d/\d\d/\d{4}',dt):data['dob']=datetime.strptime(dt,'%d/%m/%Y').strftime('%Y-%m-%d')
                 clean={k:(None if v=='' else v) for k,v in data.items()}
                 ri=validate_model(ResidentIn,clean)
                 validate_resident(ri,account)
@@ -927,6 +939,7 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
             row={}
             for key in selected:
                 row[key]=custom[resident['id']].get(key[7:],'') if key.startswith('custom:') else resident[key]
+                if key=='dob':row[key]=display_date(row[key])
             rows.append(row)
         if account['role']=='reviewer' and len(rows)>=100:
             raise HTTPException(403,'Vai trò Rà soát chỉ được xuất dưới 100 dòng.')
