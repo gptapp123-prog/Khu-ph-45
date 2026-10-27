@@ -11,7 +11,8 @@
 3. Kho dữ liệu `KPHO2` mã hóa AES-256-GCM vẫn **chỉ ghi trên đĩa PC**, dùng API `sqlite3.Connection.iterdump`/`executescript` tương thích với Python 3.8; không phát sinh SQLite dữ liệu rõ trên đĩa. Kho `KPHO1` của 7.2 tự chuyển đổi trên runtime mới có `deserialize()` rồi ghi an toàn sang KPHO2.
 4. Sửa mã nguồn phụ thuộc Pydantic 2 để tương thích Pydantic 1 ở nhánh cũ; bỏ `str.removeprefix()` (Python 3.9+). Giữ logic xác thực/ma trận 16 quyền/11 trường, phạm vi tổ, duyệt mobile của 7.2.
 5. Giữ biểu tượng khiên quấn xích vàng (`pc/web/icon.svg`, `pc/web/QuanLyKhuPho.ico`, `android/.../app_icon.png`).
-6. Backup/restore KPHO2 có checksum SHA-256, kiểm tra AES-GCM + SQLite, rollback và thay tệp atomic.\n7. **28 bài kiểm thử đạt** trong môi trường phát triển.
+6. Backup/restore KPHO2 có checksum SHA-256, kiểm tra AES-GCM + SQLite, rollback và thay tệp atomic.
+7. Nhập CSV kiểm tra tiêu đề trùng/rỗng; xuất CSV/XLSX vô hiệu hóa công thức nguy hiểm nhưng JSON giữ nguyên văn bản.\n8. **32 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
