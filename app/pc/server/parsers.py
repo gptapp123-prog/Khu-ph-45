@@ -14,6 +14,14 @@ KEYWORDS={'cccd':['cccd','can cuoc','so dinh danh','so cccd'],
 
 def strip_accents(v):
     return ''.join(c for c in unicodedata.normalize('NFD',str(v).lower()) if unicodedata.category(c)!='Mn').strip()
+def validate_headers(headers):
+    cleaned=[str(h).strip() for h in headers]
+    if not cleaned or not any(cleaned):raise ValueError('Tệp không có tiêu đề cột.')
+    normalized=[strip_accents(h) for h in cleaned]
+    if any(not h for h in normalized):raise ValueError('Tiêu đề cột không được để trống.')
+    if len(normalized)!=len(set(normalized)):raise ValueError('Tiêu đề cột bị trùng.')
+    return cleaned
+
 def automap(headers):
     mapped={}
     for h in headers:
@@ -33,7 +41,7 @@ def parse_file(raw:bytes,filename:str):
             it=sh.iter_rows(values_only=True)
             first=next(it,None)
             if not first:raise ValueError('Excel trống.')
-            headers=[str(v).strip() if v is not None else f'Cột {i+1}' for i,v in enumerate(first)]
+            headers=validate_headers([str(v).strip() if v is not None else f'Cột {i+1}' for i,v in enumerate(first)])
             for row in it:
                 if any(v is not None and str(v).strip() for v in row):
                     rows.append({headers[i]: '' if i>=len(row) or row[i] is None else str(row[i]).strip() for i in range(len(headers))})
@@ -45,7 +53,8 @@ def parse_file(raw:bytes,filename:str):
         try:dialect=csv.Sniffer().sniff(first,delimiters=',;\t')
         except csv.Error:dialect=csv.excel
         reader=csv.DictReader(io.StringIO(content),dialect=dialect)
-        headers=reader.fieldnames or []
+        headers=validate_headers(reader.fieldnames or [])
+        reader.fieldnames=headers
         for row in reader:
             if len(rows)>=5000:raise ValueError('Tối đa 5.000 dòng/lần nhập.')
             rows.append({str(k or ''):str(v or '') for k,v in row.items()})
