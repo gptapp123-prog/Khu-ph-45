@@ -775,6 +775,12 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
         commit()
     return summary
 
+def spreadsheet_safe(value):
+    """Prevent CSV/XLSX cells from being interpreted as formulas."""
+    if isinstance(value,str) and value.lstrip().startswith(('=','+','-','@')):
+        return "'"+value
+    return value
+
 @app.get('/api/export')
 def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='xlsx',team:Optional[int]=None,account:dict=Depends(user)):
     capability(account,'export')
@@ -802,13 +808,13 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
     stream=io.BytesIO()
     if format=='xlsx':
         wb=Workbook();ws=wb.active;ws.title='Dữ liệu dân cư';ws.append(headers)
-        for r in rows:ws.append([r.get(x,'') for x in selected])
+        for r in rows:ws.append([spreadsheet_safe(r.get(x,'')) for x in selected])
         wb.save(stream)
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     elif format=='csv':
         import csv
         out=io.StringIO();writer=csv.writer(out);writer.writerow(headers)
-        for r in rows:writer.writerow([r.get(x,'') for x in selected])
+        for r in rows:writer.writerow([spreadsheet_safe(r.get(x,'')) for x in selected])
         stream.write(b'\xef\xbb\xbf'+out.getvalue().encode('utf-8'))
         mimetype='text/csv; charset=utf-8'
     else:
