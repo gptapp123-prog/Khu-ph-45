@@ -189,3 +189,30 @@ def test_legacy_iso_date_remains_readable_but_is_presented_dd_mm_yyyy(api):
         'full_name':'Hồ Sơ Cũ','dob':'1995-12-31','team_id':1})
     assert created.status_code==200
     assert client.get('/api/residents',headers=headers).json()['items'][0]['dob']=='31-12-1995'
+
+def test_dropdown_requires_options_and_field_can_be_reordered_renamed_hidden(api):
+    client,headers=api
+    missing=client.post('/api/fields',headers=headers,json={
+        'name':'phan_loai','label':'Phân loại','type':'dropdown','options':[]})
+    assert missing.status_code==422
+    created=client.post('/api/fields',headers=headers,json={
+        'name':'phan_loai','label':'Phân loại','type':'dropdown',
+        'options':['Ưu tiên','Thường','Ưu tiên']})
+    assert created.status_code==200,created.text
+    field_id=created.json()['id']
+    updated=client.patch('/api/fields/'+field_id,headers=headers,json={
+        'label':'Nhóm hồ sơ','options':['Thường','Ưu tiên'],'display_order':2,'active':False})
+    assert updated.status_code==200,updated.text
+    managed=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'][0]
+    assert managed['label']=='Nhóm hồ sơ' and managed['display_order']==2 and managed['active']==0
+    assert json.loads(managed['options_json'])==['Thường','Ưu tiên']
+    assert client.get('/api/fields',headers=headers).json()['custom']==[]
+    rejected=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Trường Ẩn','team_id':1,'custom_values':{'phan_loai':'Thường'}})
+    assert rejected.status_code==422
+
+def test_non_dropdown_rejects_configured_options(api):
+    client,headers=api
+    response=client.post('/api/fields',headers=headers,json={
+        'name':'ghi_chu_phu','label':'Ghi chú phụ','type':'text','options':['Sai']})
+    assert response.status_code==422 and 'Chỉ trường danh sách' in response.json()['detail']
