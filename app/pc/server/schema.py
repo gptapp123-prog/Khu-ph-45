@@ -106,6 +106,12 @@ def initialize(conn:sqlite3.Connection):
         for k in BASE_FIELDS:
             mode='masked' if (role=='viewer' and k in ('cccd','phone')) else 'optional'
             conn.execute('INSERT OR IGNORE INTO field_permissions(role,field,mode) VALUES(?,?,?)',(role,k,mode))
+    # Existing custom definitions receive fail-closed defaults during upgrade.
+    for field in conn.execute('SELECT name FROM field_definitions'):
+        for role in ['viewer','reviewer','admin_kp','admin_root','super_admin']:
+            mode='hidden' if role=='viewer' else 'optional'
+            conn.execute('INSERT OR IGNORE INTO field_permissions(role,field,mode) VALUES(?,?,?)',
+                         (role,field[0],mode))
     # Update only schema version; no account, permission or resident data is overwritten.
     conn.execute("UPDATE meta SET value='7.3.0' WHERE key='schema_version'")
     conn.commit()
