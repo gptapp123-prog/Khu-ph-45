@@ -2,13 +2,17 @@ name: KP45 Public Portal E2E
 
 on:
   push:
-    paths-ignore:
-      - "app/**"
-      - ".github/workflows/quan-ly-khu-pho-7-5-ci.yml"
+    paths:
+      - "e2e/public.spec.ts"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
   pull_request:
-    paths-ignore:
-      - "app/**"
-      - ".github/workflows/quan-ly-khu-pho-7-5-ci.yml"
+    paths:
+      - "e2e/public.spec.ts"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 concurrency:
