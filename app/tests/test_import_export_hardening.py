@@ -60,3 +60,42 @@ def test_csv_and_xlsx_exports_neutralize_formula_cells_but_json_preserves_text(a
     wb.close()
     json_response=client.get('/api/export',headers=headers,params={'fields':'full_name,note','format':'json'})
     assert json_response.json()[0]['full_name'].startswith('=')
+
+
+def workbook_bytes(sheets):
+    from openpyxl import Workbook
+    wb=Workbook()
+    wb.remove(wb.active)
+    for title,rows in sheets:
+        ws=wb.create_sheet(title)
+        for row in rows:ws.append(row)
+    output=io.BytesIO();wb.save(output);wb.close()
+    return output.getvalue()
+
+def test_excel_multiple_sheets_same_structure_are_merged(api):
+    client,headers=api
+    raw=workbook_bytes([
+        ('Tổ 1',[['Họ tên','Số CCCD','Tổ'],['Nguyễn Văn An','079000000001',1]]),
+        ('Tổ 2',[['Họ tên','Số CCCD','Tổ'],['Trần Thị Bình','079000000002',2]])])
+    preview=client.post('/api/import/preview',headers=headers,files={'file':('nhieu-sheet.xlsx',raw,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert preview.status_code==200,preview.text
+    assert preview.json()['count']==2
+
+def test_excel_rejects_mismatched_sheets_and_formulas(api):
+    client,headers=api
+    mismatch=workbook_bytes([
+        ('A',[['Họ tên','Tổ'],['Nguyễn A',1]]),
+        ('B',[['Tên khác','Tổ'],['Nguyễn B',2]])])
+    response=client.post('/api/import/preview',headers=headers,files={'file':('lech.xlsx',mismatch,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert response.status_code==422 and 'cùng tiêu đề' in response.json()['detail']
+    formula=workbook_bytes([('A',[['Họ tên','Tổ'],['=CONCAT("Nguyễn"," A")',1]])])
+    response=client.post('/api/import/preview',headers=headers,files={'file':('cong-thuc.xlsx',formula,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert response.status_code==422 and 'công thức' in response.json()['detail']
+
+def test_import_commit_rejects_duplicate_destination_mapping(api):
+    client,headers=api
+    response=client.post('/api/import/commit',headers=headers,json={
+        'rows':[{'Tên 1':'Nguyễn A','Tên 2':'Nguyễn B','Tổ':'1'}],
+        'mapping':{'Tên 1':'full_name','Tên 2':'full_name','Tổ':'team_id'},
+        'selected':['full_name','team_id']})
+    assert response.status_code==422 and 'cùng một trường đích' in response.json()['detail']
