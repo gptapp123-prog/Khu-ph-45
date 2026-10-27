@@ -71,9 +71,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r app/requirements-dev.txt
+          python -m pip install -r app/requirements.txt
           npm install
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Start ephemeral app
         run: |
           PYTHONPATH=app/pc python app/tests/e2e_server.py > /tmp/quanlykp-e2e.log 2>&1 &
