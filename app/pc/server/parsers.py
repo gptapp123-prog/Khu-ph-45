@@ -35,17 +35,25 @@ def parse_file(raw:bytes,filename:str):
     ext=filename.lower().rsplit('.',1)[-1] if '.' in filename else ''
     rows=[]
     if ext in ('xlsx','xlsm'):
-        wb=load_workbook(io.BytesIO(raw),read_only=True,data_only=True)
+        wb=load_workbook(io.BytesIO(raw),read_only=True,data_only=False)
+        headers=[]
         try:
-            sh=wb.active
-            it=sh.iter_rows(values_only=True)
-            first=next(it,None)
-            if not first:raise ValueError('Excel trống.')
-            headers=validate_headers([str(v).strip() if v is not None else f'Cột {i+1}' for i,v in enumerate(first)])
-            for row in it:
-                if any(v is not None and str(v).strip() for v in row):
-                    rows.append({headers[i]: '' if i>=len(row) or row[i] is None else str(row[i]).strip() for i in range(len(headers))})
-                if len(rows)>5000:raise ValueError('Tối đa 5.000 dòng/lần nhập.')
+            for sh in wb.worksheets:
+                it=sh.iter_rows()
+                first=next(it,None)
+                if not first or not any(c.value is not None and str(c.value).strip() for c in first):continue
+                if any(c.data_type=='f' for c in first):raise ValueError('Tiêu đề Excel không được chứa công thức.')
+                sheet_headers=validate_headers([str(c.value).strip() if c.value is not None else f'Cột {i+1}' for i,c in enumerate(first)])
+                if headers and [strip_accents(x) for x in sheet_headers]!=[strip_accents(x) for x in headers]:
+                    raise ValueError('Các sheet Excel phải có cùng tiêu đề và thứ tự cột.')
+                if not headers:headers=sheet_headers
+                for cells in it:
+                    if any(c.data_type=='f' for c in cells):raise ValueError('Excel chứa công thức. Hãy chuyển công thức thành giá trị trước khi nhập.')
+                    values=[c.value for c in cells]
+                    if any(v is not None and str(v).strip() for v in values):
+                        rows.append({headers[i]: '' if i>=len(values) or values[i] is None else str(values[i]).strip() for i in range(len(headers))})
+                    if len(rows)>5000:raise ValueError('Tối đa 5.000 dòng/lần nhập.')
+            if not headers:raise ValueError('Excel trống.')
         finally:wb.close()
     elif ext=='csv':
         content=raw.decode('utf-8-sig')
