@@ -7,7 +7,7 @@ Ngày kiểm thử: 27/10/2026. Kế thừa 7.3; chưa thay thế nghiệm thu W
 - Backup KPHO2 mã hóa AES-256-GCM, ghi atomic + fsync, tên tệp microsecond và checksum SHA-256.
 - Đọc lại file, xác thực AES-GCM, `PRAGMA integrity_check`; giữ ba cặp backup/checksum.
 - Restore kiểm tra trước khi ghi và tạo rollback; có công cụ offline `pc/restore_backup.py`.
-- 26/26 test đạt trên Linux/Python 3.12.14, gồm hồi quy 7.1–7.3 và ba test mới.
+- 28/28 test đạt trên Linux/Python 3.12.14. Hai test restore xác nhận khôi phục đúng dữ liệu, tạo rollback và từ chối thiếu/sai checksum mà không đổi kho chính.
 
 ## II. VẤN ĐỀ CÒN CHƯA XỬ LÝ
 
