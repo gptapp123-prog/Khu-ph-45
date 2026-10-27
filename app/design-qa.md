@@ -22,7 +22,7 @@
 
 ## Primary interactions tested
 
-- Unit/integration/static tests trước đó: 26/26 đạt.
+- Unit/integration/static tests hiện tại: 28/28 đạt.
 - Browser interactions: chưa thực hiện vì không mở được trang.
 - Console errors: chưa kiểm tra được.
 
