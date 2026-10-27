@@ -2,12 +2,19 @@
 // No localStorage, IndexedDB, offline cache, cookies or persistent mobile state.
 // All session secrets, previews and form values live in RAM only.
 const S={token:null,me:null,page:'dashboard',preview:null,residents:[],households:[],editing:null,isNative:!!window.KPDevice,
-  isPC:(['localhost','127.0.0.1','::1'].includes(location.hostname)),pendingLogin:null};
+  isPC:(['localhost','127.0.0.1','::1'].includes(location.hostname)),pendingLogin:null,fields:null};
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const roles={viewer:'Chỉ xem',reviewer:'Rà soát',admin_kp:'Quản trị khu phố',admin_root:'Quản trị gốc',super_admin:'Quản trị hệ thống'};
 const fieldLabels={full_name:'Họ tên',cccd:'Số CCCD',dob:'Ngày sinh',gender:'Giới tính',hometown:'Quê quán',permanent_address:'Thường trú',team_id:'Tổ',phone:'Số điện thoại',health_insurance:'BHYT',occupation:'Nghề nghiệp',note:'Ghi chú'};
-const allKeys=Object.keys(fieldLabels);
+const baseKeys=Object.keys(fieldLabels),allKeys=[...baseKeys];
+function syncFields(data){
+ S.fields=data;
+ Object.keys(fieldLabels).filter(k=>!baseKeys.includes(k)).forEach(k=>delete fieldLabels[k]);
+ allKeys.splice(0,allKeys.length,...baseKeys);
+ (data?.custom||[]).forEach(f=>{const key='custom:'+f.name;fieldLabels[key]=f.label;if(!allKeys.includes(key))allKeys.push(key)});
+}
+async function ensureFields(){if(!S.fields)syncFields(await api('/fields'));return S.fields}
 let toastTimer;
 function toast(msg,error=false){const x=$('toast');x.textContent=msg;x.className='show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.className='',6500)}
 function dateTime(s){try{return new Date(s).toLocaleString('vi-VN')}catch{return s||''}}
@@ -139,15 +146,20 @@ function modal(title,html,onSave){
  wrap.querySelector('#modalForm').addEventListener('submit',async e=>{e.preventDefault();let b=e.submitter;if(b)b.disabled=true;try{await onSave(formValues(e.target));wrap.remove();toast('Đã lưu lên PC chính.')}catch(err){toast(err.message,true)}finally{if(b)b.disabled=false}});
 }
 function residentForm(row={}){const fields=[
- ['full_name','Họ tên',true],['cccd','Số CCCD (12 số)'],['dob','Ngày sinh (YYYY-MM-DD)'],['gender','Giới tính'],
+ ['full_name','Họ tên',true],['cccd','Số CCCD (12 số)'],['dob','Ngày sinh (DD-MM-YYYY)'],['gender','Giới tính'],
  ['team_id','Tổ (1–15)',true],['phone','Số điện thoại'],['hometown','Quê quán'],['permanent_address','Thường trú'],
  ['health_insurance','BHYT'],['occupation','Nghề nghiệp'],['note','Ghi chú']];
- return '<div class="form-grid">'+fields.map(([k,label,required])=>`<label>${label}<input name="${k}" value="${esc(row[k]||'')}" ${required?'required':''} ${k==='cccd'?'inputmode="numeric" pattern="[0-9]{12}"':''} ${k==='team_id'?'type="number" min="1" max="15"':''} maxlength="${k==='note'?'3000':'300'}"></label>`).join('')+
+ const standard=fields.map(([k,label,required])=>`<label>${label}<input name="${k}" value="${esc(row[k]||'')}" ${required?'required':''} ${k==='cccd'?'inputmode="numeric" pattern="[0-9]{12}"':''} ${k==='dob'?'inputmode="numeric" placeholder="31-12-2000" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}"':''} ${k==='team_id'?'type="number" min="1" max="15"':''} maxlength="${k==='note'?'3000':'300'}"></label>`).join('');
+ const custom=(S.fields?.custom||[]).map(f=>{const value=row.custom_values?.[f.name]??'',name='custom__'+f.name,required=f.mode==='required'?'required':'';
+  if(f.type==='dropdown'){let options=[];try{options=JSON.parse(f.options_json||'[]')}catch{}return `<label>${esc(f.label)}<select name="${esc(name)}" ${required}><option value="">Chưa chọn</option>${options.map(x=>`<option value="${esc(x)}" ${String(value)===String(x)?'selected':''}>${esc(x)}</option>`).join('')}</select></label>`}
+  if(f.type==='checkbox')return `<label class="checkline"><input type="checkbox" name="${esc(name)}" value="1" ${String(value)==='1'?'checked':''}> ${esc(f.label)}</label>`;
+  return `<label>${esc(f.label)}<input name="${esc(name)}" value="${esc(value)}" ${required} ${f.type==='number'?'inputmode="decimal"':''} ${f.type==='date'?'inputmode="numeric" placeholder="31-12-2026" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}"':''}></label>`}).join('');
+ return '<div class="form-grid">'+standard+custom+
  `<label>Hộ gia đình<select name="household_id"><option value="">Chưa gắn hộ</option>${S.households.filter(h=>!row.team_id||h.team_id==row.team_id).map(h=>`<option value="${esc(h.id)}" ${row.household_id===h.id?'selected':''}>${esc(h.code+' - '+h.address)}</option>`).join('')}</select></label></div>`;
 }
-function cleanResident(p){p.team_id=Number(p.team_id);return p}
+function cleanResident(p){p.team_id=Number(p.team_id);p.custom_values={};(S.fields?.custom||[]).forEach(f=>{const k='custom__'+f.name;p.custom_values[f.name]=p[k]??(f.type==='checkbox'?'0':null);delete p[k]});return p}
 async function residents(){
- await Promise.all([api('/households').then(x=>S.households=x.items),api('/residents?limit=200').then(x=>{S.residents=x.items;S.total=x.total})]);
+ await Promise.all([ensureFields(),api('/households').then(x=>S.households=x.items),api('/residents?limit=200').then(x=>{S.residents=x.items;S.total=x.total})]);
  renderResidents();
 }
 function renderResidents(){
@@ -169,6 +181,7 @@ async function households(){
  $('addHouse')?.addEventListener('click',()=>modal('Tạo hồ sơ hộ',`<div class="form-grid"><label>Mã hộ<input required name="code"></label><label>Địa chỉ<input required name="address"></label><label>Tổ<input type="number" min="1" max="15" value="${S.me.team_id||1}" name="team_id" required></label><label>Ghi chú<input name="note"></label></div>`,async f=>{f.team_id=Number(f.team_id);await api('/households',{method:'POST',body:f});await households()}));
 }
 async function importPage(){
+ await ensureFields();
  $('content').innerHTML=`<div class="card"><h3>Nhập dữ liệu vào PC chính</h3>${note('Đọc file XLSX, CSV, PDF văn bản hoặc ảnh CCCD trên PC. Tệp nguồn được xử lý trong RAM, không ghi ra ổ đĩa hay đưa lên máy chủ ngoài.')}
  <div class="toolbar" style="margin-top:16px"><input id="fileIn" type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg,.webp"><button class="primary" id="previewFile">Đọc & xem trước</button></div><p class="footnote">Giới hạn 10 MB, 5.000 dòng/lần. PDF dạng quét và OCR tiếng Việt cần gói Tesseract với dữ liệu ngôn ngữ Việt trên PC.</p></div><div id="importResult"></div>`;
  $('previewFile').addEventListener('click',async()=>{
@@ -197,6 +210,7 @@ function showPreview(){
  });
 }
 async function exportPage(){
+ await ensureFields();
  if(!S.isPC){$('content').innerHTML=note('Xuất file chỉ được phép trên PC chính.');return}
  $('content').innerHTML=`<div class="card"><h3>Xuất file theo trường và phạm vi</h3>${note('Chỉ PC chính được tạo tệp xuất. Người dùng mobile không được tải dữ liệu cư dân xuống thiết bị.')}<h3 style="margin-top:20px">Chọn trường xuất</h3><div class="checkgrid">${allKeys.map(k=>`<label class="checkline"><input class="exportField" type="checkbox" value="${k}" ${['full_name','cccd','team_id'].includes(k)?'checked':''}>${esc(fieldLabels[k])}</label>`).join('')}</div>
  <div class="form-grid" style="margin-top:20px"><label>Định dạng<select id="exportFormat"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV UTF-8 BOM</option><option value="json">JSON UTF-8</option></select></label><label>Lọc tổ<select id="exportTeam"><option value="">Tất cả tổ được phép</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label></div>
@@ -287,11 +301,12 @@ async function permissions(){
  }));
 }
 async function fields(){
- const d=await api('/fields');const rows=d.standard.map(x=>'<tr>'+cell(x.id)+cell(x.label)+cell('Hệ thống')+cell(x.mode)+'</tr>').concat(d.custom.map(x=>'<tr>'+cell(x.name)+cell(x.label)+cell(x.type)+cell('Tùy chỉnh')+'</tr>'));
- $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Danh mục trường dữ liệu</h3><button class="primary" id="newField">+ Thêm trường</button></div>${table(['Mã','Tên trường','Kiểu','Cấu hình'],rows)}<p class="footnote">Trường mới lưu ở bảng định nghĩa riêng. Việc nhập/sửa giá trị trường tùy chỉnh trong hồ sơ là hạng mục cần triển khai tiếp.</p></div>`;
+ const d=await api('/fields');syncFields(d);const rows=d.standard.map(x=>'<tr>'+cell(x.id)+cell(x.label)+cell('Hệ thống')+cell(x.mode)+'</tr>').concat(d.custom.map(x=>'<tr>'+cell(x.name)+cell(x.label)+cell(x.type)+cell('Tùy chỉnh')+'</tr>'));
+ $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Danh mục trường dữ liệu</h3><button class="primary" id="newField">+ Thêm trường</button></div>${table(['Mã','Tên trường','Kiểu','Cấu hình'],rows)}<p class="footnote">Trường tùy chỉnh được hiển thị trong hồ sơ theo đúng loại dữ liệu và quyền truy cập.</p></div>`;
  $('newField').addEventListener('click',()=>modal('Thêm trường dữ liệu',`<div class="form-grid"><label>Mã không dấu (snake_case)<input required name="name" pattern="[a-z][a-z0-9_]{1,40}"></label><label>Tên hiển thị có dấu<input required name="label"></label><label>Kiểu dữ liệu<select name="type"><option value="text">Văn bản</option><option value="number">Số</option><option value="date">Ngày</option><option value="dropdown">Danh sách</option><option value="checkbox">Đánh dấu</option></select></label></div>`,async x=>{await api('/fields',{method:'POST',body:x});await fields()}));
 }
 async function templates(){
+ await ensureFields();
  const d=await api('/templates');let rows=d.items.map(x=>'<tr>'+cell(x.name)+cell(x.fields_json)+cell(dateTime(x.created_at))+'</tr>');
  $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Mẫu trường xuất/nhập</h3><button class="primary" id="newTemplate">+ Lưu mẫu</button></div>${rows.length?table(['Tên mẫu','Trường đã lưu','Ngày tạo'],rows):'<p class="muted">Chưa có mẫu dữ liệu.</p>'}</div>`;
  $('newTemplate').addEventListener('click',()=>modal('Tạo mẫu trường',`<label>Tên mẫu<input required name="name"></label><p>Chọn trường cần lưu</p><div class="checkgrid">${allKeys.map(k=>`<label class="checkline"><input type="checkbox" name="selected_${k}" value="1">${esc(fieldLabels[k])}</label>`).join('')}</div>`,async x=>{const selected=allKeys.filter(k=>x['selected_'+k]);await api('/templates',{method:'POST',body:{name:x.name,fields:selected,mapping:{}}});await templates()}));
