@@ -377,6 +377,34 @@ def person_params(p:ResidentIn):
     return [p.full_name.strip(),p.cccd or None,p.dob,p.gender,p.hometown,p.permanent_address,p.team_id,
             p.phone,p.health_insurance,p.occupation,p.note,p.household_id]
 
+def identity_key(value:str)->str:
+    """Stable comparison key for warnings only; never used to auto-merge people."""
+    import unicodedata
+    plain=''.join(c for c in unicodedata.normalize('NFD',value or '')
+                  if unicodedata.category(c)!='Mn')
+    return ' '.join(plain.casefold().split())
+
+def possible_duplicate_rows(full_name:str,dob:Optional[str],team_id:int,exclude_id:Optional[str]=None):
+    # A name alone is not enough evidence. Require DOB + team and return candidates
+    # for human review without modifying either record.
+    if not full_name or not dob:return []
+    query='SELECT * FROM residents WHERE deleted_at IS NULL AND dob=? AND team_id=?'
+    args=[dob,team_id]
+    if exclude_id:
+        query+=' AND id<>?';args.append(exclude_id)
+    wanted=identity_key(full_name)
+    return [dict(r) for r in db().execute(query,args) if identity_key(r['full_name'])==wanted]
+
+@app.post('/api/residents/duplicate-check')
+def duplicate_check(p:ResidentIn,account:dict=Depends(user)):
+    capability(account,'read_residents')
+    validate_resident(p,account)
+    with LOCK:
+        rows=possible_duplicate_rows(p.full_name,p.dob,p.team_id)
+        return {'possible_duplicate':bool(rows),'count':len(rows),
+                'items':[protect(r,account['role']) for r in rows],
+                'rule':'Cùng họ tên chuẩn hóa, ngày sinh và tổ; chỉ cảnh báo, không tự gộp.'}
+
 @app.get('/api/residents')
 def list_residents(q:str='',team:Optional[int]=None,limit:int=100,offset:int=0,account:dict=Depends(user)):
     capability(account,'read_residents')
@@ -752,7 +780,8 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
     if any(v not in allowed for v in p.mapping.values()):raise HTTPException(422,'Ánh xạ chứa trường không hợp lệ.')
     if len(p.rows)>5000:raise HTTPException(422,'Quá 5.000 dòng.')
     if 'full_name' not in p.selected or 'team_id' not in p.selected:raise HTTPException(422,'Bắt buộc chọn Họ tên và Tổ.')
-    summary={'inserted':0,'duplicates':0,'invalid':0,'errors':[]}
+    summary={'inserted':0,'duplicates':0,'possible_duplicates':0,'warnings':[],
+             'invalid':0,'errors':[]}
     with LOCK:
         for idx,row in enumerate(p.rows):
             data={v:row.get(k) for k,v in p.mapping.items() if v in p.selected}
@@ -765,6 +794,14 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
                 clean={k:(None if v=='' else v) for k,v in data.items()}
                 ri=validate_model(ResidentIn,clean)
                 validate_resident(ri,account)
+                candidates=[] if ri.cccd else possible_duplicate_rows(ri.full_name,ri.dob,ri.team_id)
+                if candidates:
+                    summary['possible_duplicates']+=1
+                    if len(summary['warnings'])<30:
+                        summary['warnings'].append({
+                            'line':idx+2,
+                            'reason':'Có hồ sơ cùng họ tên, ngày sinh và tổ; đã giữ riêng để người có thẩm quyền rà soát.',
+                            'candidate_ids':[x['id'] for x in candidates[:5]]})
                 rid=uuid.uuid4().hex;t=now()
                 db().execute('''INSERT INTO residents(id,full_name,cccd,dob,gender,hometown,permanent_address,team_id,phone,health_insurance,occupation,note,household_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                              [rid]+person_params(ri)+[t,t])
