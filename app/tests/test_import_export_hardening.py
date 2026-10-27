@@ -134,3 +134,34 @@ def test_import_commit_rejects_duplicate_destination_mapping(api):
         'mapping':{'Tên 1':'full_name','Tên 2':'full_name','Tổ':'team_id'},
         'selected':['full_name','team_id']})
     assert response.status_code==422 and 'cùng một trường đích' in response.json()['detail']
+
+def test_custom_field_create_import_list_and_export(api):
+    client,headers=api
+    created=client.post('/api/fields',headers=headers,json={
+        'name':'nhom_mau','label':'Nhóm máu','type':'dropdown','options':['A','B','AB','O']})
+    assert created.status_code==200,created.text
+    raw='Họ tên,Tổ,Nhóm máu\nNguyễn Văn C,4,AB\n'.encode('utf-8')
+    preview=client.post('/api/import/preview',headers=headers,files={'file':('tuy-bien.csv',raw,'text/csv')})
+    assert preview.status_code==200,preview.text
+    data=preview.json();assert data['mapping']['Nhóm máu']=='custom:nhom_mau'
+    commit=client.post('/api/import/commit',headers=headers,json={
+        'rows':data['rows'],'mapping':data['mapping'],
+        'selected':['full_name','team_id','custom:nhom_mau']})
+    assert commit.status_code==200,commit.text
+    assert commit.json()['inserted']==1
+    listed=client.get('/api/residents',headers=headers).json()['items']
+    assert listed[0]['custom_values']['nhom_mau']=='AB'
+    exported=client.get('/api/export',headers=headers,params={
+        'fields':'full_name,custom:nhom_mau','format':'json'})
+    assert exported.status_code==200 and exported.json()[0]['custom:nhom_mau']=='AB'
+
+def test_custom_field_validation_and_fail_closed_viewer_default(api):
+    client,headers=api
+    assert client.post('/api/fields',headers=headers,json={
+        'name':'ngay_dang_ky','label':'Ngày đăng ký','type':'date'}).status_code==200
+    bad=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Sai Ngày','team_id':1,
+        'custom_values':{'ngay_dang_ky':'31/12/2026'}})
+    assert bad.status_code==422 and 'YYYY-MM-DD' in bad.json()['detail']
+    matrix=client.get('/api/permissions',headers=headers).json()
+    assert matrix['field_grants']['viewer']['ngay_dang_ky']=='hidden'
