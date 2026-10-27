@@ -37,7 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_residents_household ON residents(household_id);
 CREATE TABLE IF NOT EXISTS field_definitions(
  id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, label TEXT NOT NULL UNIQUE,
  type TEXT NOT NULL CHECK(type IN ('text','number','date','dropdown','checkbox')),
- options_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL
+ options_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL,
+ display_order INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1))
 );
 CREATE TABLE IF NOT EXISTS field_values(
  resident_id TEXT NOT NULL REFERENCES residents(id) ON DELETE CASCADE,
@@ -97,6 +98,11 @@ def initialize(conn:sqlite3.Connection):
     for name in ('phone', 'zalo_id', 'email', 'last_login_at'):
         if name not in account_columns:
             conn.execute(f'ALTER TABLE accounts ADD COLUMN {name} TEXT')
+    field_columns = {row[1] for row in conn.execute('PRAGMA table_info(field_definitions)')}
+    if 'display_order' not in field_columns:
+        conn.execute('ALTER TABLE field_definitions ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0')
+    if 'active' not in field_columns:
+        conn.execute('ALTER TABLE field_definitions ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
     if not conn.execute("SELECT 1 FROM meta WHERE key='schema_version'").fetchone():
         conn.execute("INSERT INTO meta(key,value) VALUES('schema_version','7.1.0')")
     for role in ['viewer','reviewer','admin_kp','admin_root','super_admin']:
