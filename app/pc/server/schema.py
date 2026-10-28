@@ -50,6 +50,16 @@ CREATE TABLE IF NOT EXISTS field_permissions(
  mode TEXT NOT NULL CHECK(mode IN ('required','optional','hidden','masked')),
  PRIMARY KEY(role,field)
 );
+CREATE TABLE IF NOT EXISTS field_option_migrations(
+ id TEXT PRIMARY KEY, field_id TEXT NOT NULL REFERENCES field_definitions(id),
+ from_value TEXT NOT NULL, to_value TEXT NOT NULL, affected_count INTEGER NOT NULL,
+ options_before_json TEXT NOT NULL, options_after_json TEXT NOT NULL,
+ actor TEXT NOT NULL, created_at TEXT NOT NULL, undone_at TEXT, undone_by TEXT
+);
+CREATE TABLE IF NOT EXISTS field_option_migration_items(
+ migration_id TEXT NOT NULL REFERENCES field_option_migrations(id) ON DELETE CASCADE,
+ resident_id TEXT NOT NULL REFERENCES residents(id), PRIMARY KEY(migration_id,resident_id)
+);
 CREATE TABLE IF NOT EXISTS templates(id TEXT PRIMARY KEY,name TEXT NOT NULL,fields_json TEXT NOT NULL,mapping_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS filter_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,signature_json TEXT NOT NULL,fields_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_log(
