@@ -46,3 +46,34 @@ test('khung giao diện, điều hướng và responsive hoạt động', async 
   await page.screenshot({path:testInfo.outputPath('giao-dien.png'),fullPage:true});
   expect(errors).toEqual([]);
 });
+
+test('OCR nhiều tệp: chọn trường, sửa giá trị và xác nhận riêng', async ({page},testInfo) => {
+  await enterApp(page);
+  const mobile=testInfo.project.name.startsWith('mobile');
+  await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
+  await expect(page.locator('#fileIn')).toBeVisible();
+  let previews=0;
+  await page.route('**/api/import/preview',async route=>{
+    previews++;
+    await route.fulfill({json:{ocr_review:true,headers:['Họ tên OCR','Số CCCD nhận dạng'],
+      rows:[{'Họ tên OCR':previews===1?'Nguyễn A':'Trần B','Số CCCD nhận dạng':''}],
+      preview:[],count:1,mapping:{'Họ tên OCR':'full_name'},raw_text:'Họ tên: '+(previews===1?'Nguyễn A':'Trần B'),warnings:['Đối chiếu ảnh gốc.']}});
+  });
+  const files=[1,2].map(i=>({name:`scan-${i}.png`,mimeType:'image/png',buffer:Buffer.from([137,80,78,71,13,10,26,10])}));
+  await page.locator('#fileIn').setInputFiles(files);
+  await page.locator('#previewFile').click();
+  await expect(page.locator('.ocrValue[data-field="full_name"]')).toHaveValue('Nguyễn A');
+  await page.locator('.ocrValue[data-field="full_name"]').fill('Nguyễn A đã sửa');
+  await page.locator('#ocrTeam').fill('2');
+  let committed:any;
+  await page.route('**/api/import/commit',async route=>{
+    committed=route.request().postDataJSON();
+    await route.fulfill({json:{inserted:1,invalid:0,duplicates:0,errors:[]}});
+  });
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#commitOcr').click();
+  await expect(page.locator('.ocrValue[data-field="full_name"]')).toHaveValue('Trần B');
+  expect(committed.rows).toEqual([{'Tổ':'2','Họ tên OCR':'Nguyễn A đã sửa'}]);
+  expect(committed.selected).toEqual(['team_id','full_name']);
+  await expect(page.locator('#importResult')).toContainText('còn 0 tệp');
+});
