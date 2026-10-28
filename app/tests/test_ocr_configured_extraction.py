@@ -131,9 +131,10 @@ def test_enhanced_photo_flattens_uneven_paper_light():
         for y in range(image.height):image.putpixel((x,y),(shade,shade,shade))
     ImageDraw.Draw(image).rectangle((500,240,700,260),fill=(20,20,20))
     enhanced=prepare_ocr_image(image,force=True)
-    left=enhanced.getpixel((100,100))[0]
-    right=enhanced.getpixel((1100,100))[0]
-    ink=enhanced.getpixel((600,250))[0]
+    scale=enhanced.width/image.width
+    left=enhanced.getpixel((round(100*scale),round(100*scale)))[0]
+    right=enhanced.getpixel((round(1100*scale),round(100*scale)))[0]
+    ink=enhanced.getpixel((round(600*scale),round(250*scale)))[0]
     assert abs(left-right)<35
     assert ink<min(left,right)-70
 

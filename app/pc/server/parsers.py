@@ -3,7 +3,7 @@ import io,csv,re,unicodedata,hashlib,lzma,tempfile,threading,atexit
 from pathlib import Path
 from openpyxl import load_workbook
 from pypdf import PdfReader
-from PIL import Image,ImageOps,ImageEnhance,ImageFilter,ImageStat,ImageChops
+from PIL import Image,ImageOps,ImageEnhance,ImageFilter,ImageStat,ImageMath
 
 VIETNAMESE_MODEL=Path(__file__).resolve().parents[1]/'ocr_models'/'vie.traineddata'
 VIETNAMESE_MODEL_SHA256='79df64caf7bcfb2a27df5042ecb6121e196eada34da774956995747636d5bfa1'
@@ -69,17 +69,20 @@ def prepare_ocr_image(image,force=False):
     if image.width*image.height>20_000_000:raise ValueError('Ảnh quá lớn để xử lý OCR.')
     gray=ImageOps.grayscale(image)
     stat=ImageStat.Stat(gray)
-    if force or stat.mean[0]<90 or stat.stddev[0]<25:
-        image=ImageOps.autocontrast(image,cutoff=1)
-        if stat.mean[0]<65:image=ImageEnhance.Brightness(image).enhance(1.2)
-        if force:image=ImageEnhance.Contrast(image).enhance(1.2)
     if force and min(image.size)>=300:
         # Phone photos often have a bright side and a shadowed side. Estimate
         # the slowly changing paper background, retaining the dark glyphs.
         gray=ImageOps.grayscale(image)
         radius=min(60,max(15,min(image.size)//25))
         background=gray.filter(ImageFilter.GaussianBlur(radius))
-        image=ImageChops.divide(gray,background,scale=230).convert('RGB')
+        image=ImageMath.lambda_eval(
+            lambda a:(a['paper']*230)/(a['background']+1),
+            paper=gray.convert('F'),background=background.convert('F')
+        ).convert('L').convert('RGB')
+    elif force or stat.mean[0]<90 or stat.stddev[0]<25:
+        image=ImageOps.autocontrast(image,cutoff=1)
+        if stat.mean[0]<65:image=ImageEnhance.Brightness(image).enhance(1.2)
+        if force:image=ImageEnhance.Contrast(image).enhance(1.2)
     target=1200 if force else 900
     if min(image.size)<target and min(image.size)>=120:
         factor=min(2.0,target/min(image.size))
