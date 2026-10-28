@@ -588,7 +588,11 @@ def fields(include_inactive:bool=False,account:dict=Depends(user)):
         for r in db().execute(query):
             mode=modes.get(r['name'],'hidden')
             if mode!='hidden':
-                item=dict(r);item['mode']=mode;custom.append(item)
+                item=dict(r);item['mode']=mode
+                item['usage_count']=db().execute(
+                    'SELECT count(*) FROM field_values WHERE field_id=? AND value IS NOT NULL AND value<>? ',
+                    (r['id'],'')).fetchone()[0]
+                custom.append(item)
         return {'standard':[{'id':k,'label':v,'mode':modes.get(k,'optional')} for k,v in BASE_FIELDS.items() if modes.get(k)!='hidden'],
                 'custom':custom}
 
@@ -643,6 +647,15 @@ def update_field(field_id:str,p:FieldUpdate,account:dict=Depends(user)):
         if not row:raise HTTPException(404,'Không tìm thấy trường tùy biến.')
         label=p.label.strip() if p.label is not None else row['label']
         options=json.loads(row['options_json'] or '[]') if p.options is None else clean_field_options(row['type'],p.options)
+        if p.options is not None and row['type']=='dropdown':
+            removed=[value for value in json.loads(row['options_json'] or '[]') if value not in options]
+            if removed:
+                marks=','.join('?' for _ in removed)
+                used=db().execute('SELECT value,count(*) AS total FROM field_values WHERE field_id=? AND value IN ('+marks+') GROUP BY value',
+                                  [field_id]+removed).fetchall()
+                if used:
+                    summary=', '.join(str(x['value'])+' ('+str(x['total'])+' hồ sơ)' for x in used)
+                    raise HTTPException(409,'Không thể bỏ lựa chọn đang được sử dụng: '+summary+'. Hãy chuyển dữ liệu hồ sơ trước.')
         order=row['display_order'] if p.display_order is None else p.display_order
         active=row['active'] if p.active is None else int(p.active)
         try:db().execute('UPDATE field_definitions SET label=?,options_json=?,display_order=?,active=? WHERE id=?',
@@ -653,6 +666,25 @@ def update_field(field_id:str,p:FieldUpdate,account:dict=Depends(user)):
         record(account['id'],'UPDATE_FIELD','field',field_id,{'active':bool(active),'display_order':order})
         commit()
         return {'ok':True}
+
+class FieldMove(BaseModel):
+    direction:str
+
+@app.post('/api/fields/{field_id}/move')
+def move_field(field_id:str,p:FieldMove,account:dict=Depends(user)):
+    capability(account,'manage_fields');permit(account,'admin_kp','admin_root','super_admin')
+    if p.direction not in ('up','down'):raise HTTPException(422,'Hướng sắp xếp không hợp lệ.')
+    with LOCK:
+        row=db().execute('SELECT id,display_order FROM field_definitions WHERE id=?',(field_id,)).fetchone()
+        if not row:raise HTTPException(404,'Không tìm thấy trường tùy biến.')
+        sign='<' if p.direction=='up' else '>'
+        order='DESC' if p.direction=='up' else 'ASC'
+        other=db().execute('SELECT id,display_order FROM field_definitions WHERE display_order '+sign+' ? ORDER BY display_order '+order+',label '+order+' LIMIT 1',(row['display_order'],)).fetchone()
+        if not other:return {'ok':True,'moved':False}
+        db().execute('UPDATE field_definitions SET display_order=? WHERE id=?',(other['display_order'],row['id']))
+        db().execute('UPDATE field_definitions SET display_order=? WHERE id=?',(row['display_order'],other['id']))
+        record(account['id'],'MOVE_FIELD','field',field_id,{'direction':p.direction})
+        commit();return {'ok':True,'moved':True}
 
 @app.get('/api/accounts')
 def accounts(account:dict=Depends(user)):
