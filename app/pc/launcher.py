@@ -45,6 +45,8 @@ def main():
         try:check_install()
         except Exception as exc:
             print('KIỂM TRA CÀI ĐẶT LỖI:',exc,file=sys.stderr)
+            if exc.__cause__ is not None:
+                print('Chi tiết OCR ảnh thử:',repr(exc.__cause__),file=sys.stderr)
             sys.exit(4)
         return
     if compatibility['track']=='legacy' and args.host not in ('127.0.0.1','::1','localhost'):
