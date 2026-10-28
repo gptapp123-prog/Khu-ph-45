@@ -177,15 +177,24 @@ function renderResidents(){
 }
 async function duplicateReview(){
  const data=await api('/residents/duplicate-candidates');
- const cards=data.items.map(x=>`<div class="card"><div class="card-heading"><div><h3>${esc(x.left.full_name)} ↔ ${esc(x.right.full_name)}</h3><p class="muted small">${esc(x.rule)}</p></div><button class="outline small" data-not-duplicate="${esc(x.candidate_id)}">Không phải cùng người</button></div>${table(['Thuộc tính','Hồ sơ A','Hồ sơ B'],[
+ const cards=data.items.map(x=>`<div class="card"><div class="card-heading"><div><h3>${esc(x.left.full_name)} ↔ ${esc(x.right.full_name)}</h3><p class="muted small">${esc(x.rule)}</p></div><div class="actions"><button class="outline small" data-not-duplicate="${esc(x.candidate_id)}">Không phải cùng người</button>${S.isPC&&isRoot()?`<button class="primary small" data-merge-candidate="${esc(x.candidate_id)}" data-primary="${esc(x.left.id)}" data-secondary="${esc(x.right.id)}">Gộp, giữ A</button><button class="primary small" data-merge-candidate="${esc(x.candidate_id)}" data-primary="${esc(x.right.id)}" data-secondary="${esc(x.left.id)}">Gộp, giữ B</button>`:''}</div></div>${table(['Thuộc tính','Hồ sơ A','Hồ sơ B'],[
   `<tr>${cell('CCCD')}${cell(x.left.cccd||'Chưa có')}${cell(x.right.cccd||'Chưa có')}</tr>`,
   `<tr>${cell('Ngày sinh')}${cell(x.left.dob||'—')}${cell(x.right.dob||'—')}</tr>`,
   `<tr>${cell('Tổ')}${cell(x.left.team_id)}${cell(x.right.team_id)}</tr>`,
   `<tr>${cell('Điện thoại')}${cell(x.left.phone||'—')}${cell(x.right.phone||'—')}</tr>`,
   `<tr>${cell('Địa chỉ')}${cell(x.left.permanent_address||'—')}${cell(x.right.permanent_address||'—')}</tr>`])}</div>`).join('');
- $('content').innerHTML=`<div class="card"><div class="card-heading"><div><h3>Rà soát hồ sơ nghi trùng</h3><p class="muted small">${data.count} cặp cần xem xét${data.limited?' · giới hạn 500 cặp':''}</p></div><button class="outline" id="backResidents">Quay lại</button></div>${note(data.note)}</div>${cards||'<div class="card empty">Không còn cặp hồ sơ nào cần rà soát.</div>'}`;
+ $('content').innerHTML=`<div class="card"><div class="card-heading"><div><h3>Rà soát hồ sơ nghi trùng</h3><p class="muted small">${data.count} cặp cần xem xét${data.limited?' · giới hạn 500 cặp':''}</p></div><div class="actions">${S.isPC&&isRoot()?'<button class="outline" id="mergeHistory">Lịch sử gộp</button>':''}<button class="outline" id="backResidents">Quay lại</button></div></div>${note(data.note)}</div>${cards||'<div class="card empty">Không còn cặp hồ sơ nào cần rà soát.</div>'}`;
  $('backResidents').addEventListener('click',residents);
  document.querySelectorAll('[data-not-duplicate]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Xác nhận hai hồ sơ này không phải cùng một người?'))return;try{await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.notDuplicate)+'/decision',{method:'POST',body:{decision:'not_duplicate'}});await duplicateReview();toast('Đã ghi nhận quyết định và lưu nhật ký.')}catch(e){toast(e.message,true)}}));
+ document.querySelectorAll('[data-merge-candidate]').forEach(b=>b.addEventListener('click',async()=>{try{
+  const payload={primary_id:b.dataset.primary,secondary_id:b.dataset.secondary};
+  const preview=await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.mergeCandidate)+'/merge-preview',{method:'POST',body:payload});
+  const conflicts=preview.conflicts.map(x=>`• ${x.label}: “${x.primary??''}” / “${x.secondary??''}” → giữ hồ sơ chính`).join('\n');
+  if(!confirm(`Hồ sơ phụ sẽ bị xóa mềm. Hồ sơ chính được ưu tiên và chỉ nhận dữ liệu còn thiếu.\n\n${conflicts||'Không có trường xung đột.'}\n\nXác nhận gộp?`))return;
+  const result=await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.mergeCandidate)+'/merge',{method:'POST',body:{...payload,expected_signature:preview.signature,confirmation:'GOP HO SO'}});
+  await duplicateReview();toast('Đã gộp hồ sơ. Mã giao dịch: '+result.merge_id);
+ }catch(e){toast(e.message,true)}}));
+ $('mergeHistory')?.addEventListener('click',async()=>{try{const history=await api('/resident-merges');const rows=history.items.map(x=>`<tr><td><input type="radio" name="merge_id" value="${esc(x.id)}" ${x.undone_at?'disabled':''}></td>${cell(x.primary_name+' ← '+x.secondary_name)}${cell(dateTime(x.merged_at))}${cell(x.undone_at?'Đã hoàn tác':'Có thể hoàn tác')}</tr>`);modal('Lịch sử gộp hồ sơ',history.items.length?table(['Chọn','Giao dịch','Thời điểm','Trạng thái'],rows):'<p>Chưa có giao dịch gộp.</p>',async x=>{if(!x.merge_id)throw Error('Chọn giao dịch có thể hoàn tác.');if(!confirm('Hoàn tác gộp và khôi phục hai hồ sơ?'))return;await api('/resident-merges/'+encodeURIComponent(x.merge_id)+'/undo',{method:'POST',body:{confirmation:'HOAN TAC GOP'}});await duplicateReview();toast('Đã hoàn tác gộp hồ sơ.');});}catch(e){toast(e.message,true)}});
 }
 async function households(){
  const d=await api('/households');S.households=d.items;
