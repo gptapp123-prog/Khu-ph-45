@@ -247,23 +247,28 @@ function showPreview(){
  });
 }
 function showOcrReview(){
- const p=S.preview,row=p.rows[0]||{};
- const choices=[['full_name','Họ tên','Họ tên OCR'],['cccd','Số CCCD','Số CCCD nhận dạng'],
-  ['dob','Ngày sinh (DD-MM-YYYY)','Ngày sinh OCR'],['gender','Giới tính','Giới tính OCR'],
-  ['hometown','Quê quán','Quê quán OCR'],['permanent_address','Thường trú','Thường trú OCR']];
+ const p=S.preview;
+ const items=p.ocr_items||Object.entries(p.rows[0]||{}).map(([source,value])=>({source,label:source,value,suggested:p.mapping[source]||''}));
+ const allowed=allKeys.filter(k=>!['team_id','household_id'].includes(k));
+ const custom=S.fields?.custom||[];
+ function suggestion(item){const label=item.label.toLocaleLowerCase('vi-VN').trim();
+  return custom.find(f=>f.active!==false&&(f.label.toLocaleLowerCase('vi-VN')===label||f.name===label))?.name
+   ?'custom:'+custom.find(f=>f.active!==false&&(f.label.toLocaleLowerCase('vi-VN')===label||f.name===label)).name
+   :item.suggested||''}
  $('importResult').innerHTML=`<div class="card"><h3>Đối chiếu OCR trước khi nhập</h3>${(p.warnings||[]).map(note).join('')}
- <p class="footnote">Chọn riêng từng nội dung cần nhập. Sửa giá trị theo ảnh gốc; OCR không tự xác nhận danh tính.</p>
- <div class="form-grid">${choices.map(([key,label,source])=>`<label><span><input type="checkbox" class="ocrChoice" data-field="${key}" ${row[source]?'checked':''} style="width:auto"> ${label}</span><input class="ocrValue" data-field="${key}" value="${esc(row[source]||'')}"></label>`).join('')}
- <label>Tổ phụ trách (bắt buộc)<input id="ocrTeam" type="number" min="1" max="15" value="${esc(S.me.team_id||'')}"></label></div>
+ <p class="footnote">Mỗi dòng OCR là một gợi ý. Chọn cột đích và sửa giá trị theo tài liệu gốc; để “Không nhập” nếu không chắc chắn.</p>
+ ${table(['Nhãn nguồn','Cột đích','Giá trị cần xác nhận'],items.map((item,i)=>`<tr><td>${esc(item.label)}</td><td><select class="ocrTarget" data-index="${i}"><option value="">Không nhập</option>${allowed.map(k=>`<option value="${esc(k)}" ${suggestion(item)===k?'selected':''}>${esc(fieldLabels[k])}</option>`).join('')}</select></td><td><input class="ocrValue" data-index="${i}" value="${esc(item.value)}" maxlength="3000"></td></tr>`))}
+ <label style="margin-top:14px">Tổ phụ trách (bắt buộc)<input id="ocrTeam" type="number" min="1" max="15" value="${esc(S.me.team_id||'')}"></label>
  <details><summary>Văn bản OCR gốc để đối chiếu</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.raw_text||'')}</pre></details>
  <div class="toolbar" style="margin-top:16px"><button id="commitOcr" class="primary">Xác nhận và nhập trường đã chọn</button></div></div>`;
  $('commitOcr').addEventListener('click',async()=>{
-  const selected=Array.from(document.querySelectorAll('.ocrChoice:checked')).map(x=>x.dataset.field);
-  const values={};document.querySelectorAll('.ocrValue').forEach(x=>values[x.dataset.field]=x.value.trim());
+  const targets=Array.from(document.querySelectorAll('.ocrTarget'));
   const team=Number($('ocrTeam').value);
-  if(!selected.includes('full_name')||!values.full_name||!Number.isInteger(team)||team<1||team>15){toast('Cần chọn Họ tên và nhập Tổ từ 1 đến 15.',true);return}
+  const selected=targets.map(x=>x.value).filter(Boolean);
+  if(selected.length!==new Set(selected).size){toast('Mỗi cột đích chỉ được chọn một lần.',true);return}
   const mapping={'Tổ':'team_id'},entry={'Tổ':String(team)};
-  choices.forEach(([key,,source])=>{if(selected.includes(key)){mapping[source]=key;entry[source]=values[key]}});
+  targets.forEach(x=>{if(x.value){const i=Number(x.dataset.index),value=document.querySelector(`.ocrValue[data-index="${i}"]`).value.trim();mapping[items[i].source]=x.value;entry[items[i].source]=value}});
+  if(!selected.includes('full_name')||!Object.entries(mapping).some(([source,target])=>target==='full_name'&&entry[source])||!Number.isInteger(team)||team<1||team>15){toast('Cần chọn Họ tên và nhập Tổ từ 1 đến 15.',true);return}
   if(!confirm('Đã đối chiếu từng trường được chọn với ảnh gốc và xác nhận nhập?'))return;
   try{const result=await api('/import/commit',{method:'POST',body:{rows:[entry],mapping,selected:['team_id',...selected]}});
    $('importResult').innerHTML=`<div class="card"><h3>Kết quả OCR</h3><p>Đã nhập: ${result.inserted} · Không hợp lệ: ${result.invalid} · Trùng CCCD: ${result.duplicates}</p>${result.errors?.map(x=>note(x.reason)).join('')||''}</div>`;

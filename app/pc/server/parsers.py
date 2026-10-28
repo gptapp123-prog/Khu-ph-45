@@ -80,10 +80,31 @@ def review_result(texts,source):
     content='\n'.join(texts)
     extracted,warnings=extract_ocr_fields(content)
     headers=list(OCR_HEADERS.values())
-    rows=[{label:extracted.get(field,'') for field,label in OCR_HEADERS.items()}]
+    row={label:extracted.get(field,'') for field,label in OCR_HEADERS.items()}
+    items=[{'source':label,'label':label,'value':row[label],'suggested':field}
+           for field,label in OCR_HEADERS.items()]
+    seen={strip_accents(label) for label in OCR_HEADERS.values()}
+    for line in content.splitlines():
+        match=re.match(r'^\s*([^:：]{2,80})\s*[:：]\s*(.{1,1000})\s*$',line)
+        if not match:continue
+        label,value=match.group(1).strip(),match.group(2).strip()
+        if not label or not value:continue
+        matched=next((field for field,labels in OCR_LABELS.items()
+                      if strip_accents(label) in labels),None)
+        if matched:continue
+        key=strip_accents(label)
+        if key in seen:
+            warnings.append('Nhãn OCR lặp lại: '+label+'; kiểm tra văn bản gốc.')
+            continue
+        seen.add(key);headers.append(label);row[label]=value
+        items.append({'source':label,'label':label,'value':value,'suggested':automap([label]).get(label,'')})
+        if len(items)>=100:
+            warnings.append('Chỉ hiển thị 100 trường OCR đầu tiên; hãy tách tài liệu.')
+            break
+    rows=[row]
     result={'headers':headers,'preview':rows,'rows':rows,'count':1,
             'mapping':{label:field for field,label in OCR_HEADERS.items() if extracted.get(field)},
-            'ocr_review':True,'raw_text':content[:12000],
+            'ocr_review':True,'ocr_items':items,'raw_text':content[:12000],
             'warnings':['Nội dung '+source+' chỉ là gợi ý. Đối chiếu bản gốc và chọn từng trường trước khi ghi.']+warnings}
     if len(texts)>1:result['warnings'].append('Tài liệu nhiều trang: kiểm tra thông tin thuộc cùng một người trước khi nhập.')
     return result

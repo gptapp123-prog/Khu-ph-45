@@ -72,3 +72,13 @@ def test_pdf_scan_without_embedded_image_renders_page_in_memory():
     assert result['rows'][0]['Họ tên OCR']=='Trần B'
     pdfium.PdfDocument.assert_called_once_with(b'%PDF synthetic')
     rendered.render.assert_called_once_with(scale=2.0)
+
+
+def test_general_document_keeps_unrecognized_label_for_manual_mapping():
+    image=Image.new('RGB',(20,20),'white');buffer=io.BytesIO();image.save(buffer,format='PNG')
+    with patch('pytesseract.image_to_string',return_value='Họ tên: Nguyễn A\nNghề nghiệp: Thợ may\nMã hồ sơ: KH-42'):
+        result=parse_file(buffer.getvalue(),'mau-khac.png')
+    assert result['rows'][0]['Nghề nghiệp']=='Thợ may'
+    assert result['rows'][0]['Mã hồ sơ']=='KH-42'
+    assert next(x for x in result['ocr_items'] if x['source']=='Nghề nghiệp')['suggested']=='occupation'
+    assert next(x for x in result['ocr_items'] if x['source']=='Mã hồ sơ')['suggested']==''
