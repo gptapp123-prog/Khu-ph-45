@@ -245,7 +245,7 @@ async function configuredOcrPage(){
   for(const file of files){
    try{
     const fd=new FormData();fd.append('file',file);
-    const preview=await api('/import/preview',{method:'POST',body:fd});
+    const preview=await api('/import/preview?ocr_template_id='+encodeURIComponent(id),{method:'POST',body:fd});
     if(!preview.ocr_review||!preview.raw_text)throw Error('Tệp không có văn bản OCR để trích.');
     const result=await api('/ocr/extract',{method:'POST',body:{template_id:id,text:preview.raw_text}});
     const block=document.createElement('div');block.className='card';

@@ -66,7 +66,7 @@ def extract_configured(text,fields):
                 value=_after_heading(remainder)
                 if not value and index+1<len(lines):
                     following=lines[index+1].strip()
-                    if len(following)>=3 and not any(_label_positions(following,labels)):value=following
+                    if len(following)>=3 and not following.startswith('[') and not any(_label_positions(following,labels)):value=following
                 value=_split_next_label(value,labels).strip()
                 if field['type']=='year':
                     years=re.findall(r'(?<!\d)(?:18|19|20)\d{2}(?!\d)',value)

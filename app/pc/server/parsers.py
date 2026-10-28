@@ -1,5 +1,5 @@
 from __future__ import annotations
-import io,csv,re,unicodedata,hashlib
+import io,csv,re,unicodedata,hashlib,lzma,tempfile,threading,atexit
 from pathlib import Path
 from openpyxl import load_workbook
 from pypdf import PdfReader
@@ -7,18 +7,93 @@ from PIL import Image
 
 VIETNAMESE_MODEL=Path(__file__).resolve().parents[1]/'ocr_models'/'vie.traineddata'
 VIETNAMESE_MODEL_SHA256='79df64caf7bcfb2a27df5042ecb6121e196eada34da774956995747636d5bfa1'
+ENGLISH_MODEL_SHA256='7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2'
+ENGLISH_ARCHIVE_SHA256='6e287ef6ff5dac5ef95295d76f685b6695ac57a6adcdbc23956627594ffdcc5c'
+_MODEL_LOCK=threading.Lock()
+_MODEL_DIR=None
+_MODEL_TEMP=None
 
-def ocr_image(image):
-    """Use the bundled Vietnamese model; never fall back silently to English."""
-    if not VIETNAMESE_MODEL.is_file() or hashlib.sha256(VIETNAMESE_MODEL.read_bytes()).hexdigest()!=VIETNAMESE_MODEL_SHA256:
-        raise ValueError('Thiếu hoặc sai bộ nhận dạng tiếng Việt đi kèm ứng dụng PC.')
+def ocr_model_dir():
+    global _MODEL_DIR,_MODEL_TEMP
+    with _MODEL_LOCK:
+        if _MODEL_DIR:return _MODEL_DIR
+        if not VIETNAMESE_MODEL.is_file() or hashlib.sha256(VIETNAMESE_MODEL.read_bytes()).hexdigest()!=VIETNAMESE_MODEL_SHA256:
+            raise ValueError('Thiếu hoặc sai bộ nhận dạng tiếng Việt đi kèm ứng dụng PC.')
+        parts=[VIETNAMESE_MODEL.with_name('eng.traineddata.xz.part'+str(i).zfill(2)) for i in range(3)]
+        if not all(p.is_file() for p in parts):raise ValueError('Thiếu bộ nhận dạng tiếng Anh đi kèm ứng dụng PC.')
+        packed=b''.join(p.read_bytes() for p in parts)
+        if hashlib.sha256(packed).hexdigest()!=ENGLISH_ARCHIVE_SHA256:
+            raise ValueError('Bộ nhận dạng tiếng Anh không đạt kiểm tra toàn vẹn.')
+        english=lzma.decompress(packed)
+        if hashlib.sha256(english).hexdigest()!=ENGLISH_MODEL_SHA256:
+            raise ValueError('Bộ nhận dạng tiếng Anh không đạt kiểm tra toàn vẹn.')
+        tmp=tempfile.TemporaryDirectory(prefix='kpho-ocr-model-')
+        path=Path(tmp.name)
+        (path/'vie.traineddata').write_bytes(VIETNAMESE_MODEL.read_bytes())
+        (path/'eng.traineddata').write_bytes(english)
+        _MODEL_TEMP=tmp;_MODEL_DIR=path
+        atexit.register(tmp.cleanup)
+        return path
+
+def ocr_image(image,requested_fields=None):
+    """Recognize the page, then reread selected headings in their image regions."""
+    model_dir=ocr_model_dir()
     import pytesseract
+    config='--tessdata-dir "'+str(model_dir)+'"'
     try:
-        return pytesseract.image_to_string(image,lang='vie',config='--tessdata-dir "'+str(VIETNAMESE_MODEL.parent)+'"')
+        text=pytesseract.image_to_string(image,lang='vie+eng',config=config)
+        if requested_fields and image.width>=500 and image.height>=300:
+            text=ocr_selected_regions(image,text,requested_fields,pytesseract,config)
+        return text
     except pytesseract.TesseractNotFoundError as exc:
         raise ValueError('PC chưa cài chương trình Tesseract OCR.') from exc
     except pytesseract.TesseractError as exc:
         raise ValueError('Tesseract OCR không đọc được ảnh; kiểm tra cài đặt trên PC.') from exc
+
+def ocr_selected_regions(image,text,fields,pytesseract,config):
+    """Use word coordinates to crop a heading and its displaced right-hand value.
+
+    Only missing fields are reconsidered. A conflicting or unverified number is
+    never promoted into the field; the original page text remains available.
+    """
+    from .ocr_extraction import extract_configured,normalized
+    missing=[f for f in fields if not extract_configured(text,[f])[0][f['column']]]
+    if not missing:return text
+    data=pytesseract.image_to_data(image,lang='vie+eng',config=config,output_type=pytesseract.Output.DICT)
+    tokens=[]
+    for i,word in enumerate(data['text']):
+        clean=normalized(word).strip(' :.,;_–—')
+        if clean:tokens.append((clean,i))
+    additions=[]
+    for field in missing[:30]:
+        candidates=[]
+        for alias in [field['label']]+field['aliases']:
+            words=[normalized(w).strip(' :.,;_–—') for w in alias.split()]
+            for start in range(len(tokens)-len(words)+1):
+                group=tokens[start:start+len(words)]
+                if [t[0] for t in group]!=words:continue
+                indices=[t[1] for t in group]
+                if max(data['top'][j] for j in indices)-min(data['top'][j] for j in indices)>40:continue
+                left=min(data['left'][j] for j in indices)
+                top=min(data['top'][j] for j in indices)
+                height=max(data['height'][j] for j in indices)
+                x0=max(0,left-25);x1=min(image.width,left+550)
+                y0=max(0,top-max(47,int(height*1.5)));y1=min(image.height,top+max(55,int(height*1.8)))
+                crop=image.crop((x0,y0,x1,y1))
+                crop=crop.resize((crop.width*3,crop.height*3))
+                crop_text=pytesseract.image_to_string(crop,lang='vie+eng',config=config+' --psm 6')
+                value=extract_configured(crop_text,[field])[0][field['column']]
+                if not value:continue
+                value=re.sub(r'(?<=\d)\s+[_|]\s+(?=/)',' ',value)
+                digits=re.findall(r'\d{4,}',value)
+                if digits:
+                    nearby=[str(data['text'][j]).strip('.,;') for j in range(len(data['text']))
+                            if abs(data['top'][j]-top)<=70 and data['left'][j]>=left and float(data['conf'][j])>=70]
+                    if not any(number in nearby for number in digits):continue
+                candidates.append(value)
+        unique=list(dict.fromkeys(candidates))
+        if len(unique)==1:additions.append(field['label']+': '+unique[0])
+    return text+('\n[OCR đọc lại vùng ảnh – cần đối chiếu]\n'+'\n'.join(additions) if additions else '')
 
 KEYWORDS={'cccd':['cccd','can cuoc','so dinh danh','so cccd'],
 'full_name':['ho ten','ten day du','ten'], 'dob':['ngay sinh','sinh ngay'],
@@ -95,6 +170,8 @@ def extract_ocr_fields(content):
 def review_result(texts,source):
     content='\n'.join(texts)
     extracted,warnings=extract_ocr_fields(content)
+    if '[OCR đọc lại vùng ảnh – cần đối chiếu]' in content:
+        warnings.append('Có giá trị đọc lại từ vùng ảnh. Phải đối chiếu từng ký tự với ảnh gốc trước khi xác nhận.')
     headers=list(OCR_HEADERS.values())
     row={label:extracted.get(field,'') for field,label in OCR_HEADERS.items()}
     items=[{'source':label,'label':label,'value':row[label],'suggested':field}
@@ -125,7 +202,7 @@ def review_result(texts,source):
     if len(texts)>1:result['warnings'].append('Tài liệu nhiều trang: kiểm tra thông tin thuộc cùng một người trước khi nhập.')
     return result
 
-def render_pdf_page(raw,page_number):
+def render_pdf_page(raw,page_number,requested_fields=None):
     """Render a scan entirely in RAM when pypdf cannot extract its image."""
     try:import pypdfium2 as pdfium
     except ImportError as exc:raise ValueError('PDF scan cần cài pypdfium2 trên PC để kết xuất toàn trang.') from exc
@@ -140,12 +217,12 @@ def render_pdf_page(raw,page_number):
             bitmap=page.render(scale=scale)
             try:
                 with bitmap.to_pil() as image:
-                    return ocr_image(image)
+                    return ocr_image(image,requested_fields)
             finally:bitmap.close()
         finally:page.close()
     finally:document.close()
 
-def parse_file(raw:bytes,filename:str):
+def parse_file(raw:bytes,filename:str,requested_fields=None):
     if len(raw)>10*1024*1024:raise ValueError('Giới hạn tệp nhập: 10 MB.')
     ext=filename.lower().rsplit('.',1)[-1] if '.' in filename else ''
     rows=[]
@@ -213,14 +290,14 @@ def parse_file(raw:bytes,filename:str):
             if not content:
                 images=list(page.images)
                 if not images:
-                    texts.append(render_pdf_page(raw,page_number))
+                    texts.append(render_pdf_page(raw,page_number,requested_fields))
                     continue
                 if len(images)>10:raise ValueError('Trang PDF có quá 10 ảnh; hãy tách tài liệu để tránh bỏ sót.')
                 page_text=[]
                 for item in images[:10]:
                     with Image.open(io.BytesIO(item.data)) as img:
                         if img.width*img.height>20_000_000:raise ValueError('Ảnh trong PDF quá lớn.')
-                        page_text.append(ocr_image(img))
+                        page_text.append(ocr_image(img,requested_fields))
                 content='\n'.join(page_text)
             texts.append(content)
         if not any(x.strip() for x in texts):raise ValueError('Không đọc được nội dung PDF.')
@@ -228,7 +305,7 @@ def parse_file(raw:bytes,filename:str):
     elif ext in ('png','jpg','jpeg','webp'):
         with Image.open(io.BytesIO(raw)) as img:
             if img.width*img.height>20_000_000:raise ValueError('Ảnh quá lớn.')
-            content=ocr_image(img)
+            content=ocr_image(img,requested_fields)
         return review_result([content],'OCR ảnh')
     else:raise ValueError('Định dạng hỗ trợ: XLSX, CSV, PDF, PNG, JPG, WEBP.')
     result={'headers':headers,'preview':rows[:10],'rows':rows,'mapping':automap(headers),'count':len(rows)}

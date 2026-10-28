@@ -56,12 +56,29 @@ def test_ocr_uses_bundled_vietnamese_model_and_checks_integrity():
     import pytest
     with patch('pytesseract.image_to_string',return_value='Học sinh trường: THPT Thủ Đức') as mock:
         assert 'THPT Thủ Đức' in ocr_image(Image.new('RGB',(30,30),'white'))
-        assert mock.call_args.kwargs['lang']=='vie'
+        assert mock.call_args.kwargs['lang']=='vie+eng'
         assert '--tessdata-dir' in mock.call_args.kwargs['config']
-    with patch('server.parsers.VIETNAMESE_MODEL') as path:
+    with patch('server.parsers._MODEL_DIR',None),patch('server.parsers.VIETNAMESE_MODEL') as path:
         path.is_file.return_value=False
         with pytest.raises(ValueError,match='Thiếu hoặc sai bộ nhận dạng'):
             ocr_image(Image.new('RGB',(30,30),'white'))
+
+
+def test_layout_crop_recovers_displaced_identifier_and_rejects_wrong_digits():
+    from unittest.mock import patch
+    f=[{'label':'Số hiệu bằng','aliases':[],'column':'Số hiệu bằng','type':'text'}]
+    image=Image.new('RGB',(1000,600),'white')
+    data={'text':['Số','hiệu','bằng:','12345'],
+          'left':[100,135,180,310],'top':[100,98,95,75],
+          'height':[20,23,27,30],'conf':[95,95,95,92]}
+    page='Số hiệu bằng:\nHọ và tên: Nguyễn Văn A'
+    with patch('pytesseract.image_to_data',return_value=data),patch('pytesseract.image_to_string',side_effect=[page,'Số hiệu bằng: 12345 /PT.']):
+        text=ocr_image(image,f)
+    assert extract_configured(text,f)[0]['Số hiệu bằng']=='12345 /PT.'
+    assert '[OCR đọc lại vùng ảnh' in text
+    with patch('pytesseract.image_to_data',return_value=data),patch('pytesseract.image_to_string',side_effect=[page,'Số hiệu bằng: 99999 /PT.']):
+        text=ocr_image(image,f)
+    assert extract_configured(text,f)[0]['Số hiệu bằng']==''
 
 
 def test_api_template_image_extract_and_excel_export(api):
@@ -72,7 +89,7 @@ def test_api_template_image_extract_and_excel_export(api):
     image=Image.new('RGB',(60,30),'white');stream=io.BytesIO();image.save(stream,format='PNG')
     text='Họ và tên: Nguyễn Văn A\nSố hiệu bằng: 12345/ptxn\nHọc sinh trường: THPT Thủ Đức\nTại hội đồng thi: THPT Tam Phú\nNghề nghiệp: Kế toán'
     with patch('pytesseract.image_to_string',return_value=text):
-        preview=client.post('/api/import/preview',headers=headers,files={'file':('anh.png',stream.getvalue(),'image/png')})
+        preview=client.post('/api/import/preview?ocr_template_id='+tid,headers=headers,files={'file':('anh.png',stream.getvalue(),'image/png')})
     assert preview.status_code==200,preview.text
     extracted=client.post('/api/ocr/extract',headers=headers,json={'template_id':tid,'text':preview.json()['raw_text']})
     assert extracted.status_code==200,extracted.text

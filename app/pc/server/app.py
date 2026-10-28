@@ -48,7 +48,7 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.1-ocr-vietnamese',lifespan=lifespan,
+app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.2-ocr-layout',lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
@@ -1299,19 +1299,25 @@ def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
     return StreamingResponse(stream,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{filename}.xlsx"','Cache-Control':'no-store'})
 
 @app.post('/api/import/preview')
-async def import_preview(file:UploadFile=File(...),account:dict=Depends(user)):
+async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]=None,account:dict=Depends(user)):
     capability(account,'import')
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     raw=await file.read(10*1024*1024+1)
     if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
     try:
-        result=parse_file(raw,file.filename or '')
+        requested_fields=None
+        if ocr_template_id:
+            template=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(ocr_template_id,)).fetchone()
+            if not template:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+            requested_fields=json.loads(template['fields_json'])
+        result=parse_file(raw,file.filename or '',requested_fields=requested_fields)
         custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')}
         custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')})
         for header in result['headers']:
             if header not in result['mapping'] and strip_accents(header) in custom:
                 result['mapping'][header]=custom[strip_accents(header)]
         return result
+    except HTTPException:raise
     except (ValueError,RuntimeError,ImportError) as e:raise HTTPException(422,str(e))
     except Exception:raise HTTPException(422,'Không đọc được nội dung tệp. Kiểm tra định dạng hoặc phần mềm OCR trên PC.')
 
