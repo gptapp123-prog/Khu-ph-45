@@ -12,6 +12,9 @@ def main():
         for stream in (sys.stdout,sys.stderr):
             if hasattr(stream,'reconfigure'):
                 stream.reconfigure(encoding='utf-8',errors='replace')
+        bundled_ocr=Path(sys.executable).resolve().parent/'tesseract'/'tesseract.exe'
+        if getattr(sys,'frozen',False) and bundled_ocr.is_file():
+            os.environ['PATH']=str(bundled_ocr.parent)+os.pathsep+os.environ.get('PATH','')
     compatibility=assess()
     if not compatibility['ok']:
         print(compatibility['message'],file=sys.stderr)

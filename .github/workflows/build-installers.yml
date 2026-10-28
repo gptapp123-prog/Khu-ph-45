@@ -33,6 +33,7 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install "pyinstaller>=6,<7"
           choco install innosetup -y --no-progress
+          choco install tesseract -y --no-progress
       - name: Build desktop executable
         shell: pwsh
         run: |
@@ -40,6 +41,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (!(Test-Path dist/QuanLyKhuPho/QuanLyKhuPho.exe)) { throw "Missing executable" }
           if (!(Test-Path dist/QuanLyKhuPho/_internal/ocr_models/vie.traineddata)) { throw "Missing Vietnamese OCR model" }
+          $ocrSource = Join-Path $env:ProgramFiles 'Tesseract-OCR'
+          if (!(Test-Path (Join-Path $ocrSource 'tesseract.exe'))) { throw "Missing Tesseract executable" }
+          Copy-Item $ocrSource dist/QuanLyKhuPho/tesseract -Recurse
+          & dist/QuanLyKhuPho/tesseract/tesseract.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Bundled OCR engine failed" }
           & dist/QuanLyKhuPho/QuanLyKhuPho.exe --help
           if ($LASTEXITCODE -ne 0) { throw "Frozen application failed to start" }
       - name: Build installer
@@ -56,6 +62,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer failed: $($result.ExitCode)" }
           & (Join-Path $installDir 'QuanLyKhuPho.exe') --help
           if ($LASTEXITCODE -ne 0) { throw "Installed application failed to start" }
+          & (Join-Path $installDir 'tesseract/tesseract.exe') --version
+          if ($LASTEXITCODE -ne 0) { throw "Installed OCR engine failed to start" }
           Get-FileHash dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
