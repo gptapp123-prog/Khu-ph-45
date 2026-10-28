@@ -165,14 +165,27 @@ async function residents(){
 function renderResidents(){
  const body=S.residents.map((r,i)=>'<tr>'+cell(i+1)+cell(r.full_name)+cell(r.cccd)+cell(r.dob)+cell(r.team_id)+cell(r.phone)+
  `<td>${canEdit()?`<button class="outline small" data-edit="${esc(r.id)}">Sửa</button>`:''}${isAdmin()?` <button class="danger small" data-delete="${esc(r.id)}">Xóa</button>`:''}</td></tr>`);
- $('content').innerHTML=`<div class="card"><div class="card-heading"><div><h3>Danh sách nhân khẩu</h3><p class="muted small">${S.total} bản ghi trên PC · đang hiển thị ${S.residents.length} dòng</p></div>${canEdit()?'<button class="primary" id="newResident">+ Thêm nhân khẩu</button>':''}</div>
+ $('content').innerHTML=`<div class="card"><div class="card-heading"><div><h3>Danh sách nhân khẩu</h3><p class="muted small">${S.total} bản ghi trên PC · đang hiển thị ${S.residents.length} dòng</p></div><div class="actions">${isAdmin()?'<button class="secondary" id="reviewDuplicates">Rà soát trùng</button>':''}${canEdit()?'<button class="primary" id="newResident">+ Thêm nhân khẩu</button>':''}</div></div>
  <div class="toolbar"><input id="resSearch" placeholder="Tìm họ tên, CCCD, địa chỉ…" aria-label="Tìm nhân khẩu"><select id="resTeam"><option value="">Tất cả tổ</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select><button class="secondary" id="searchResident">Tìm</button></div>
  ${body.length?table(['STT','Họ tên','CCCD','Ngày sinh','Tổ','Số điện thoại','Thao tác'],body):'<div class="empty">Chưa có dữ liệu dân cư trong hệ thống.</div>'}<p class="footnote">Tìm kiếm có giới hạn 200 dòng/lượt để bảo vệ hiệu năng. Dữ liệu được lọc và kiểm tra quyền trên PC.</p></div>`;
  $('newResident')?.addEventListener('click',()=>modal('Tạo hồ sơ nhân khẩu',residentForm({team_id:S.me.team_id||1}),async form=>{await api('/residents',{method:'POST',body:cleanResident(form)});await residents()}));
+ $('reviewDuplicates')?.addEventListener('click',duplicateReview);
  $('searchResident').addEventListener('click',async()=>{const q=$('resSearch').value,t=$('resTeam').value;let res=await api('/residents?limit=200&q='+encodeURIComponent(q)+(t?'&team='+t:''));S.residents=res.items;S.total=res.total;renderResidents();$('resSearch').value=q;$('resTeam').value=t});
  $('resSearch').addEventListener('keydown',e=>{if(e.key==='Enter')$('searchResident').click()});
  document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{const row=S.residents.find(x=>x.id===b.dataset.edit);modal('Chỉnh sửa nhân khẩu',residentForm(row),async form=>{await api('/residents/'+row.id,{method:'PUT',body:cleanResident(form)});await residents()})}));
  document.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Xóa mềm hồ sơ này? Nhật ký thao tác vẫn được giữ.'))return;try{await api('/residents/'+b.dataset.delete,{method:'DELETE'});await residents();toast('Đã đánh dấu xóa.')}catch(e){toast(e.message,true)}}));
+}
+async function duplicateReview(){
+ const data=await api('/residents/duplicate-candidates');
+ const cards=data.items.map(x=>`<div class="card"><div class="card-heading"><div><h3>${esc(x.left.full_name)} ↔ ${esc(x.right.full_name)}</h3><p class="muted small">${esc(x.rule)}</p></div><button class="outline small" data-not-duplicate="${esc(x.candidate_id)}">Không phải cùng người</button></div>${table(['Thuộc tính','Hồ sơ A','Hồ sơ B'],[
+  `<tr>${cell('CCCD')}${cell(x.left.cccd||'Chưa có')}${cell(x.right.cccd||'Chưa có')}</tr>`,
+  `<tr>${cell('Ngày sinh')}${cell(x.left.dob||'—')}${cell(x.right.dob||'—')}</tr>`,
+  `<tr>${cell('Tổ')}${cell(x.left.team_id)}${cell(x.right.team_id)}</tr>`,
+  `<tr>${cell('Điện thoại')}${cell(x.left.phone||'—')}${cell(x.right.phone||'—')}</tr>`,
+  `<tr>${cell('Địa chỉ')}${cell(x.left.permanent_address||'—')}${cell(x.right.permanent_address||'—')}</tr>`])}</div>`).join('');
+ $('content').innerHTML=`<div class="card"><div class="card-heading"><div><h3>Rà soát hồ sơ nghi trùng</h3><p class="muted small">${data.count} cặp cần xem xét${data.limited?' · giới hạn 500 cặp':''}</p></div><button class="outline" id="backResidents">Quay lại</button></div>${note(data.note)}</div>${cards||'<div class="card empty">Không còn cặp hồ sơ nào cần rà soát.</div>'}`;
+ $('backResidents').addEventListener('click',residents);
+ document.querySelectorAll('[data-not-duplicate]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Xác nhận hai hồ sơ này không phải cùng một người?'))return;try{await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.notDuplicate)+'/decision',{method:'POST',body:{decision:'not_duplicate'}});await duplicateReview();toast('Đã ghi nhận quyết định và lưu nhật ký.')}catch(e){toast(e.message,true)}}));
 }
 async function households(){
  const d=await api('/households');S.households=d.items;
