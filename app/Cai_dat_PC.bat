@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 set "INSTALL=%LOCALAPPDATA%\QuanLyKhuPho\Program"
 if not "%~1"=="" set "INSTALL=%~1"
 echo ===========================================================
-echo     QUAN LY KHU PHO 7.3 - CAI DAT PC CHINH
+echo     QUAN LY KHU PHO 7.5 - CAI DAT PC THU
 echo ===========================================================
 echo Chuong trinh: %INSTALL%
 echo Du lieu: %LOCALAPPDATA%\QuanLyKhuPho\Data
@@ -37,7 +37,13 @@ if errorlevel 1 (echo Khong tao duoc venv.& exit /b 7)
 "%INSTALL%\.venv\Scripts\python.exe" "%INSTALL%\pc\win_compat.py"
 if errorlevel 1 (echo Moi truong cu khong tuong thich, can sao luu va tai cai thu vien.& exit /b 8)
 echo Dang cai cac thu vien: %DEP_FILE%
-"%INSTALL%\.venv\Scripts\python.exe" -m pip install -r "%INSTALL%\%DEP_FILE%"
+if exist "%~dp0wheelhouse\" (
+  echo Dang cai tu bo thu vien offline tren PC.
+  "%INSTALL%\.venv\Scripts\python.exe" -m pip install --no-index --find-links "%~dp0wheelhouse" -r "%INSTALL%\%DEP_FILE%"
+) else (
+  echo Khong co wheelhouse; pip can ket noi de cai thu vien.
+  "%INSTALL%\.venv\Scripts\python.exe" -m pip install -r "%INSTALL%\%DEP_FILE%"
+)
 if errorlevel 1 (echo Cai thu vien loi. Khong co thay doi nao tren kho du lieu PC.& exit /b 9)
 (
  echo @echo off
@@ -47,6 +53,8 @@ if errorlevel 1 (echo Cai thu vien loi. Khong co thay doi nao tren kho du lieu P
 )>"%INSTALL%\Khoi_dong_PC.bat"
 echo.
 echo DA CAI MA NGUON VA THU VIEN. Chua phai bo cai EXE/MSI.
+where tesseract >nul 2>&1
+if errorlevel 1 echo CANH BAO: Tesseract OCR chua co trong PATH. Can cai rieng de doc anh, scan va PDF anh.
 echo Khoi dong: "%INSTALL%\Khoi_dong_PC.bat"
 echo Du lieu van nam TREN PC. Can thu nghiem truoc khi nhap du lieu that.
 exit /b 0
