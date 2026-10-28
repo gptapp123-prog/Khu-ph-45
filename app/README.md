@@ -8,6 +8,8 @@
 
 Trên máy Windows mục tiêu đã cài Python phù hợp, chạy `Tao_goi_cai_PC_offline.bat` trong thư mục `app`. Script tải các wheel đúng kiến trúc/Python của **máy đang tạo gói**, kiểm tra khả năng giải phụ thuộc khi ngắt kết nối và tạo `dist\QuanLyKhuPho_PC_offline`. Chép nguyên thư mục đó sang PC cùng nền tảng, chạy `Cai_dat_PC.bat` trong thư mục đã chép. Khi có `wheelhouse`, script cài đặt bắt buộc dùng `--no-index`, nên sẽ báo lỗi nếu thiếu thư viện thay vì âm thầm tải qua mạng. Không dùng gói tạo trên Python/kiến trúc khác cho máy đích.
 
+Script tạo gói chỉ công bố thư mục đích sau khi tải và kiểm tra xong; phần chưa hoàn chỉnh nằm ở `.building` để kiểm tra thủ công. Khi nâng cấp, script cài kiểm tra thư viện trước khi chép mã nguồn mới, sao chép vào `pc.next`, rồi giữ bản nguồn cũ tại `pc.previous`. **Tắt app trước khi nâng cấp.** Nếu `pc.next` hoặc `pc.previous` đã tồn tại, dừng cài đặt để kiểm tra và chuyển bản cũ sang nơi sao lưu trước khi thử lại. Kho dữ liệu trong `Data` không nằm trong các thư mục này. Việc cập nhật thư viện vào môi trường `.venv` hiện chưa bảo đảm rollback nguyên tử nếu pip bị ngắt giữa chừng; cần sao lưu cả thư mục `Program` trước khi nâng cấp bản đang sử dụng.
+
 Tesseract OCR là chương trình độc lập, **không nằm trong wheelhouse**. Cần cài Tesseract trên PC, đưa vào PATH và kiểm tra mô hình tiếng Việt/Anh theo `pc/ocr_models/README.md`; nếu thiếu, app vẫn có thể chạy nhưng không đọc OCR ảnh. Đây chưa phải bộ cài độc lập một cú nhấp. Không đưa kho dữ liệu, ảnh hồ sơ hoặc bản sao dữ liệu thật vào gói.
 
 Lượt kiểm thử mã nguồn gần nhất: **92 bài Python đạt**; chưa có nghiệm thu cài offline trên Windows thật.
