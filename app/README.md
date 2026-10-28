@@ -19,7 +19,8 @@
 11. Ngày sinh và trường ngày tùy biến dùng chuẩn hiển thị/nhập mới `DD-MM-YYYY`; dữ liệu ISO hoặc dấu gạch chéo cũ vẫn đọc được và được chuẩn hóa để không phá kho hiện hữu.
 12. Giao diện hồ sơ sinh tự động điều khiển cho trường tùy biến theo kiểu văn bản, số, ngày, danh sách và đánh dấu; nhập/xuất cũng nhận các trường này.
 13. Trường danh sách bắt buộc có lựa chọn hợp lệ; quản trị viên có thể đổi nhãn, lựa chọn, thứ tự và ẩn/kích hoạt trường mà không xóa dữ liệu hồ sơ đã lưu.
-14. **43 bài kiểm thử đạt** trong môi trường phát triển.
+14. Không cho bỏ lựa chọn dropdown đang được hồ sơ sử dụng; giao diện hiển thị số hồ sơ đang dùng và hỗ trợ nút đưa trường lên/xuống mà không xóa giá trị.
+15. **45 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
