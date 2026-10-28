@@ -2,7 +2,15 @@
 
 **Ngày:** 27/10/2026  
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
-**Trạng thái:** mã nguồn + script cài đặt thử; **CHƯA phải bộ cài Windows EXE/MSI hoặc APK ký phát hành.**
+**Trạng thái (28/10/2026):** mã nguồn + script cài đặt thử; có script tạo thư mục gói PC với thư viện offline trên Windows. **CHƯA có EXE/MSI hoặc APK ký phát hành.**
+
+## Gói cài PC offline để thử nghiệm
+
+Trên máy Windows mục tiêu đã cài Python phù hợp, chạy `Tao_goi_cai_PC_offline.bat` trong thư mục `app`. Script tải các wheel đúng kiến trúc/Python của **máy đang tạo gói**, kiểm tra khả năng giải phụ thuộc khi ngắt kết nối và tạo `dist\QuanLyKhuPho_PC_offline`. Chép nguyên thư mục đó sang PC cùng nền tảng, chạy `Cai_dat_PC.bat` trong thư mục đã chép. Khi có `wheelhouse`, script cài đặt bắt buộc dùng `--no-index`, nên sẽ báo lỗi nếu thiếu thư viện thay vì âm thầm tải qua mạng. Không dùng gói tạo trên Python/kiến trúc khác cho máy đích.
+
+Tesseract OCR là chương trình độc lập, **không nằm trong wheelhouse**. Cần cài Tesseract trên PC, đưa vào PATH và kiểm tra mô hình tiếng Việt/Anh theo `pc/ocr_models/README.md`; nếu thiếu, app vẫn có thể chạy nhưng không đọc OCR ảnh. Đây chưa phải bộ cài độc lập một cú nhấp. Không đưa kho dữ liệu, ảnh hồ sơ hoặc bản sao dữ liệu thật vào gói.
+
+Lượt kiểm thử mã nguồn gần nhất: **92 bài Python đạt**; chưa có nghiệm thu cài offline trên Windows thật.
 
 ## 1. Đã làm được trong lượt này
 
