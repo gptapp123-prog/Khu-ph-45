@@ -21,7 +21,8 @@
 13. Trường danh sách bắt buộc có lựa chọn hợp lệ; quản trị viên có thể đổi nhãn, lựa chọn, thứ tự và ẩn/kích hoạt trường mà không xóa dữ liệu hồ sơ đã lưu.
 14. Không cho bỏ lựa chọn dropdown đang được hồ sơ sử dụng; giao diện hiển thị số hồ sơ đang dùng và hỗ trợ nút đưa trường lên/xuống mà không xóa giá trị.
 15. Công cụ chuyển hàng loạt lựa chọn dropdown bắt buộc xem trước, đối chiếu lại số hồ sơ khi xác nhận, cập nhật nguyên tử và ghi nhật ký; chỉ quản trị gốc/hệ thống trên PC chính được thực hiện.
-16. **47 bài kiểm thử đạt** trong môi trường phát triển.
+16. Xem trước chuyển dropdown hiển thị tối đa 50 hồ sơ cụ thể; lịch sử giao dịch lưu danh sách hồ sơ đã đổi và cho hoàn tác khi cấu hình/giá trị chưa bị sửa sau giao dịch.
+17. **49 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 
