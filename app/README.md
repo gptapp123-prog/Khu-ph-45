@@ -4,6 +4,8 @@
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
 **Trạng thái (28/10/2026):** mã nguồn + script cài đặt thử; có script tạo thư mục gói PC với thư viện offline trên Windows. **CHƯA có EXE/MSI hoặc APK ký phát hành.**
 
+GitHub Actions `Build application installers` đóng gói EXE cài Windows từ PyInstaller + Inno Setup, đồng thời tạo APK Android **debug** để thử nghiệm. Tải từ mục Artifacts của lần chạy workflow. EXE Windows **chưa ký mã** và cần Tesseract OCR cài riêng để đọc ảnh; APK debug dùng khóa thử nghiệm và **không cập nhật được** bản phát hành ký bằng khóa `qlkp-release`. Chỉ coi là gói thử nghiệm cho Windows 10/11 x64 và Android thử nghiệm cho đến khi nghiệm thu trên thiết bị thật. Chưa có cơ chế tự cập nhật hay bộ cài Windows 7.
+
 Khóa cập nhật Android đã tạo và bàn giao riêng ngoài GitHub; Gradle yêu cầu đúng chứng chỉ đã ấn định khi ký bản release. Xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. Chưa build APK ký. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
 
 ## Gói cài PC offline để thử nghiệm

@@ -6,6 +6,12 @@ import uvicorn
 from win_compat import assess
 
 def main():
+    # A frozen console program can inherit cp1252 from Windows shells even
+    # when the application uses Vietnamese UI and help text.
+    if os.name=='nt':
+        for stream in (sys.stdout,sys.stderr):
+            if hasattr(stream,'reconfigure'):
+                stream.reconfigure(encoding='utf-8',errors='replace')
     compatibility=assess()
     if not compatibility['ok']:
         print(compatibility['message'],file=sys.stderr)
