@@ -193,7 +193,7 @@ def test_pdf_with_searchable_watermark_rereads_missing_selected_fields():
     scanned='Học sinh trường: THPT Thủ Đức\nTại hội đồng thi: THPT Tam Phú\nNghề nghiệp: Kế toán'
     with patch('server.parsers.PdfReader',return_value=document),patch('server.parsers.render_pdf_page',return_value=scanned) as render:
         result=parse_file(b'%PDF synthetic','scan.pdf',fields())
-    row=result['rows'][0]
+    row,_=extract_configured(result['raw_text'],fields())
     assert row['Số hiệu bằng']=='12345 /PT.'
     assert row['Trường']=='THPT Thủ Đức' and row['Hội đồng thi']=='THPT Tam Phú'
     assert 'Nghề nghiệp' not in row
@@ -209,5 +209,6 @@ def test_pdf_ocr_does_not_choose_conflicting_scan_values():
     scanned='Họ và tên: Nguyễn A\nHọ và tên: Nguyễn B\nTrường: THPT Thủ Đức'
     with patch('server.parsers.PdfReader',return_value=document),patch('server.parsers.render_pdf_page',return_value=scanned):
         result=parse_file(b'%PDF synthetic','scan.pdf',fields())
-    assert result['rows'][0]['Họ và tên']==''
-    assert result['rows'][0]['Trường']=='THPT Thủ Đức'
+    row,_=extract_configured(result['raw_text'],fields())
+    assert row['Họ và tên']==''
+    assert row['Trường']=='THPT Thủ Đức'
