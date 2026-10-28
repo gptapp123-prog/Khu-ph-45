@@ -184,3 +184,30 @@ def test_api_template_image_extract_and_excel_export(api):
     wb.close()
     invalid=client.post('/api/ocr/export',headers=headers,json={'template_id':tid,'filename':'van_bang','rows':[{**row,'Nghề nghiệp':'Kế toán'}]})
     assert invalid.status_code==422
+
+
+def test_pdf_with_searchable_watermark_rereads_missing_selected_fields():
+    from unittest.mock import MagicMock
+    page=MagicMock();page.extract_text.return_value='Mã trang 42\nSố hiệu bằng: 12345 /PT.'
+    document=MagicMock();document.pages=[page]
+    scanned='Học sinh trường: THPT Thủ Đức\nTại hội đồng thi: THPT Tam Phú\nNghề nghiệp: Kế toán'
+    with patch('server.parsers.PdfReader',return_value=document),patch('server.parsers.render_pdf_page',return_value=scanned) as render:
+        result=parse_file(b'%PDF synthetic','scan.pdf',fields())
+    row=result['rows'][0]
+    assert row['Số hiệu bằng']=='12345 /PT.'
+    assert row['Trường']=='THPT Thủ Đức' and row['Hội đồng thi']=='THPT Tam Phú'
+    assert 'Nghề nghiệp' not in row
+    assert any('lớp chữ không đầy đủ' in warning for warning in result['warnings'])
+    assert render.call_args.args[1]==0
+    assert [f['column'] for f in render.call_args.args[2]]==['Họ và tên','Trường','Hội đồng thi']
+
+
+def test_pdf_ocr_does_not_choose_conflicting_scan_values():
+    from unittest.mock import MagicMock
+    page=MagicMock();page.extract_text.return_value='Số hiệu bằng: 12345 /PT.\nMã trang 42'
+    document=MagicMock();document.pages=[page]
+    scanned='Họ và tên: Nguyễn A\nHọ và tên: Nguyễn B\nTrường: THPT Thủ Đức'
+    with patch('server.parsers.PdfReader',return_value=document),patch('server.parsers.render_pdf_page',return_value=scanned):
+        result=parse_file(b'%PDF synthetic','scan.pdf',fields())
+    assert result['rows'][0]['Họ và tên']==''
+    assert result['rows'][0]['Trường']=='THPT Thủ Đức'

@@ -218,6 +218,8 @@ def review_result(texts,source):
         warnings.append('Có giá trị đọc lại từ vùng ảnh. Phải đối chiếu từng ký tự với ảnh gốc trước khi xác nhận.')
     if '[OCR tự cân sáng – cần đối chiếu]' in content:
         warnings.append('Có giá trị từ lượt tăng sáng/tương phản. Phải đối chiếu từng ký tự với ảnh gốc trước khi xác nhận.')
+    if '[OCR bổ sung từ trang PDF – cần đối chiếu]' in content:
+        warnings.append('Trang PDF có lớp chữ không đầy đủ; giá trị bổ sung từ ảnh scan cần đối chiếu với trang gốc.')
     headers=list(OCR_HEADERS.values())
     row={label:extracted.get(field,'') for field,label in OCR_HEADERS.items()}
     items=[{'source':label,'label':label,'value':row[label],'suggested':field}
@@ -333,6 +335,19 @@ def parse_file(raw:bytes,filename:str,requested_fields=None,ocr_mode='auto'):
         texts=[]
         for page_number,page in enumerate(pdf.pages):
             content=(page.extract_text() or '').strip()
+            if content and requested_fields:
+                # A scanned form may have a searchable watermark or page number
+                # while its actual fields remain pixels. Check the requested
+                # columns rather than treating any extracted text as complete.
+                from .ocr_extraction import extract_configured
+                existing,_=extract_configured(content,requested_fields)
+                missing=[f for f in requested_fields if not existing[f['column']]]
+                if missing:
+                    scanned=render_pdf_page(raw,page_number,missing,ocr_mode)
+                    recovered,_=extract_configured(scanned,missing)
+                    additions=[f['label']+': '+recovered[f['column']] for f in missing if recovered[f['column']]]
+                    if additions:
+                        content+='\n[OCR bổ sung từ trang PDF – cần đối chiếu]\n'+'\n'.join(additions)
             if not content:
                 images=list(page.images)
                 if not images:
