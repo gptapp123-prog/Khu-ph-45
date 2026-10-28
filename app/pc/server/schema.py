@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS resident_merges(
  merged_at TEXT NOT NULL, undone_at TEXT, undone_by TEXT
 );
 CREATE TABLE IF NOT EXISTS templates(id TEXT PRIMARY KEY,name TEXT NOT NULL,fields_json TEXT NOT NULL,mapping_json TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ocr_extraction_templates(id TEXT PRIMARY KEY,name TEXT NOT NULL,fields_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS filter_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,signature_json TEXT NOT NULL,fields_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_log(
  seq INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor TEXT NOT NULL,

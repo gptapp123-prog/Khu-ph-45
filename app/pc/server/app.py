@@ -16,6 +16,7 @@ from .crypto import Vault
 from .schema import initialize,BASE_FIELDS,CAPABILITIES,DEFAULT_CAPABILITIES
 from .security import SessionStore,ROLES,hash_password,verify_password,masking,now
 from .parsers import parse_file,strip_accents
+from .ocr_extraction import extract_configured,normalized
 from .model_compat import fields_set, copy_with, declared_fields, validate_model
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -1221,6 +1222,81 @@ def add_template(p:TemplateIn,account:dict=Depends(user)):
         db().execute('INSERT INTO templates VALUES(?,?,?,?,?)',(rid,p.name,json.dumps(p.fields,ensure_ascii=False),json.dumps(p.mapping,ensure_ascii=False),now()))
         record(account['id'],'CREATE_TEMPLATE','template',rid);commit()
         return {'id':rid}
+
+class OcrField(BaseModel):
+    label:str=Field(min_length=1,max_length=100)
+    column:str=Field(min_length=1,max_length=100)
+    aliases:List[str]=Field(default_factory=list)
+    type:str='text'
+
+class OcrTemplate(BaseModel):
+    name:str=Field(min_length=2,max_length=100)
+    fields:List[OcrField]=Field(min_length=1,max_length=30)
+
+def validate_ocr_fields(fields):
+    values=[f.model_dump() if hasattr(f,'model_dump') else f.dict() for f in fields]
+    columns=set();aliases=set()
+    for f in values:
+        f['label']=f['label'].strip();f['column']=f['column'].strip()
+        f['aliases']=[a.strip() for a in f['aliases']]
+        if not f['label'] or not f['column'] or f['type'] not in ('text','year') or len(f['aliases'])>12 or any(not a or len(a)>100 for a in f['aliases']):
+            raise HTTPException(422,'Trường OCR, bí danh hoặc kiểu dữ liệu không hợp lệ.')
+        key=normalized(f['column'])
+        if key in columns:raise HTTPException(422,'Tên cột xuất bị trùng.')
+        columns.add(key)
+        for name in {normalized(x) for x in [f['label'],*f['aliases']]}:
+            key=name
+            if key in aliases:raise HTTPException(422,'Nhãn nhận diện OCR bị trùng giữa các trường.')
+            aliases.add(key)
+    return values
+
+@app.get('/api/ocr/templates')
+def ocr_templates(account:dict=Depends(user)):
+    capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    with LOCK:
+        return {'items':[{'id':r['id'],'name':r['name'],'fields':json.loads(r['fields_json'])} for r in db().execute('SELECT * FROM ocr_extraction_templates ORDER BY name')]}
+
+@app.post('/api/ocr/templates')
+def create_ocr_template(p:OcrTemplate,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'manage_templates');permit(account,'admin_kp','admin_root','super_admin')
+    fields=validate_ocr_fields(p.fields);rid=uuid.uuid4().hex
+    with LOCK:
+        db().execute('INSERT INTO ocr_extraction_templates VALUES(?,?,?,?)',(rid,p.name.strip(),json.dumps(fields,ensure_ascii=False),now()))
+        record(account['id'],'CREATE_OCR_TEMPLATE','ocr_template',rid);commit()
+    return {'id':rid}
+
+class OcrExtractRequest(BaseModel):
+    template_id:str
+    text:str=Field(max_length=12000)
+
+@app.post('/api/ocr/extract')
+def ocr_extract(p:OcrExtractRequest,account:dict=Depends(user)):
+    capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(p.template_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+    fields=json.loads(row['fields_json']);values,warnings=extract_configured(p.text,fields)
+    return {'fields':fields,'values':values,'warnings':warnings}
+
+class OcrExportRequest(BaseModel):
+    template_id:str
+    filename:str=Field(min_length=1,max_length=100)
+    rows:List[Dict[str,str]]=Field(min_length=1,max_length=20)
+
+@app.post('/api/ocr/export')
+def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'export');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(p.template_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+    columns=[f['column'] for f in json.loads(row['fields_json'])]
+    if any(set(item)!=set(columns) or any(not isinstance(v,str) or len(v)>500 for v in item.values()) for item in p.rows):
+        raise HTTPException(422,'Dữ liệu xuất không khớp các cột đã ấn định.')
+    filename=re.sub(r'[^a-zA-Z0-9_-]','_',p.filename.removesuffix('.xlsx')).strip('_')
+    if not filename:raise HTTPException(422,'Tên file không hợp lệ.')
+    wb=Workbook();ws=wb.active;ws.title='OCR';ws.append(columns)
+    for item in p.rows:ws.append([spreadsheet_safe(item[col]) for col in columns])
+    stream=io.BytesIO();wb.save(stream);stream.seek(0)
+    record(account['id'],'EXPORT_OCR','ocr_template',p.template_id,{'rows':len(p.rows)});commit()
+    return StreamingResponse(stream,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{filename}.xlsx"','Cache-Control':'no-store'})
 
 @app.post('/api/import/preview')
 async def import_preview(file:UploadFile=File(...),account:dict=Depends(user)):

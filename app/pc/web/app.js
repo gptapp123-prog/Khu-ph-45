@@ -208,13 +208,57 @@ async function households(){
 }
 async function importPage(){
  await ensureFields();
- $('content').innerHTML=`<div class="card"><h3>Nhập dữ liệu vào PC chính</h3>${note('Đọc file XLSX, CSV, PDF văn bản hoặc ảnh CCCD trên PC. Tệp nguồn được xử lý trong RAM, không ghi ra ổ đĩa hay đưa lên máy chủ ngoài.')}
+ $('content').innerHTML=`<div class="card"><h3>Nhập dữ liệu vào PC chính</h3><div class="toolbar"><button class="primary" id="openConfiguredOcr">Trích OCR theo bảng nội dung</button></div>${note('Đọc file XLSX, CSV, PDF văn bản hoặc ảnh CCCD trên PC. Tệp nguồn được xử lý trong RAM, không ghi ra ổ đĩa hay đưa lên máy chủ ngoài.')}
  <div class="toolbar" style="margin-top:16px"><input id="fileIn" type="file" multiple accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg,.webp"><button class="primary" id="previewFile">Đọc & xem trước</button></div><p class="footnote">Mỗi tệp tối đa 10 MB; PDF scan và ảnh cần Tesseract tiếng Việt trên PC. Các tệp được đối chiếu riêng.</p></div><div id="importResult"></div>`;
  $('previewFile').addEventListener('click',async()=>{
   S.importQueue=Array.from($('fileIn').files||[]);if(!S.importQueue.length){toast('Chọn tệp trước khi đọc.',true);return}
   if(S.importQueue.length>20){toast('Tối đa 20 tệp mỗi lượt.',true);return}
   await previewNextFile();
  });
+ $('openConfiguredOcr').addEventListener('click',configuredOcrPage);
+}
+async function configuredOcrPage(){
+ if(!S.isPC){toast('Trích và xuất file chỉ thực hiện tại PC chính.',true);return}
+ const templates=(await api('/ocr/templates')).items;S.ocrTemplates=templates;S.ocrRows=[];
+ $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Bảng nội dung cần trích</h3><button class="outline" id="ocrBack">Quay lại</button></div>
+ <p class="footnote">Chỉ những cột trong bảng đã chọn mới được đưa vào file Excel. Giá trị không rõ sẽ để trống để kiểm tra.</p>
+ ${isAdmin()?`<label>Tên bảng nội dung<input id="ocrTemplateName" placeholder="Ví dụ: Thông tin nghề nghiệp"></label>
+ <div id="ocrFieldTable"></div><button class="outline" id="ocrAddField">+ Thêm nội dung</button> <button class="primary" id="ocrSaveTemplate">Lưu bảng nội dung</button>`:''}
+ <div class="form-grid" style="margin-top:18px"><label>Chọn bảng đã lưu<select id="ocrTemplateSelect"><option value="">Chọn bảng nội dung</option>${templates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label><label>Tên file đích (.xlsx)<input id="ocrOutputName" value="ket_qua_ocr" maxlength="100"></label></div>
+ <input id="ocrFiles" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" aria-label="Ảnh, PDF scan hoặc ảnh chụp">
+ <div class="toolbar"><button class="outline" id="ocrReadFiles">Đọc tệp đã chọn</button><button class="primary" id="ocrExportRows" disabled>Xuất Excel theo cột đã định</button></div><div id="ocrResult"></div></div>`;
+ $('ocrBack').onclick=importPage;
+ $('ocrTemplateSelect').onchange=()=>{S.ocrRows=[];$('ocrExportRows').disabled=true;$('ocrResult').innerHTML='';};
+ if(isAdmin()){
+  const add=()=>{$('ocrFieldTable').insertAdjacentHTML('beforeend',`<div class="ocrFieldRow form-grid"><label>Nội dung cần trích<input class="ocrLabel" placeholder="Họ và tên"></label><label>Nhãn khác trên tài liệu, cách nhau bằng dấu phẩy<input class="ocrAliases" placeholder="Họ tên, Full name"></label><label>Cột trong file đích<input class="ocrColumn" placeholder="Họ và tên"></label><label>Kiểu<select class="ocrType"><option value="text">Văn bản</option><option value="year">Năm (4 số)</option></select></label><button type="button" class="outline ocrRemove">Xóa dòng</button></div>`);document.querySelector('.ocrFieldRow:last-child .ocrRemove').onclick=e=>e.target.closest('.ocrFieldRow').remove()};
+  $('ocrAddField').onclick=add;add();
+  $('ocrSaveTemplate').onclick=async()=>{try{
+   const fields=Array.from(document.querySelectorAll('.ocrFieldRow')).map(row=>({label:row.querySelector('.ocrLabel').value.trim(),column:row.querySelector('.ocrColumn').value.trim(),aliases:row.querySelector('.ocrAliases').value.split(',').map(x=>x.trim()).filter(Boolean),type:row.querySelector('.ocrType').value}));
+   await api('/ocr/templates',{method:'POST',body:{name:$('ocrTemplateName').value.trim(),fields}});await configuredOcrPage();toast('Đã lưu bảng nội dung cần trích.');
+  }catch(e){toast(e.message,true)}};
+ }
+ $('ocrReadFiles').onclick=async()=>{
+  const id=$('ocrTemplateSelect').value,files=Array.from($('ocrFiles').files||[]);
+  if(!id||!files.length||files.length>20){toast('Chọn bảng nội dung và từ 1 đến 20 tệp.',true);return}
+  S.ocrRows=[];$('ocrExportRows').disabled=true;$('ocrResult').innerHTML='';
+  for(const file of files){
+   try{
+    const fd=new FormData();fd.append('file',file);
+    const preview=await api('/import/preview',{method:'POST',body:fd});
+    if(!preview.ocr_review||!preview.raw_text)throw Error('Tệp không có văn bản OCR để trích.');
+    const result=await api('/ocr/extract',{method:'POST',body:{template_id:id,text:preview.raw_text}});
+    const block=document.createElement('div');block.className='card';
+    block.innerHTML=`<h3>${esc(file.name)}</h3>${[...(preview.warnings||[]),...result.warnings].map(note).join('')}${table(['Nội dung yêu cầu','Cột file đích','Giá trị OCR cần đối chiếu'],result.fields.map((f,i)=>`<tr><td>${esc(f.label)}</td><td>${esc(f.column)}</td><td><input class="ocrConfirmed" data-index="${i}" value="${esc(result.values[f.column]||'')}" maxlength="500"></td></tr>`))}<details><summary>Văn bản OCR gốc để đối chiếu</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(preview.raw_text)}</pre></details><button class="outline ocrConfirm">Xác nhận dòng này</button>`;
+    $('ocrResult').append(block);
+    block.querySelector('.ocrConfirm').onclick=()=>{const row={};result.fields.forEach((f,i)=>row[f.column]=block.querySelector(`.ocrConfirmed[data-index="${i}"]`).value.trim());S.ocrRows.push(row);block.querySelectorAll('input').forEach(x=>x.disabled=true);block.querySelector('.ocrConfirm').disabled=true;$('ocrExportRows').disabled=false;toast('Đã xác nhận '+S.ocrRows.length+' dòng.');};
+   }catch(e){$('ocrResult').insertAdjacentHTML('beforeend',note(file.name+': '+e.message))}
+  }
+ };
+ $('ocrExportRows').onclick=async()=>{try{
+  const name=$('ocrOutputName').value.trim();if(!name)throw Error('Nhập tên file đích.');
+  const blob=await api('/ocr/export',{method:'POST',body:{template_id:$('ocrTemplateSelect').value,filename:name,rows:S.ocrRows},raw:true});
+  const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=(name.endsWith('.xlsx')?name:name+'.xlsx');link.click();setTimeout(()=>URL.revokeObjectURL(link.href),60000);toast('Đã tạo file Excel theo các cột trong bảng nội dung.');
+ }catch(e){toast(e.message,true)}};
 }
 async function previewNextFile(){
  const file=S.importQueue?.shift();if(!file)return;
