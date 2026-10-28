@@ -1,0 +1,9 @@
+# Danh tính phát hành và khóa cập nhật
+
+Android giữ nguyên `applicationId` là `vn.quanlykhu.mobile`. Bản APK nâng cấp phải được ký bằng **cùng khóa phát hành Android** như bản đã cài, với `versionCode` tăng dần. Khóa debug không dùng cho bản phát hành. `versionCode` hiện là 703 (`7.3.0-source`); chỉ tăng khi phát hành APK mới đã kiểm thử, không tự coi mã nguồn PC 7.5.6 là bản Android 7.5.6.
+
+Trên PC quản trị phát hành có JDK, chạy `Tao_khoa_cap_nhat_Android.bat` **một lần**. Khóa riêng được tạo ngoài repo tại `%LOCALAPPDATA%\QuanLyKhuPho\ReleaseKeys\quanlykp-android-release.jks`; nếu tệp đã có, script chỉ hiển thị thông tin chứng chỉ, không ghi đè. Ghi lại SHA-256 certificate fingerprint, sao lưu mã hóa ít nhất hai nơi có kiểm soát và giữ mật khẩu riêng. Không đưa khóa, mật khẩu, kho dữ liệu dân cư lên GitHub hoặc trong gói cài.
+
+Khi build trên máy được ủy quyền, đặt bốn biến môi trường `QLKP_ANDROID_KEYSTORE`, `QLKP_ANDROID_STORE_PASSWORD`, `QLKP_ANDROID_KEY_ALIAS` (giá trị `qlkp-release`) và `QLKP_ANDROID_KEY_PASSWORD`. Chạy `gradle assembleRelease` từ thư mục `app/android` sau khi có Gradle/JDK/Android SDK phù hợp. Thiếu một biến ký thì build release dừng. Xác minh APK bằng `apksigner verify --verbose --print-certs <apk>` và đối chiếu SHA-256 certificate fingerprint với bản đã cài trước khi phân phối. Tăng `versionCode` cho lần cập nhật tiếp theo. Chưa có Gradle wrapper và chưa build APK ký trong môi trường phát triển này.
+
+Script cài PC giữ cùng đường dẫn chương trình và kho dữ liệu qua các lần nâng cấp. Đây là **định danh cài đặt**, không phải khóa xác thực bản cập nhật. Muốn xác minh nhà phát hành của EXE/MSI về sau cần chứng thư ký mã Windows riêng; không dùng keystore Android làm khóa Windows. Hiện chưa có chứng thư Windows hay cơ chế tự cập nhật đã ký, vì vậy không tải hoặc chạy gói cập nhật PC tự động.
