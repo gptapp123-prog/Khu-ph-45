@@ -23,8 +23,8 @@
 15. Công cụ chuyển hàng loạt lựa chọn dropdown bắt buộc xem trước, đối chiếu lại số hồ sơ khi xác nhận, cập nhật nguyên tử và ghi nhật ký; chỉ quản trị gốc/hệ thống trên PC chính được thực hiện.
 16. Xem trước chuyển dropdown hiển thị tối đa 50 hồ sơ cụ thể; lịch sử giao dịch lưu danh sách hồ sơ đã đổi và cho hoàn tác khi cấu hình/giá trị chưa bị sửa sau giao dịch.
 17. Trung tâm rà soát hồ sơ nghi trùng so sánh từng cặp theo họ tên chuẩn hóa, ngày sinh và tổ; chỉ đưa vào danh sách khi ít nhất một hồ sơ thiếu CCCD, cho đánh dấu không trùng và ghi nhật ký mà không sửa dữ liệu gốc.
-18. Gộp hồ sơ nghi trùng có xem trước xung đột, ưu tiên hồ sơ chính, bổ sung ô trống từ hồ sơ phụ, chuyển CCCD an toàn, xóa mềm hồ sơ phụ, lưu ảnh chụp hai hồ sơ/trường tùy biến và cho hoàn tác khi dữ liệu chưa bị sửa sau gộp.
-19. **53 bài kiểm thử đạt** trong môi trường phát triển.
+18. Gộp hồ sơ nghi trùng có xem trước xung đột, cho chọn giá trị theo từng trường, bổ sung ô trống từ hồ sơ phụ, chuyển CCCD an toàn, xóa mềm hồ sơ phụ, lưu ảnh chụp hai hồ sơ/trường tùy biến và cho hoàn tác khi dữ liệu chưa bị sửa sau gộp.
+19. **54 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 

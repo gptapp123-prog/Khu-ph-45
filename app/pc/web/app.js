@@ -189,10 +189,14 @@ async function duplicateReview(){
  document.querySelectorAll('[data-merge-candidate]').forEach(b=>b.addEventListener('click',async()=>{try{
   const payload={primary_id:b.dataset.primary,secondary_id:b.dataset.secondary};
   const preview=await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.mergeCandidate)+'/merge-preview',{method:'POST',body:payload});
-  const conflicts=preview.conflicts.map(x=>`• ${x.label}: “${x.primary??''}” / “${x.secondary??''}” → giữ hồ sơ chính`).join('\n');
-  if(!confirm(`Hồ sơ phụ sẽ bị xóa mềm. Hồ sơ chính được ưu tiên và chỉ nhận dữ liệu còn thiếu.\n\n${conflicts||'Không có trường xung đột.'}\n\nXác nhận gộp?`))return;
-  const result=await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.mergeCandidate)+'/merge',{method:'POST',body:{...payload,expected_signature:preview.signature,confirmation:'GOP HO SO'}});
-  await duplicateReview();toast('Đã gộp hồ sơ. Mã giao dịch: '+result.merge_id);
+  const conflictRows=preview.conflicts.map((x,i)=>`<tr>${cell(x.label)}${cell(x.primary??'—')}${cell(x.secondary??'—')}<td><select name="choice_${i}"><option value="primary">Giữ hồ sơ chính</option><option value="secondary">Lấy hồ sơ phụ</option></select></td></tr>`);
+  const body=`${note('Hồ sơ phụ sẽ bị xóa mềm. Dữ liệu trống tự động được bổ sung; với dữ liệu xung đột, chọn giá trị cần giữ.')}<div style="margin-top:14px">${conflictRows.length?table(['Trường','Hồ sơ chính','Hồ sơ phụ','Giá trị sử dụng'],conflictRows):'<p>Không có trường xung đột. Hồ sơ phụ chỉ bổ sung dữ liệu còn thiếu.</p>'}</div>`;
+  modal('Xác nhận gộp hồ sơ',body,async form=>{
+   const selections={};preview.conflicts.forEach((x,i)=>{selections[x.field]=form['choice_'+i]||'primary'});
+   if(!confirm('Xác nhận gộp? Hồ sơ phụ sẽ được xóa mềm và thao tác được ghi nhật ký.'))throw Error('Đã hủy thao tác gộp.');
+   const result=await api('/residents/duplicate-candidates/'+encodeURIComponent(b.dataset.mergeCandidate)+'/merge',{method:'POST',body:{...payload,selections,expected_signature:preview.signature,confirmation:'GOP HO SO'}});
+   await duplicateReview();toast('Đã gộp hồ sơ. Mã giao dịch: '+result.merge_id);
+  });
  }catch(e){toast(e.message,true)}}));
  $('mergeHistory')?.addEventListener('click',async()=>{try{const history=await api('/resident-merges');const rows=history.items.map(x=>`<tr><td><input type="radio" name="merge_id" value="${esc(x.id)}" ${x.undone_at?'disabled':''}></td>${cell(x.primary_name+' ← '+x.secondary_name)}${cell(dateTime(x.merged_at))}${cell(x.undone_at?'Đã hoàn tác':'Có thể hoàn tác')}</tr>`);modal('Lịch sử gộp hồ sơ',history.items.length?table(['Chọn','Giao dịch','Thời điểm','Trạng thái'],rows):'<p>Chưa có giao dịch gộp.</p>',async x=>{if(!x.merge_id)throw Error('Chọn giao dịch có thể hoàn tác.');if(!confirm('Hoàn tác gộp và khôi phục hai hồ sơ?'))return;await api('/resident-merges/'+encodeURIComponent(x.merge_id)+'/undo',{method:'POST',body:{confirmation:'HOAN TAC GOP'}});await duplicateReview();toast('Đã hoàn tác gộp hồ sơ.');});}catch(e){toast(e.message,true)}});
 }

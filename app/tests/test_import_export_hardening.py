@@ -274,7 +274,7 @@ def test_dropdown_option_migration_preview_commit_and_audit(api):
 
 def test_dropdown_migration_stops_when_count_changed_after_preview(api):
     client,headers=api
-    field_id=client.post('/api/fields',headers=headers,json={
+    client.post('/api/fields',headers=headers,json={
         'name':'nhom_xu_ly','label':'Nhóm xử lý','type':'dropdown',
         'options':['A','B']}).json()['id']
     payload={'from_value':'A','to_value':'B'}
@@ -414,3 +414,29 @@ def test_duplicate_merge_stale_preview_and_undo_after_edit_are_blocked(api):
         'occupation':'Sửa sau gộp','phone':'0900000009'}).status_code==200
     blocked=client.post('/api/resident-merges/'+merged.json()['merge_id']+'/undo',headers=headers,json={'confirmation':'HOAN TAC GOP'})
     assert blocked.status_code==409 and 'đã thay đổi' in blocked.json()['detail']
+
+def test_duplicate_merge_allows_per_field_secondary_choice_and_rejects_unknown_choice(api):
+    client,headers=api
+    client.post('/api/fields',headers=headers,json={
+        'name':'ghi_chu_phu','label':'Ghi chú phụ','type':'text'})
+    primary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Văn Chọn','dob':'09-08-1992','team_id':5,
+        'phone':'0900000001','occupation':'Thợ điện','custom_values':{'ghi_chu_phu':'Giá trị A'}}).json()['id']
+    secondary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Văn Chọn','dob':'09-08-1992','team_id':5,
+        'phone':'0900000002','occupation':'Thợ máy','custom_values':{'ghi_chu_phu':'Giá trị B'}}).json()['id']
+    candidate=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
+    payload={'primary_id':primary,'secondary_id':secondary}
+    preview=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge-preview',headers=headers,json=payload).json()
+    rejected=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge',headers=headers,json={
+        **payload,'expected_signature':preview['signature'],'confirmation':'GOP HO SO',
+        'selections':{'not_a_field':'secondary'}})
+    assert rejected.status_code==422
+    merged=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge',headers=headers,json={
+        **payload,'expected_signature':preview['signature'],'confirmation':'GOP HO SO',
+        'selections':{'phone':'secondary','custom:ghi_chu_phu':'secondary'}})
+    assert merged.status_code==200,merged.text
+    resident=client.get('/api/residents',headers=headers).json()['items'][0]
+    assert resident['phone']=='0900000002'
+    assert resident['occupation']=='Thợ điện'
+    assert resident['custom_values']['ghi_chu_phu']=='Giá trị B'

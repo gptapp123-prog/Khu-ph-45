@@ -522,19 +522,30 @@ def resident_snapshot(resident_id:str):
     if not row:raise HTTPException(404,'Không tìm thấy hồ sơ nhân khẩu.')
     return {'resident':dict(row),'custom_values':raw_custom_values(resident_id)}
 
-def merge_plan(primary:dict,secondary:dict):
+def merge_plan(primary:dict,secondary:dict,selections:Optional[Dict[str,str]]=None):
+    selections=selections or {}
     proposed={};conflicts=[]
     for field in MERGE_FIELDS:
         left=primary['resident'].get(field);right=secondary['resident'].get(field)
-        proposed[field]=left if left not in (None,'') else right
-        if left not in (None,'') and right not in (None,'') and str(left)!=str(right):
+        conflict=left not in (None,'') and right not in (None,'') and str(left)!=str(right)
+        selected=selections.get(field,'primary')
+        if conflict and selected not in ('primary','secondary'):
+            raise HTTPException(422,'Lựa chọn trường gộp không hợp lệ: '+BASE_FIELDS.get(field,field))
+        proposed[field]=right if conflict and selected=='secondary' else (left if left not in (None,'') else right)
+        if conflict:
             conflicts.append({'field':field,'label':BASE_FIELDS.get(field,field),'primary':display_date(left) if field=='dob' else left,
-                              'secondary':display_date(right) if field=='dob' else right,'selected':'primary'})
+                              'secondary':display_date(right) if field=='dob' else right,'selected':selected})
     custom=dict(secondary['custom_values']);custom.update({k:v for k,v in primary['custom_values'].items() if v not in (None,'')})
     for name,left in primary['custom_values'].items():
         right=secondary['custom_values'].get(name)
         if left not in (None,'') and right not in (None,'') and str(left)!=str(right):
-            conflicts.append({'field':'custom:'+name,'label':name,'primary':left,'secondary':right,'selected':'primary'})
+            key='custom:'+name;selected=selections.get(key,'primary')
+            if selected not in ('primary','secondary'):
+                raise HTTPException(422,'Lựa chọn trường gộp không hợp lệ: '+name)
+            if selected=='secondary':custom[name]=right
+            conflicts.append({'field':key,'label':name,'primary':left,'secondary':right,'selected':selected})
+    allowed={x['field'] for x in conflicts}
+    if set(selections)-allowed:raise HTTPException(422,'Lựa chọn chứa trường không xung đột hoặc không tồn tại.')
     return proposed,custom,conflicts
 
 class MergePreview(BaseModel):
@@ -555,10 +566,11 @@ def preview_resident_merge(candidate_id:str,p:MergePreview,request:Request,accou
         display=dict(proposed);display['dob']=display_date(display.get('dob'))
         return {'candidate_id':candidate_id,'primary_id':p.primary_id,'secondary_id':p.secondary_id,
                 'signature':signature,'proposed':display,'custom_values':custom,'conflicts':conflicts,
-                'note':'Giá trị hồ sơ chính được ưu tiên; hồ sơ phụ chỉ bổ sung ô còn trống.'}
+                'note':'Ô trống được bổ sung tự động; mỗi trường xung đột có thể chọn giá trị từ hồ sơ chính hoặc phụ.'}
 
 class MergeCommit(MergePreview):
     expected_signature:str;confirmation:str
+    selections:Dict[str,str]=Field(default_factory=dict)
 
 @app.post('/api/residents/duplicate-candidates/{candidate_id}/merge')
 def commit_resident_merge(candidate_id:str,p:MergeCommit,request:Request,account:dict=Depends(user)):
@@ -569,12 +581,13 @@ def commit_resident_merge(candidate_id:str,p:MergeCommit,request:Request,account
         if not candidate or {p.primary_id,p.secondary_id}!={candidate['left']['id'],candidate['right']['id']}:
             raise HTTPException(404,'Cặp hồ sơ không còn hợp lệ để gộp.')
         primary=resident_snapshot(p.primary_id);secondary=resident_snapshot(p.secondary_id)
-        proposed,custom,conflicts=merge_plan(primary,secondary)
+        default_proposed,default_custom,_=merge_plan(primary,secondary)
         signature=hashlib.sha256(json.dumps([candidate_id,p.primary_id,p.secondary_id,
-            primary['resident']['updated_at'],secondary['resident']['updated_at'],proposed,custom],
+            primary['resident']['updated_at'],secondary['resident']['updated_at'],default_proposed,default_custom],
             sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if not hmac.compare_digest(signature,p.expected_signature):
             raise HTTPException(409,'Hồ sơ đã thay đổi sau khi xem trước. Hãy xem trước lại.')
+        proposed,custom,conflicts=merge_plan(primary,secondary,p.selections)
         merge_id=uuid.uuid4().hex;merged_at=now()
         merged_snapshot={'resident':dict(proposed,updated_at=merged_at),'custom_values':custom}
         db().execute('SAVEPOINT resident_merge')
@@ -592,7 +605,8 @@ def commit_resident_merge(candidate_id:str,p:MergeCommit,request:Request,account
                 (merge_id,candidate_id,p.primary_id,p.secondary_id,json.dumps(primary,ensure_ascii=False),
                  json.dumps(secondary,ensure_ascii=False),json.dumps(merged_snapshot,ensure_ascii=False),account['id'],merged_at))
             record(account['id'],'MERGE_RESIDENTS','resident_merge',merge_id,
-                   {'primary_id':p.primary_id,'secondary_id':p.secondary_id,'conflicts':len(conflicts)})
+                   {'primary_id':p.primary_id,'secondary_id':p.secondary_id,'conflicts':len(conflicts),
+                    'selected_secondary':sorted(k for k,v in p.selections.items() if v=='secondary')})
             db().execute('RELEASE resident_merge');commit()
         except Exception:
             db().execute('ROLLBACK TO resident_merge');db().execute('RELEASE resident_merge');raise
