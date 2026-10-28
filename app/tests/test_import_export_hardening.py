@@ -246,3 +246,43 @@ def test_custom_fields_can_move_up_and_down_without_deleting_values(api):
     assert [x['id'] for x in after]==[second,first]
     edge=client.post('/api/fields/'+second+'/move',headers=headers,json={'direction':'up'})
     assert edge.status_code==200 and edge.json()['moved'] is False
+
+def test_dropdown_option_migration_preview_commit_and_audit(api):
+    client,headers=api
+    created=client.post('/api/fields',headers=headers,json={
+        'name':'tinh_trang','label':'Tình trạng','type':'dropdown',
+        'options':['Cũ','Mới']})
+    field_id=created.json()['id']
+    for index in range(2):
+        assert client.post('/api/residents',headers=headers,json={
+            'full_name':'Người cần chuyển '+str(index),'team_id':1,
+            'custom_values':{'tinh_trang':'Cũ'}}).status_code==200
+    payload={'from_value':'Cũ','to_value':'Đã xác minh'}
+    preview=client.post('/api/fields/'+field_id+'/option-migration/preview',headers=headers,json=payload)
+    assert preview.status_code==200 and preview.json()['affected_count']==2
+    bad=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
+        **payload,'expected_count':2,'confirmation':'SAI'})
+    assert bad.status_code==422
+    done=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
+        **payload,'expected_count':2,'confirmation':'CHUYEN DU LIEU'})
+    assert done.status_code==200 and done.json()['updated']==2
+    assert done.json()['options']==['Đã xác minh','Mới']
+    residents=client.get('/api/residents',headers=headers).json()['items']
+    assert all(x['custom_values']['tinh_trang']=='Đã xác minh' for x in residents)
+    audit=client.get('/api/audit',headers=headers).json()['items']
+    assert any(x['action']=='MIGRATE_FIELD_OPTION' for x in audit)
+
+def test_dropdown_migration_stops_when_count_changed_after_preview(api):
+    client,headers=api
+    field_id=client.post('/api/fields',headers=headers,json={
+        'name':'nhom_xu_ly','label':'Nhóm xử lý','type':'dropdown',
+        'options':['A','B']}).json()['id']
+    payload={'from_value':'A','to_value':'B'}
+    assert client.post('/api/residents',headers=headers,json={
+        'full_name':'Người thứ nhất','team_id':1,'custom_values':{'nhom_xu_ly':'A'}}).status_code==200
+    preview=client.post('/api/fields/'+field_id+'/option-migration/preview',headers=headers,json=payload).json()
+    assert client.post('/api/residents',headers=headers,json={
+        'full_name':'Người thứ hai','team_id':1,'custom_values':{'nhom_xu_ly':'A'}}).status_code==200
+    stopped=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
+        **payload,'expected_count':preview['affected_count'],'confirmation':'CHUYEN DU LIEU'})
+    assert stopped.status_code==409 and 'xem trước lại' in stopped.json()['detail']
