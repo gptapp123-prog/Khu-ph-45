@@ -5,11 +5,14 @@ def releaseAlias = System.getenv('QLKP_ANDROID_KEY_ALIAS')
 def releaseKeyPassword = System.getenv('QLKP_ANDROID_KEY_PASSWORD')
 def releaseSigningReady = [releaseStore, releaseStorePassword, releaseAlias, releaseKeyPassword].every { it }
 def releaseRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+// Only the CI artifact for offline signing may be unsigned. Normal release
+// builds still require the pinned certificate below.
+def offlineSigning = project.findProperty('qlkpUnsignedForOfflineSigning') == 'true'
 def expectedCertificateSha256 = '490D6E73A8C0826C766BD57E39E779F383E5625C10D8D7B1EF65081A6199C077'
-if (releaseRequested && !releaseSigningReady) {
+if (releaseRequested && !offlineSigning && !releaseSigningReady) {
     throw new GradleException('Bản release cần khóa ký cố định: đặt đủ QLKP_ANDROID_KEYSTORE, QLKP_ANDROID_STORE_PASSWORD, QLKP_ANDROID_KEY_ALIAS, QLKP_ANDROID_KEY_PASSWORD.')
 }
-if (releaseRequested) {
+if (releaseRequested && !offlineSigning) {
     def keyStore = java.security.KeyStore.getInstance('JKS')
     new FileInputStream(releaseStore).withCloseable { stream -> keyStore.load(stream, releaseStorePassword.toCharArray()) }
     def certificate = keyStore.getCertificate(releaseAlias)
@@ -22,7 +25,7 @@ android {
     compileSdk 35
     defaultConfig { applicationId 'vn.quanlykhu.mobile'; minSdk 26; targetSdk 34; versionCode 703; versionName '7.3.0-source' }
     signingConfigs {
-      if (releaseSigningReady) {
+      if (releaseSigningReady && !offlineSigning) {
         release {
           storeFile file(releaseStore)
           storePassword releaseStorePassword
@@ -36,7 +39,7 @@ android {
         minifyEnabled true
         shrinkResources true
         proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        if (releaseSigningReady) signingConfig signingConfigs.release
+        if (releaseSigningReady && !offlineSigning) signingConfig signingConfigs.release
       }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

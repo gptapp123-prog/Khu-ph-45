@@ -92,3 +92,36 @@ jobs:
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+  android-offline-signing-input:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Build unsigned release for offline signing
+        run: gradle -p app/android assembleRelease -PqlkpUnsignedForOfflineSigning=true --no-daemon
+      - name: Align APK and include signing verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          tool="$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -name zipalign -type f | sort -V | tail -1)"
+          test -n "$tool"
+          input=app/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$input"
+          mkdir -p app/android/offline-signing
+          "$tool" -f 4 "$input" app/android/offline-signing/app-release-aligned-unsigned.apk
+          cp "$(dirname "$tool")/lib/apksigner.jar" app/android/offline-signing/apksigner.jar
+          java -jar app/android/offline-signing/apksigner.jar --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuanLyKhuPho-Android-offline-signing-input
+          path: app/android/offline-signing/
+          if-no-files-found: error
+          retention-days: 3
