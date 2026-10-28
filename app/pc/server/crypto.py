@@ -83,12 +83,33 @@ class Vault:
                 f.write(blob)
                 f.flush()
                 os.fsync(f.fileno())
-            # atomic replacement; never truncate source before successful write
-            os.replace(tmp,str(self.path))
+            # Atomic replacement; never truncate source before successful write.
+            self._replace_and_sync(tmp,self.path)
             self._was_legacy=False
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
 
+
+    @staticmethod
+    def _replace_and_sync(source:str,destination:Path):
+        """Replace atomically, then best-effort sync the containing directory.
+
+        The file contents are fsynced by the caller before replacement. POSIX
+        filesystems additionally need the directory entry synced for the rename
+        to survive abrupt power loss. Windows does not expose directory fsync
+        through the same API, so that step is intentionally best-effort there.
+        """
+        destination=Path(destination)
+        os.replace(source,str(destination))
+        directory_fd=None
+        try:
+            flags=os.O_RDONLY|getattr(os,'O_DIRECTORY',0)
+            directory_fd=os.open(str(destination.parent),flags)
+            os.fsync(directory_fd)
+        except (OSError,AttributeError):
+            pass
+        finally:
+            if directory_fd is not None:os.close(directory_fd)
 
     @staticmethod
     def _atomic_write(path:Path,data:bytes):
@@ -98,7 +119,7 @@ class Vault:
         try:
             os.chmod(tmp,0o600)
             with os.fdopen(fd,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
-            os.replace(tmp,str(path))
+            Vault._replace_and_sync(tmp,path)
         finally:
             if os.path.exists(tmp):os.unlink(tmp)
 
@@ -125,11 +146,20 @@ class Vault:
         stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
         path=backup_dir/('quanlykp_'+stamp+'.kpbak')
         if path.exists():raise ValueError('Bản sao lưu đã tồn tại.')
+        checksum_path=Path(str(path)+'.sha256')
         self.persist()
-        raw=self.path.read_bytes();self._validate_blob(raw);self._atomic_write(path,raw)
-        digest=hashlib.sha256(raw).hexdigest()
-        self._atomic_write(Path(str(path)+'.sha256'),(digest+'  '+path.name+'\\n').encode('ascii'))
-        if not hmac.compare_digest(hashlib.sha256(path.read_bytes()).hexdigest(),digest):raise ValueError('Đọc lại bản sao lưu không khớp checksum.')
+        raw=self.path.read_bytes();self._validate_blob(raw)
+        try:
+            self._atomic_write(path,raw)
+            digest=hashlib.sha256(raw).hexdigest()
+            self._atomic_write(checksum_path,(digest+'  '+path.name+'\\n').encode('ascii'))
+            if not hmac.compare_digest(hashlib.sha256(path.read_bytes()).hexdigest(),digest):
+                raise ValueError('Đọc lại bản sao lưu không khớp checksum.')
+        except Exception:
+            # Never leave an apparently usable backup without its verified pair.
+            if path.exists():path.unlink()
+            if checksum_path.exists():checksum_path.unlink()
+            raise
         backups=sorted(backup_dir.glob('quanlykp_*.kpbak'))
         for old in backups[:-3]:
             old.unlink();sidecar=Path(str(old)+'.sha256')

@@ -25,7 +25,8 @@
 17. Trung tâm rà soát hồ sơ nghi trùng so sánh từng cặp theo họ tên chuẩn hóa, ngày sinh và tổ; chỉ đưa vào danh sách khi ít nhất một hồ sơ thiếu CCCD, cho đánh dấu không trùng và ghi nhật ký mà không sửa dữ liệu gốc.
 18. Gộp hồ sơ nghi trùng có xem trước xung đột, cho chọn giá trị theo từng trường, bổ sung ô trống từ hồ sơ phụ, chuyển CCCD an toàn, xóa mềm hồ sơ phụ, lưu ảnh chụp hai hồ sơ/trường tùy biến và cho hoàn tác khi dữ liệu chưa bị sửa sau gộp.
 19. Có công cụ benchmark biệt lập cho CSV gần 10 MB/5.000 dòng, kho KPHO2 lớn, 500 cặp nghi trùng, mở lại kho và kiểm tra toàn vẹn; không dùng dữ liệu dân cư thật.
-20. **56 bài kiểm thử đạt** trong môi trường phát triển.
+20. Ghi kho đồng bộ thêm mục thư mục trên POSIX; fault-injection xác nhận lỗi thay thế tệp giữ nguyên kho cũ và lỗi checksum không để lại backup thiếu cặp.
+21. **58 bài kiểm thử đạt** trong môi trường phát triển.
 
 ## 2. Tồn tại cần giải quyết
 

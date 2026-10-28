@@ -7,6 +7,7 @@ import sqlite3
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from server.crypto import Vault,derive_key,MAGIC,MAGIC_OLD
+import server.crypto as crypto_module
 from win_compat import assess
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -112,3 +113,39 @@ def test_restore_rejects_bad_checksum_without_changing_data(tmp_path):
     backup=vault.backup(tmp_path/'backups');original=path.read_bytes();Path(str(backup)+'.sha256').write_text('0'*64+'  '+backup.name+'\\n',encoding='ascii')
     with pytest.raises(ValueError,match='Checksum'):vault.restore(backup,tmp_path/'rollbacks')
     assert path.read_bytes()==original;vault.conn.close()
+
+def test_persist_replace_failure_preserves_original_and_cleans_temp(tmp_path,monkeypatch):
+    path=tmp_path/'primary.vault';vault=Vault(path,PASS)
+    vault.conn.execute('CREATE TABLE records(value TEXT)')
+    vault.conn.execute('INSERT INTO records VALUES(?)',('bản đã lưu',));vault.conn.commit();vault.persist()
+    original=path.read_bytes()
+    vault.conn.execute('UPDATE records SET value=?',('chưa được lưu',));vault.conn.commit()
+    real_replace=crypto_module.os.replace
+    def fail_target(source,destination):
+        if Path(destination)==path:raise OSError('fault injection: replace failed')
+        return real_replace(source,destination)
+    monkeypatch.setattr(crypto_module.os,'replace',fail_target)
+    with pytest.raises(OSError,match='fault injection'):vault.persist()
+    assert path.read_bytes()==original
+    assert not list(tmp_path.glob('.quanlykp-*'))
+    vault.conn.close();reopened=Vault(path,PASS)
+    assert reopened.conn.execute('SELECT value FROM records').fetchone()[0]=='bản đã lưu'
+    reopened.conn.close()
+
+def test_backup_checksum_failure_removes_incomplete_pair(tmp_path,monkeypatch):
+    path=tmp_path/'primary.vault';vault=Vault(path,PASS)
+    vault.conn.execute('CREATE TABLE records(value TEXT)');vault.conn.execute('INSERT INTO records VALUES(?)',('an toàn',))
+    vault.conn.commit();vault.persist();original_atomic=Vault._atomic_write;calls={'count':0}
+    def fail_checksum(target,data):
+        calls['count']+=1
+        if calls['count']==2:raise OSError('fault injection: checksum failed')
+        return original_atomic(target,data)
+    monkeypatch.setattr(Vault,'_atomic_write',staticmethod(fail_checksum))
+    backup_dir=tmp_path/'backups'
+    with pytest.raises(OSError,match='fault injection'):vault.backup(backup_dir)
+    assert not list(backup_dir.glob('*.kpbak'))
+    assert not list(backup_dir.glob('*.sha256'))
+    assert not list(backup_dir.glob('.quanlykp-*'))
+    vault.conn.close();reopened=Vault(path,PASS)
+    assert reopened.conn.execute('SELECT value FROM records').fetchone()[0]=='an toàn'
+    reopened.conn.close()
