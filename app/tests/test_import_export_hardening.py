@@ -328,3 +328,32 @@ def test_dropdown_undo_stops_if_migrated_resident_was_edited(api):
     assert edited.status_code==200
     stopped=client.post('/api/fields/'+field_id+'/option-migrations/'+migration_id+'/undo',headers=headers,json={'confirmation':'HOAN TAC'})
     assert stopped.status_code==409 and 'hồ sơ đã thay đổi' in stopped.json()['detail']
+
+def test_duplicate_review_center_lists_comparison_and_records_not_duplicate(api):
+    client,headers=api
+    for phone in ('0900000001','0900000002'):
+        created=client.post('/api/residents',headers=headers,json={
+            'full_name':'Nguyễn Văn Trùng','dob':'01-02-1990','team_id':2,'phone':phone})
+        assert created.status_code==200,created.text
+    candidates=client.get('/api/residents/duplicate-candidates',headers=headers)
+    assert candidates.status_code==200 and candidates.json()['count']==1
+    item=candidates.json()['items'][0]
+    assert item['left']['dob']=='01-02-1990' and item['right']['dob']=='01-02-1990'
+    decided=client.post('/api/residents/duplicate-candidates/'+item['candidate_id']+'/decision',
+                        headers=headers,json={'decision':'not_duplicate'})
+    assert decided.status_code==200
+    assert client.get('/api/residents/duplicate-candidates',headers=headers).json()['count']==0
+    audit=client.get('/api/audit',headers=headers).json()['items']
+    assert any(x['action']=='DUPLICATE_NOT_MATCH' for x in audit)
+
+def test_duplicate_review_requires_missing_cccd_and_changes_create_new_candidate(api):
+    client,headers=api
+    base={'full_name':'Trần Thị Giống','dob':'05-06-1985','team_id':1}
+    first=client.post('/api/residents',headers=headers,json={**base,'cccd':'079000000111'}).json()['id']
+    second=client.post('/api/residents',headers=headers,json={**base,'cccd':'079000000222'}).json()['id']
+    assert client.get('/api/residents/duplicate-candidates',headers=headers).json()['count']==0
+    # Removing one CCCD makes the pair eligible for manual review.
+    updated=client.put('/api/residents/'+second,headers=headers,json=base)
+    assert updated.status_code==200
+    item=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
+    assert {item['left']['id'],item['right']['id']}=={first,second}
