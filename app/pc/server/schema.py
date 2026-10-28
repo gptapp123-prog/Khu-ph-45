@@ -65,6 +65,12 @@ CREATE TABLE IF NOT EXISTS duplicate_reviews(
  resident_b TEXT NOT NULL REFERENCES residents(id), decision TEXT NOT NULL CHECK(decision IN ('not_duplicate')),
  reviewed_by TEXT NOT NULL, reviewed_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS resident_merges(
+ id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, primary_id TEXT NOT NULL REFERENCES residents(id),
+ secondary_id TEXT NOT NULL REFERENCES residents(id), primary_before_json TEXT NOT NULL,
+ secondary_before_json TEXT NOT NULL, merged_json TEXT NOT NULL, actor TEXT NOT NULL,
+ merged_at TEXT NOT NULL, undone_at TEXT, undone_by TEXT
+);
 CREATE TABLE IF NOT EXISTS templates(id TEXT PRIMARY KEY,name TEXT NOT NULL,fields_json TEXT NOT NULL,mapping_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS filter_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,signature_json TEXT NOT NULL,fields_json TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_log(
