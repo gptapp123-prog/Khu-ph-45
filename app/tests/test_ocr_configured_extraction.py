@@ -70,7 +70,10 @@ def test_ocr_uses_bundled_vietnamese_model_and_checks_integrity():
     with patch('pytesseract.image_to_string',return_value='Học sinh trường: THPT Thủ Đức') as mock:
         assert 'THPT Thủ Đức' in ocr_image(Image.new('RGB',(30,30),'white'))
         assert mock.call_args.kwargs['lang']=='vie+eng'
-        assert '--tessdata-dir' in mock.call_args.kwargs['config']
+        from server.parsers import _MODEL_DIR
+        import os
+        assert os.environ['TESSDATA_PREFIX']==str(_MODEL_DIR)
+        assert '--tessdata-dir' not in mock.call_args.kwargs['config']
     with patch('server.parsers._MODEL_DIR',None),patch('server.parsers.VIETNAMESE_MODEL') as path:
         path.is_file.return_value=False
         with pytest.raises(ValueError,match='Thiếu hoặc sai bộ nhận dạng'):
