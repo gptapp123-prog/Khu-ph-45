@@ -510,6 +510,133 @@ def decide_duplicate_candidate(candidate_id:str,p:DuplicateDecision,account:dict
                {'resident_a':candidate['left']['id'],'resident_b':candidate['right']['id']})
         commit();return {'ok':True}
 
+MERGE_FIELDS=['full_name','cccd','dob','gender','hometown','permanent_address','team_id','phone',
+              'health_insurance','occupation','note','household_id']
+
+def raw_custom_values(resident_id:str):
+    return {r['name']:r['value'] for r in db().execute('''SELECT d.name,v.value FROM field_values v
+        JOIN field_definitions d ON d.id=v.field_id WHERE v.resident_id=?''',(resident_id,))}
+
+def resident_snapshot(resident_id:str):
+    row=db().execute('SELECT * FROM residents WHERE id=?',(resident_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy hồ sơ nhân khẩu.')
+    return {'resident':dict(row),'custom_values':raw_custom_values(resident_id)}
+
+def merge_plan(primary:dict,secondary:dict):
+    proposed={};conflicts=[]
+    for field in MERGE_FIELDS:
+        left=primary['resident'].get(field);right=secondary['resident'].get(field)
+        proposed[field]=left if left not in (None,'') else right
+        if left not in (None,'') and right not in (None,'') and str(left)!=str(right):
+            conflicts.append({'field':field,'label':BASE_FIELDS.get(field,field),'primary':display_date(left) if field=='dob' else left,
+                              'secondary':display_date(right) if field=='dob' else right,'selected':'primary'})
+    custom=dict(secondary['custom_values']);custom.update({k:v for k,v in primary['custom_values'].items() if v not in (None,'')})
+    for name,left in primary['custom_values'].items():
+        right=secondary['custom_values'].get(name)
+        if left not in (None,'') and right not in (None,'') and str(left)!=str(right):
+            conflicts.append({'field':'custom:'+name,'label':name,'primary':left,'secondary':right,'selected':'primary'})
+    return proposed,custom,conflicts
+
+class MergePreview(BaseModel):
+    primary_id:str;secondary_id:str
+
+@app.post('/api/residents/duplicate-candidates/{candidate_id}/merge-preview')
+def preview_resident_merge(candidate_id:str,p:MergePreview,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'edit_residents');permit(account,'admin_root','super_admin')
+    with LOCK:
+        candidate=next((x for x in duplicate_candidates(account) if x['candidate_id']==candidate_id),None)
+        if not candidate or {p.primary_id,p.secondary_id}!={candidate['left']['id'],candidate['right']['id']} or p.primary_id==p.secondary_id:
+            raise HTTPException(404,'Cặp hồ sơ không còn hợp lệ để gộp.')
+        primary=resident_snapshot(p.primary_id);secondary=resident_snapshot(p.secondary_id)
+        proposed,custom,conflicts=merge_plan(primary,secondary)
+        signature=hashlib.sha256(json.dumps([candidate_id,p.primary_id,p.secondary_id,
+            primary['resident']['updated_at'],secondary['resident']['updated_at'],proposed,custom],
+            sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+        display=dict(proposed);display['dob']=display_date(display.get('dob'))
+        return {'candidate_id':candidate_id,'primary_id':p.primary_id,'secondary_id':p.secondary_id,
+                'signature':signature,'proposed':display,'custom_values':custom,'conflicts':conflicts,
+                'note':'Giá trị hồ sơ chính được ưu tiên; hồ sơ phụ chỉ bổ sung ô còn trống.'}
+
+class MergeCommit(MergePreview):
+    expected_signature:str;confirmation:str
+
+@app.post('/api/residents/duplicate-candidates/{candidate_id}/merge')
+def commit_resident_merge(candidate_id:str,p:MergeCommit,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'edit_residents');permit(account,'admin_root','super_admin')
+    if p.confirmation!='GOP HO SO':raise HTTPException(422,'Thiếu xác nhận GOP HO SO.')
+    with LOCK:
+        candidate=next((x for x in duplicate_candidates(account) if x['candidate_id']==candidate_id),None)
+        if not candidate or {p.primary_id,p.secondary_id}!={candidate['left']['id'],candidate['right']['id']}:
+            raise HTTPException(404,'Cặp hồ sơ không còn hợp lệ để gộp.')
+        primary=resident_snapshot(p.primary_id);secondary=resident_snapshot(p.secondary_id)
+        proposed,custom,conflicts=merge_plan(primary,secondary)
+        signature=hashlib.sha256(json.dumps([candidate_id,p.primary_id,p.secondary_id,
+            primary['resident']['updated_at'],secondary['resident']['updated_at'],proposed,custom],
+            sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+        if not hmac.compare_digest(signature,p.expected_signature):
+            raise HTTPException(409,'Hồ sơ đã thay đổi sau khi xem trước. Hãy xem trước lại.')
+        merge_id=uuid.uuid4().hex;merged_at=now()
+        merged_snapshot={'resident':dict(proposed,updated_at=merged_at),'custom_values':custom}
+        db().execute('SAVEPOINT resident_merge')
+        try:
+            # Release the secondary unique identity inside the same savepoint before
+            # transferring it to the primary record. Any later failure rolls this back.
+            if proposed.get('cccd') and proposed.get('cccd')==secondary['resident'].get('cccd'):
+                db().execute('UPDATE residents SET cccd=NULL WHERE id=?',(p.secondary_id,))
+            db().execute('''UPDATE residents SET full_name=?,cccd=?,dob=?,gender=?,hometown=?,permanent_address=?,team_id=?,phone=?,health_insurance=?,occupation=?,note=?,household_id=?,updated_at=? WHERE id=?''',
+                         [proposed[x] for x in MERGE_FIELDS]+[merged_at,p.primary_id])
+            save_custom_values(p.primary_id,custom)
+            db().execute('UPDATE residents SET deleted_at=?,updated_at=? WHERE id=?',(merged_at,merged_at,p.secondary_id))
+            db().execute('''INSERT INTO resident_merges(id,candidate_id,primary_id,secondary_id,primary_before_json,
+                secondary_before_json,merged_json,actor,merged_at) VALUES(?,?,?,?,?,?,?,?,?)''',
+                (merge_id,candidate_id,p.primary_id,p.secondary_id,json.dumps(primary,ensure_ascii=False),
+                 json.dumps(secondary,ensure_ascii=False),json.dumps(merged_snapshot,ensure_ascii=False),account['id'],merged_at))
+            record(account['id'],'MERGE_RESIDENTS','resident_merge',merge_id,
+                   {'primary_id':p.primary_id,'secondary_id':p.secondary_id,'conflicts':len(conflicts)})
+            db().execute('RELEASE resident_merge');commit()
+        except Exception:
+            db().execute('ROLLBACK TO resident_merge');db().execute('RELEASE resident_merge');raise
+        return {'ok':True,'merge_id':merge_id,'primary_id':p.primary_id,'secondary_id':p.secondary_id}
+
+class MergeUndo(BaseModel):confirmation:str
+
+@app.get('/api/resident-merges')
+def list_resident_merges(request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'edit_residents');permit(account,'admin_root','super_admin')
+    with LOCK:
+        rows=db().execute('''SELECT m.id,m.primary_id,m.secondary_id,m.merged_at,m.undone_at,
+            a.full_name AS primary_name,b.full_name AS secondary_name FROM resident_merges m
+            JOIN residents a ON a.id=m.primary_id JOIN residents b ON b.id=m.secondary_id
+            ORDER BY m.merged_at DESC LIMIT 100''').fetchall()
+        return {'items':[dict(x) for x in rows]}
+
+@app.post('/api/resident-merges/{merge_id}/undo')
+def undo_resident_merge(merge_id:str,p:MergeUndo,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'edit_residents');permit(account,'admin_root','super_admin')
+    if p.confirmation!='HOAN TAC GOP':raise HTTPException(422,'Thiếu xác nhận HOAN TAC GOP.')
+    with LOCK:
+        merge=db().execute('SELECT * FROM resident_merges WHERE id=?',(merge_id,)).fetchone()
+        if not merge:raise HTTPException(404,'Không tìm thấy giao dịch gộp.')
+        if merge['undone_at']:raise HTTPException(409,'Giao dịch gộp đã được hoàn tác.')
+        merged=json.loads(merge['merged_json']);primary=resident_snapshot(merge['primary_id']);secondary=resident_snapshot(merge['secondary_id'])
+        if primary['resident']['updated_at']!=merge['merged_at'] or secondary['resident']['deleted_at']!=merge['merged_at'] or primary['custom_values']!=merged['custom_values']:
+            raise HTTPException(409,'Hồ sơ đã thay đổi sau khi gộp. Không thể hoàn tác tự động.')
+        before_primary=json.loads(merge['primary_before_json']);before_secondary=json.loads(merge['secondary_before_json'])
+        db().execute('SAVEPOINT resident_merge_undo')
+        try:
+            for snapshot in (before_primary,before_secondary):
+                r=snapshot['resident']
+                db().execute('''UPDATE residents SET full_name=?,cccd=?,dob=?,gender=?,hometown=?,permanent_address=?,team_id=?,phone=?,health_insurance=?,occupation=?,note=?,household_id=?,created_at=?,updated_at=?,deleted_at=? WHERE id=?''',
+                             [r[x] for x in MERGE_FIELDS]+[r['created_at'],r['updated_at'],r['deleted_at'],r['id']])
+                db().execute('DELETE FROM field_values WHERE resident_id=?',(r['id'],))
+                save_custom_values(r['id'],snapshot['custom_values'])
+            db().execute('UPDATE resident_merges SET undone_at=?,undone_by=? WHERE id=?',(now(),account['id'],merge_id))
+            record(account['id'],'UNDO_RESIDENT_MERGE','resident_merge',merge_id)
+            db().execute('RELEASE resident_merge_undo');commit()
+        except Exception:
+            db().execute('ROLLBACK TO resident_merge_undo');db().execute('RELEASE resident_merge_undo');raise
+        return {'ok':True,'restored':2}
+
 @app.post('/api/residents/duplicate-check')
 def duplicate_check(p:ResidentIn,account:dict=Depends(user)):
     capability(account,'read_residents')
