@@ -1,5 +1,6 @@
 """Reject ambiguous OCR identities and malformed tabular rows."""
 import io
+import sys
 from unittest.mock import patch
 from PIL import Image
 import pytest
@@ -57,3 +58,17 @@ def test_multiline_label_is_extracted_and_next_label_is_not_used_as_value():
     assert row['Họ tên OCR']=='Nguyễn Văn A'
     assert row['Ngày sinh OCR']=='02-03-1991'
     assert row['Quê quán OCR']==''
+
+
+def test_pdf_scan_without_embedded_image_renders_page_in_memory():
+    page=MagicMock();page.extract_text.return_value='';page.images=[]
+    document=MagicMock();document.pages=[page]
+    rendered=MagicMock();rendered.get_size.return_value=(600,800)
+    bitmap=MagicMock();rendered.render.return_value=bitmap
+    bitmap.to_pil.return_value=Image.new('RGB',(20,20),'white')
+    pdfium=MagicMock();pdfium.PdfDocument.return_value.__getitem__.return_value=rendered
+    with patch('server.parsers.PdfReader',return_value=document),patch.dict(sys.modules,{'pypdfium2':pdfium}),patch('pytesseract.image_to_string',return_value='Họ tên: Trần B'):
+        result=parse_file(b'%PDF synthetic','scan.pdf')
+    assert result['rows'][0]['Họ tên OCR']=='Trần B'
+    pdfium.PdfDocument.assert_called_once_with(b'%PDF synthetic')
+    rendered.render.assert_called_once_with(scale=2.0)

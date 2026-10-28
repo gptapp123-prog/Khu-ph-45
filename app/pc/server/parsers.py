@@ -88,6 +88,27 @@ def review_result(texts,source):
     if len(texts)>1:result['warnings'].append('Tài liệu nhiều trang: kiểm tra thông tin thuộc cùng một người trước khi nhập.')
     return result
 
+def render_pdf_page(raw,page_number):
+    """Render a scan entirely in RAM when pypdf cannot extract its image."""
+    try:import pypdfium2 as pdfium
+    except ImportError as exc:raise ValueError('PDF scan cần cài pypdfium2 trên PC để kết xuất toàn trang.') from exc
+    document=pdfium.PdfDocument(raw)
+    try:
+        page=document[page_number]
+        try:
+            width,height=page.get_size()
+            scale=2.0
+            if width*height*scale*scale>20_000_000:
+                raise ValueError('Trang PDF quá lớn để OCR an toàn.')
+            bitmap=page.render(scale=scale)
+            try:
+                import pytesseract
+                with bitmap.to_pil() as image:
+                    return pytesseract.image_to_string(image,lang='vie+eng')
+            finally:bitmap.close()
+        finally:page.close()
+    finally:document.close()
+
 def parse_file(raw:bytes,filename:str):
     if len(raw)>10*1024*1024:raise ValueError('Giới hạn tệp nhập: 10 MB.')
     ext=filename.lower().rsplit('.',1)[-1] if '.' in filename else ''
@@ -151,12 +172,14 @@ def parse_file(raw:bytes,filename:str):
         pdf=PdfReader(io.BytesIO(raw))
         if len(pdf.pages)>50:raise ValueError('PDF tối đa 50 trang/lần nhập.')
         texts=[]
-        for page in pdf.pages:
+        for page_number,page in enumerate(pdf.pages):
             content=(page.extract_text() or '').strip()
             if not content:
                 import pytesseract
                 images=list(page.images)
-                if not images:raise ValueError('Trang PDF scan không có ảnh đọc được; hãy chuyển sang PNG/JPG.')
+                if not images:
+                    texts.append(render_pdf_page(raw,page_number))
+                    continue
                 if len(images)>10:raise ValueError('Trang PDF có quá 10 ảnh; hãy tách tài liệu để tránh bỏ sót.')
                 page_text=[]
                 for item in images[:10]:
