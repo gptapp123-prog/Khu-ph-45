@@ -686,6 +686,63 @@ def move_field(field_id:str,p:FieldMove,account:dict=Depends(user)):
         record(account['id'],'MOVE_FIELD','field',field_id,{'direction':p.direction})
         commit();return {'ok':True,'moved':True}
 
+class OptionMigrationPreview(BaseModel):
+    from_value:str=Field(min_length=1,max_length=100)
+    to_value:str=Field(min_length=1,max_length=100)
+
+class OptionMigrationCommit(OptionMigrationPreview):
+    expected_count:int=Field(ge=1,le=1000000)
+    confirmation:str
+
+def option_migration_context(field_id:str,p:OptionMigrationPreview):
+    row=db().execute('SELECT * FROM field_definitions WHERE id=?',(field_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy trường tùy biến.')
+    if row['type']!='dropdown':raise HTTPException(422,'Chỉ trường danh sách mới chuyển được lựa chọn.')
+    source=p.from_value.strip();target=p.to_value.strip()
+    if source==target:raise HTTPException(422,'Lựa chọn nguồn và đích phải khác nhau.')
+    options=json.loads(row['options_json'] or '[]')
+    if source not in options:raise HTTPException(422,'Lựa chọn nguồn không tồn tại trong cấu hình.')
+    count=db().execute('SELECT count(*) FROM field_values WHERE field_id=? AND value=?',(field_id,source)).fetchone()[0]
+    return row,options,source,target,count
+
+@app.post('/api/fields/{field_id}/option-migration/preview')
+def preview_option_migration(field_id:str,p:OptionMigrationPreview,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'manage_fields');permit(account,'admin_root','super_admin')
+    with LOCK:
+        row,options,source,target,count=option_migration_context(field_id,p)
+        return {'field_id':field_id,'field_label':row['label'],'from_value':source,
+                'to_value':target,'affected_count':count,'target_exists':target in options,
+                'message':'Chỉ xem trước; chưa thay đổi dữ liệu.'}
+
+@app.post('/api/fields/{field_id}/option-migration/commit')
+def commit_option_migration(field_id:str,p:OptionMigrationCommit,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'manage_fields');permit(account,'admin_root','super_admin')
+    if p.confirmation!='CHUYEN DU LIEU':raise HTTPException(422,'Thiếu xác nhận CHUYEN DU LIEU.')
+    with LOCK:
+        row,options,source,target,count=option_migration_context(field_id,p)
+        if count!=p.expected_count:
+            raise HTTPException(409,'Dữ liệu đã thay đổi sau khi xem trước. Hãy xem trước lại trước khi xác nhận.')
+        if count<1:raise HTTPException(409,'Không có hồ sơ nào cần chuyển.')
+        next_options=[]
+        for value in options:
+            candidate=target if value==source else value
+            if candidate not in next_options:next_options.append(candidate)
+        db().execute('SAVEPOINT option_migration')
+        try:
+            changed=db().execute('UPDATE field_values SET value=? WHERE field_id=? AND value=?',
+                                 (target,field_id,source)).rowcount
+            if changed!=count:raise RuntimeError('Số hồ sơ cập nhật không khớp kết quả xem trước.')
+            db().execute('UPDATE field_definitions SET options_json=? WHERE id=?',
+                         (json.dumps(next_options,ensure_ascii=False),field_id))
+            record(account['id'],'MIGRATE_FIELD_OPTION','field',field_id,
+                   {'from':source,'to':target,'count':changed})
+            db().execute('RELEASE option_migration')
+            commit()
+        except Exception:
+            db().execute('ROLLBACK TO option_migration');db().execute('RELEASE option_migration')
+            raise
+        return {'ok':True,'updated':changed,'options':next_options}
+
 @app.get('/api/accounts')
 def accounts(account:dict=Depends(user)):
     capability(account,'read_accounts')
