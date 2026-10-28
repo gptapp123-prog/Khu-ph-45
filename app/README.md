@@ -4,6 +4,8 @@
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
 **Trạng thái (28/10/2026):** mã nguồn + script cài đặt thử; có script tạo thư mục gói PC với thư viện offline trên Windows. **CHƯA có EXE/MSI hoặc APK ký phát hành.**
 
+Khóa cập nhật Android: có script tạo keystore một lần ngoài GitHub và cấu hình Gradle yêu cầu ký bản release; xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. Chưa tạo khóa phát hành thực tế hoặc APK ký trong repo. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
+
 ## Gói cài PC offline để thử nghiệm
 
 Trên máy Windows mục tiêu đã cài Python phù hợp, chạy `Tao_goi_cai_PC_offline.bat` trong thư mục `app`. Script tải các wheel đúng kiến trúc/Python của **máy đang tạo gói**, kiểm tra khả năng giải phụ thuộc khi ngắt kết nối và tạo `dist\QuanLyKhuPho_PC_offline`. Chép nguyên thư mục đó sang PC cùng nền tảng, chạy `Cai_dat_PC.bat` trong thư mục đã chép. Khi có `wheelhouse`, script cài đặt bắt buộc dùng `--no-index`, nên sẽ báo lỗi nếu thiếu thư viện thay vì âm thầm tải qua mạng. Không dùng gói tạo trên Python/kiến trúc khác cho máy đích.
