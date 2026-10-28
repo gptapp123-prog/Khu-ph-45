@@ -274,7 +274,7 @@ def test_dropdown_option_migration_preview_commit_and_audit(api):
 
 def test_dropdown_migration_stops_when_count_changed_after_preview(api):
     client,headers=api
-    client.post('/api/fields',headers=headers,json={
+    field_id=client.post('/api/fields',headers=headers,json={
         'name':'nhom_xu_ly','label':'Nhóm xử lý','type':'dropdown',
         'options':['A','B']}).json()['id']
     payload={'from_value':'A','to_value':'B'}
@@ -360,7 +360,7 @@ def test_duplicate_review_requires_missing_cccd_and_changes_create_new_candidate
 
 def test_duplicate_merge_preview_commit_and_undo_preserves_both_snapshots(api):
     client,headers=api
-    field_id=client.post('/api/fields',headers=headers,json={
+    client.post('/api/fields',headers=headers,json={
         'name':'ma_phu','label':'Mã phụ','type':'text'}).json()['id']
     primary=client.post('/api/residents',headers=headers,json={
         'full_name':'Lê Văn Gộp','dob':'02-03-1991','team_id':4,'phone':'0900000001',
