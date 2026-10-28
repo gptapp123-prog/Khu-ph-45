@@ -460,6 +460,56 @@ def possible_duplicate_rows(full_name:str,dob:Optional[str],team_id:int,exclude_
     wanted=identity_key(full_name)
     return [dict(r) for r in db().execute(query,args) if identity_key(r['full_name'])==wanted]
 
+def duplicate_candidates(account:dict):
+    scope,args=team_scope(account)
+    rows=[dict(r) for r in db().execute(
+        'SELECT * FROM residents WHERE deleted_at IS NULL AND dob IS NOT NULL'+scope+' ORDER BY team_id,dob,full_name',args)]
+    groups={}
+    for row in rows:
+        key=(identity_key(row['full_name']),row['dob'],row['team_id'])
+        groups.setdefault(key,[]).append(row)
+    result=[]
+    for key,items in groups.items():
+        if len(items)<2:continue
+        for left_index in range(len(items)):
+            for right_index in range(left_index+1,len(items)):
+                left,right=items[left_index],items[right_index]
+                if left.get('cccd') and right.get('cccd'):continue
+                ids=sorted([left['id'],right['id']])
+                signature='|'.join(ids+[key[0],key[1],str(key[2])])
+                candidate_id=hashlib.sha256(signature.encode()).hexdigest()
+                reviewed=db().execute('SELECT decision,reviewed_at FROM duplicate_reviews WHERE candidate_id=?',(candidate_id,)).fetchone()
+                if reviewed:continue
+                for person in (left,right):person['dob']=display_date(person.get('dob'))
+                result.append({'candidate_id':candidate_id,'rule':'Cùng họ tên chuẩn hóa, ngày sinh và tổ; ít nhất một hồ sơ thiếu CCCD.',
+                               'left':protect(left,account['role']),'right':protect(right,account['role'])})
+                if len(result)>=500:return result
+    return result
+
+@app.get('/api/residents/duplicate-candidates')
+def list_duplicate_candidates(account:dict=Depends(user)):
+    capability(account,'read_residents');permit(account,'admin_kp','admin_root','super_admin')
+    with LOCK:
+        items=duplicate_candidates(account)
+        return {'count':len(items),'items':items,'limited':len(items)>=500,
+                'note':'Chỉ là ứng viên rà soát; hệ thống không tự gộp hoặc xóa.'}
+
+class DuplicateDecision(BaseModel):
+    decision:str
+
+@app.post('/api/residents/duplicate-candidates/{candidate_id}/decision')
+def decide_duplicate_candidate(candidate_id:str,p:DuplicateDecision,account:dict=Depends(user)):
+    capability(account,'edit_residents');permit(account,'admin_kp','admin_root','super_admin')
+    if p.decision!='not_duplicate':raise HTTPException(422,'Quyết định chưa được hỗ trợ.')
+    with LOCK:
+        candidate=next((x for x in duplicate_candidates(account) if x['candidate_id']==candidate_id),None)
+        if not candidate:raise HTTPException(404,'Ứng viên không tồn tại, đã xử lý hoặc dữ liệu đã thay đổi.')
+        db().execute('INSERT INTO duplicate_reviews(candidate_id,resident_a,resident_b,decision,reviewed_by,reviewed_at) VALUES(?,?,?,?,?,?)',
+                     (candidate_id,candidate['left']['id'],candidate['right']['id'],p.decision,account['id'],now()))
+        record(account['id'],'DUPLICATE_NOT_MATCH','resident_pair',candidate_id,
+               {'resident_a':candidate['left']['id'],'resident_b':candidate['right']['id']})
+        commit();return {'ok':True}
+
 @app.post('/api/residents/duplicate-check')
 def duplicate_check(p:ResidentIn,account:dict=Depends(user)):
     capability(account,'read_residents')
