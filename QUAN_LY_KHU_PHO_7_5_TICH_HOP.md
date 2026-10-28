@@ -1,27 +1,16 @@
-# Quản lý Khu phố 7.5 — nhánh tích hợp Codex
+# Quản lý Khu phố 7.5 — mã nguồn tích hợp
 
-Ngày tạo nhánh: 27/10/2026
+Mã ứng dụng PC và Android nằm trong `app/`. Đây là app mới kế thừa kỹ thuật từ gói bàn giao, độc lập với cổng public ở thư mục gốc.
 
-## Phạm vi đã kiểm chứng cục bộ
+## Tính năng đã triển khai trong mã
 
-- Kế thừa gói bàn giao 7.3/7.4, không xây lại từ đầu.
-- Khung giao diện 7.5 và bảng trạng thái F-001–F-031.
-- Menu phân nhóm: Hệ thống, Dữ liệu dân cư, Quản trị, Phân hệ mở rộng.
-- Các phân hệ chưa có backend được khóa, không tạo nút giả.
-- 26/26 kiểm thử pytest đạt trên Linux/Python 3.12.14.
-- Kiểm tra cú pháp app.js và framework.js đạt.
+- Bảng 31 chức năng, menu PC/mobile, quản lý hồ sơ và kho KPHO2 mã hóa trên PC chính.
+- Bảng lệnh OCR: quét tiêu đề hàng đầu của XLSX, chọn cột, tạo bảng lệnh, đánh dấu cột cần OCR/QR, cấu hình nhãn/bí danh/kiểu và độ dài mã.
+- OCR ảnh chụp, PDF scan/văn bản, QR trong ảnh/PDF; hiển thị nguồn OCR/QR và yêu cầu đối chiếu khi xung đột. Chỉ cột được đánh dấu mới nhận giá trị; các cột khác trong file để trống.
+- Xuất XLSX mới hoặc thêm dòng vào bản sao của XLSX đã chọn sau khi kiểm tra đúng tiêu đề và thứ tự cột. Không ghi đè file nguồn.
 
-## Giới hạn bắt buộc ghi nhận
+## Kiểm chứng và giới hạn
 
-- Chưa có EXE/MSI và APK ký.
-- Chưa kiểm thử Windows/Android thật.
-- Design QA đang blocked vì trình duyệt Work không kết nối được preview terminal.local:4173.
-- Không dùng dữ liệu dân cư thật.
-- PC là nơi duy nhất lưu bền vững dữ liệu; mobile không có kho dữ liệu riêng.
-
-## Bước tích hợp kế tiếp
-
-1. Đưa mã nguồn 7.5 vào thư mục app/ trên nhánh này.
-2. Bổ sung CI pytest + kiểm tra JavaScript.
-3. Chạy E2E desktop/mobile và lưu ảnh bằng chứng.
-4. Chỉ merge khi kiểm tra cấu trúc repository hiện có và không phá bộ E2E.
+- CI trên nhánh PR #14: 90 bài Python, kiểm tra cú pháp JavaScript và E2E trình duyệt PC/mobile đạt ở run 40692473086.
+- Chưa nghiệm thu tỷ lệ OCR trên bộ tài liệu thực đa dạng; trường mờ/chữ viết tay cần đối chiếu. Chưa kiểm thử trên PC Windows/Android thật, chưa có EXE/MSI/APK ký.
+- Chỉ dùng dữ liệu tổng hợp trong kiểm thử. Không đưa ảnh giấy tờ hoặc dữ liệu cá nhân thật vào repository.

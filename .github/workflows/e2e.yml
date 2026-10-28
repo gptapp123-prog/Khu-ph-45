@@ -1,23 +1,9 @@
-name: KP45 Public Portal E2E
+name: KP45 E2E
 
 on:
   push:
-    paths:
-      - "e2e/public.spec.ts"
-      - "playwright.config.ts"
-      - "package.json"
-      - "package-lock.json"
   pull_request:
-    paths:
-      - "e2e/public.spec.ts"
-      - "playwright.config.ts"
-      - "package.json"
-      - "package-lock.json"
   workflow_dispatch:
-
-concurrency:
-  group: kp45-public-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -25,14 +11,13 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     env:
       BASE_URL: https://khu-pho-45-phuong-binh-tan-iwhddk.v2.appdeploy.ai/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
       - run: npm install
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test e2e/public.spec.ts
