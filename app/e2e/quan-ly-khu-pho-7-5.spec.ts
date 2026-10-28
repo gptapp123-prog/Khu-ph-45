@@ -106,3 +106,31 @@ test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đ�
   await page.locator('.ocrBrightness').evaluate((el:HTMLInputElement)=>{el.value='130';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await expect(page.locator('.ocrSourceImage')).toHaveCSS('filter','brightness(1.3)');
 });
+
+test('QR và OCR khác nhau phải chọn nguồn; QR đơn lẻ vẫn xuất đúng cột', async ({page},testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Xuất QR chỉ dùng tại PC chính');
+  await enterApp(page);
+  await page.locator('[data-page="import"]').click();
+  const fields=[{label:'Số hiệu bằng',column:'Số hiệu bằng',type:'identifier',aliases:[]}];
+  await page.route('**/api/ocr/templates',async route=>await route.fulfill({json:{items:[{id:'qr-template',name:'Mã QR',fields}]}}));
+  await page.locator('#openConfiguredOcr').click();
+  await page.locator('#ocrTemplateSelect').selectOption('qr-template');
+  await page.route('**/api/qr/decode?*',async route=>await route.fulfill({json:{codes:[{page:1,text:'Số hiệu bằng: 12345/PT'}],values:{'Số hiệu bằng':'12345/PT'},warnings:[]}}));
+  let qrOnly=false;
+  await page.route('**/api/import/preview?*',async route=>{
+    if(qrOnly)await route.fulfill({status:422,json:{detail:'Không đọc được chữ'}});
+    else await route.fulfill({json:{ocr_review:true,raw_text:'Số hiệu bằng: 99999/PT',warnings:[]}});
+  });
+  await page.route('**/api/ocr/extract',async route=>await route.fulfill({json:{fields,values:{'Số hiệu bằng':qrOnly?'':'99999/PT'},warnings:[]}}));
+  await page.locator('#ocrFiles').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:Buffer.from([137,80,78,71,13,10,26,10])});
+  await page.locator('#ocrReadFiles').click();
+  await expect(page.locator('.ocrConfirmed')).toHaveValue('');
+  await expect(page.locator('#ocrResult')).toContainText('OCR và QR khác nhau');
+  await page.locator('.ocrUseValue[data-source="qr"]').click();
+  await expect(page.locator('.ocrConfirmed')).toHaveValue('12345/PT');
+  qrOnly=true;
+  await page.locator('#ocrReadFiles').click();
+  await expect(page.locator('.ocrConfirmed')).toHaveValue('12345/PT');
+  await page.locator('.ocrConfirm').click();
+  await expect(page.locator('#ocrExportRows')).toBeEnabled();
+});

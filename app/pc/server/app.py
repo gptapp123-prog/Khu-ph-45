@@ -17,6 +17,7 @@ from .schema import initialize,BASE_FIELDS,CAPABILITIES,DEFAULT_CAPABILITIES
 from .security import SessionStore,ROLES,hash_password,verify_password,masking,now
 from .parsers import parse_file,strip_accents
 from .ocr_extraction import extract_configured,normalized
+from .qr_extraction import decode_qr_file,qr_values
 from .model_compat import fields_set, copy_with, declared_fields, validate_model
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -48,7 +49,7 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.3-ocr-image-adjustment',lifespan=lifespan,
+app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.4-qr-import',lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
@@ -1277,6 +1278,20 @@ def ocr_extract(p:OcrExtractRequest,account:dict=Depends(user)):
     if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
     fields=json.loads(row['fields_json']);values,warnings=extract_configured(p.text,fields)
     return {'fields':fields,'values':values,'warnings':warnings}
+
+@app.post('/api/qr/decode')
+async def qr_decode(request:Request,file:UploadFile=File(...),template_id:str='',account:dict=Depends(user)):
+    pc_only(request);capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(template_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+    raw=await file.read(10*1024*1024+1)
+    if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
+    try:
+        codes=decode_qr_file(raw,file.filename or '')
+        values,warnings=qr_values(codes,json.loads(row['fields_json']))
+        return {'codes':codes,'values':values,'warnings':warnings}
+    except (ValueError,ImportError) as exc:raise HTTPException(422,str(exc))
+    except Exception:raise HTTPException(422,'Không đọc được QR; kiểm tra tệp ảnh hoặc PDF trên PC.')
 
 class OcrExportRequest(BaseModel):
     template_id:str
