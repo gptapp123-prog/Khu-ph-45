@@ -303,7 +303,7 @@ async function permissions(){
 async function fields(){
  const d=await api('/fields?include_inactive=true');syncFields({standard:d.standard,custom:d.custom.filter(x=>x.active)});
  const typeName={text:'Văn bản',number:'Số',date:'Ngày',dropdown:'Danh sách',checkbox:'Đánh dấu'};
- const rows=d.standard.map(x=>'<tr>'+cell(x.id)+cell(x.label)+cell('Hệ thống')+cell('—')+cell('—')+cell(x.mode)+cell('—')+'</tr>').concat(d.custom.map(x=>`<tr>${cell(x.name)}${cell(x.label)}${cell(typeName[x.type]||x.type)}${cell(x.display_order)}${cell(x.usage_count)}<td><span class="chip ${x.active?'success':'bad'}">${x.active?'Đang dùng':'Đã ẩn'}</span></td><td><div class="actions"><button class="outline small" data-move-field="${esc(x.id)}" data-direction="up" title="Đưa lên">↑</button><button class="outline small" data-move-field="${esc(x.id)}" data-direction="down" title="Đưa xuống">↓</button><button class="outline small" data-edit-field="${esc(x.id)}">Sửa</button>${S.isPC&&isRoot()&&x.type==='dropdown'?`<button class="outline small" data-migrate-field="${esc(x.id)}">Chuyển giá trị</button>`:''}</div></td></tr>`));
+ const rows=d.standard.map(x=>'<tr>'+cell(x.id)+cell(x.label)+cell('Hệ thống')+cell('—')+cell('—')+cell(x.mode)+cell('—')+'</tr>').concat(d.custom.map(x=>`<tr>${cell(x.name)}${cell(x.label)}${cell(typeName[x.type]||x.type)}${cell(x.display_order)}${cell(x.usage_count)}<td><span class="chip ${x.active?'success':'bad'}">${x.active?'Đang dùng':'Đã ẩn'}</span></td><td><div class="actions"><button class="outline small" data-move-field="${esc(x.id)}" data-direction="up" title="Đưa lên">↑</button><button class="outline small" data-move-field="${esc(x.id)}" data-direction="down" title="Đưa xuống">↓</button><button class="outline small" data-edit-field="${esc(x.id)}">Sửa</button>${S.isPC&&isRoot()&&x.type==='dropdown'?`<button class="outline small" data-migrate-field="${esc(x.id)}">Chuyển giá trị</button><button class="outline small" data-migration-history="${esc(x.id)}">Lịch sử</button>`:''}</div></td></tr>`));
  $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Danh mục trường dữ liệu</h3><button class="primary" id="newField">+ Thêm trường</button></div>${table(['Mã','Tên trường','Kiểu','Thứ tự','Đang dùng','Trạng thái','Thao tác'],rows)}<p class="footnote">Không thể bỏ lựa chọn danh sách đang có hồ sơ sử dụng. Ẩn trường không xóa dữ liệu đã nhập.</p></div>`;
  const fieldForm=(row={})=>`<div class="form-grid">${row.id?'':`<label>Mã không dấu (snake_case)<input required name="name" pattern="[a-z][a-z0-9_]{1,40}"></label>`}<label>Tên hiển thị có dấu<input required name="label" value="${esc(row.label||'')}"></label>${row.id?`<label>Kiểu dữ liệu<input value="${esc(typeName[row.type]||row.type)}" disabled></label><label>Thứ tự hiển thị<input type="number" min="0" max="10000" name="display_order" value="${row.display_order||0}"></label>`:`<label>Kiểu dữ liệu<select name="type"><option value="text">Văn bản</option><option value="number">Số</option><option value="date">Ngày</option><option value="dropdown">Danh sách</option><option value="checkbox">Đánh dấu</option></select></label>`}<label style="grid-column:1/-1">Các lựa chọn, mỗi dòng một giá trị (chỉ dùng với kiểu Danh sách)<textarea name="options" rows="5">${esc((()=>{try{return JSON.parse(row.options_json||'[]').join('\n')}catch{return ''}})())}</textarea></label>${row.id?`<label class="checkline"><input type="checkbox" name="active" value="1" ${row.active?'checked':''}> Đang sử dụng</label>`:''}</div>`;
  const prepare=x=>{x.options=String(x.options||'').split(/\r?\n/).map(v=>v.trim()).filter(Boolean);if(x.display_order!==undefined&&x.display_order!==null)x.display_order=Number(x.display_order);return x};
@@ -314,10 +314,23 @@ async function fields(){
   modal('Chuyển hàng loạt lựa chọn',`<p class="muted">Thao tác thực hiện trên toàn bộ kho PC và có nhật ký. Dữ liệu sẽ không đổi trước khi xem trước và xác nhận.</p><div class="form-grid"><label>Lựa chọn đang dùng<select name="from_value" required><option value="">Chọn nguồn</option>${options.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label><label>Chuyển thành<input name="to_value" required maxlength="100"></label></div>`,async x=>{
    const preview=await api('/fields/'+encodeURIComponent(row.id)+'/option-migration/preview',{method:'POST',body:x});
    if(!preview.affected_count)throw Error('Không có hồ sơ nào đang dùng lựa chọn nguồn.');
-   if(!confirm(`Sẽ chuyển ${preview.affected_count} hồ sơ từ “${preview.from_value}” sang “${preview.to_value}”. Tiếp tục?`))throw Error('Đã hủy chuyển dữ liệu.');
+   const names=preview.sample.slice(0,10).map(v=>`• ${v.full_name} — Tổ ${v.team_id}${v.dob?' — '+v.dob:''}`).join('\n');
+   const more=preview.sample_limited?'\n… danh sách xem trước chỉ hiển thị tối đa 50 hồ sơ.':'';
+   if(!confirm(`Sẽ chuyển ${preview.affected_count} hồ sơ từ “${preview.from_value}” sang “${preview.to_value}”.\n\n${names}${more}\n\nTiếp tục?`))throw Error('Đã hủy chuyển dữ liệu.');
    const result=await api('/fields/'+encodeURIComponent(row.id)+'/option-migration/commit',{method:'POST',body:{...x,expected_count:preview.affected_count,confirmation:'CHUYEN DU LIEU'}});
    S.fields=null;await fields();toast('Đã chuyển '+result.updated+' hồ sơ và ghi nhật ký.');
   })}));
+ document.querySelectorAll('[data-migration-history]').forEach(b=>b.addEventListener('click',async()=>{try{
+  const history=await api('/fields/'+encodeURIComponent(b.dataset.migrationHistory)+'/option-migrations');
+  const active=history.items.filter(x=>!x.undone_at);
+  const rows=history.items.map(x=>`<tr><td><input type="radio" name="migration_id" value="${esc(x.id)}" ${x.undone_at?'disabled':''}></td>${cell(x.from_value+' → '+x.to_value)}${cell(x.affected_count)}${cell(dateTime(x.created_at))}${cell(x.undone_at?'Đã hoàn tác':'Có thể hoàn tác')}</tr>`);
+  modal('Lịch sử chuyển lựa chọn',history.items.length?table(['Chọn','Chuyển đổi','Hồ sơ','Thời điểm','Trạng thái'],rows):'<p>Chưa có giao dịch chuyển đổi.</p>',async x=>{
+   if(!x.migration_id)throw Error(active.length?'Chọn một giao dịch chưa hoàn tác.':'Không có giao dịch có thể hoàn tác.');
+   if(!confirm('Hoàn tác giao dịch đã chọn? Hệ thống sẽ dừng nếu hồ sơ hoặc cấu hình đã thay đổi.'))throw Error('Đã hủy hoàn tác.');
+   const result=await api('/fields/'+encodeURIComponent(b.dataset.migrationHistory)+'/option-migrations/'+encodeURIComponent(x.migration_id)+'/undo',{method:'POST',body:{confirmation:'HOAN TAC'}});
+   S.fields=null;await fields();toast('Đã hoàn tác '+result.restored+' hồ sơ.');
+  });
+ }catch(e){toast(e.message,true)}}));
 }
 async function templates(){
  await ensureFields();
