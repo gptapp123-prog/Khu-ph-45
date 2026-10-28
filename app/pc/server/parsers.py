@@ -3,7 +3,7 @@ import io,csv,re,unicodedata,hashlib,lzma,tempfile,threading,atexit
 from pathlib import Path
 from openpyxl import load_workbook
 from pypdf import PdfReader
-from PIL import Image,ImageOps,ImageEnhance,ImageFilter,ImageStat
+from PIL import Image,ImageOps,ImageEnhance,ImageFilter,ImageStat,ImageChops
 
 VIETNAMESE_MODEL=Path(__file__).resolve().parents[1]/'ocr_models'/'vie.traineddata'
 VIETNAMESE_MODEL_SHA256='79df64caf7bcfb2a27df5042ecb6121e196eada34da774956995747636d5bfa1'
@@ -73,6 +73,13 @@ def prepare_ocr_image(image,force=False):
         image=ImageOps.autocontrast(image,cutoff=1)
         if stat.mean[0]<65:image=ImageEnhance.Brightness(image).enhance(1.2)
         if force:image=ImageEnhance.Contrast(image).enhance(1.2)
+    if force and min(image.size)>=300:
+        # Phone photos often have a bright side and a shadowed side. Estimate
+        # the slowly changing paper background, retaining the dark glyphs.
+        gray=ImageOps.grayscale(image)
+        radius=min(60,max(15,min(image.size)//25))
+        background=gray.filter(ImageFilter.GaussianBlur(radius))
+        image=ImageChops.divide(gray,background,scale=230).convert('RGB')
     target=1200 if force else 900
     if min(image.size)<target and min(image.size)>=120:
         factor=min(2.0,target/min(image.size))
@@ -108,10 +115,13 @@ def ocr_selected_regions(image,text,fields,pytesseract,config):
                 left=min(data['left'][j] for j in indices)
                 top=min(data['top'][j] for j in indices)
                 height=max(data['height'][j] for j in indices)
-                x0=max(0,left-25);x1=min(image.width,left+550)
+                # Include the whole line: certificate suffixes and chassis
+                # numbers can sit at the far right of a wide landscape photo.
+                x0=max(0,left-25);x1=image.width
                 y0=max(0,top-max(47,int(height*1.5)));y1=min(image.height,top+max(55,int(height*1.8)))
                 crop=image.crop((x0,y0,x1,y1))
-                crop=crop.resize((crop.width*3,crop.height*3))
+                factor=min(3, max(1, 3600/crop.width))
+                crop=crop.resize((round(crop.width*factor),round(crop.height*factor)))
                 crop_text=pytesseract.image_to_string(crop,lang='vie+eng',config=config+' --psm 6')
                 value=extract_configured(crop_text,[field])[0][field['column']]
                 if not value:continue

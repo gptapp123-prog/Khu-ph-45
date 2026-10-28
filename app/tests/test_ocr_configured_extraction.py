@@ -123,6 +123,38 @@ def test_auto_light_and_zoom_only_for_small_or_dark_images():
     assert min(prepare_ocr_image(Image.new('RGB',(800,1000),'white'),force=True).size)>=1200
 
 
+def test_enhanced_photo_flattens_uneven_paper_light():
+    from PIL import ImageDraw
+    image=Image.new('RGB',(1200,600))
+    for x in range(image.width):
+        shade=110+round(130*x/(image.width-1))
+        for y in range(image.height):image.putpixel((x,y),(shade,shade,shade))
+    ImageDraw.Draw(image).rectangle((500,240,700,260),fill=(20,20,20))
+    enhanced=prepare_ocr_image(image,force=True)
+    left=enhanced.getpixel((100,100))[0]
+    right=enhanced.getpixel((1100,100))[0]
+    ink=enhanced.getpixel((600,250))[0]
+    assert abs(left-right)<35
+    assert ink<min(left,right)-70
+
+
+def test_reread_region_reaches_far_right_suffix():
+    from server.parsers import ocr_selected_regions
+    f=[{'label':'Số hiệu bằng','aliases':[],'column':'Số hiệu bằng','type':'identifier'}]
+    image=Image.new('RGB',(1800,600),'white')
+    data={'text':['Số','hiệu','bằng:','12345'],
+          'left':[100,135,180,1400],'top':[100,100,100,100],
+          'height':[25,25,25,25],'conf':[95,95,95,95]}
+    class FakeOCR:
+        class Output:DICT='dict'
+        def image_to_data(self,*args,**kwargs):return data
+        def image_to_string(self,crop,**kwargs):
+            assert crop.width>=1400
+            return 'Số hiệu bằng: 12345 /PT.'
+    result=ocr_selected_regions(image,'Số hiệu bằng:\nHọ và tên: Nguyễn A',f,FakeOCR(),'')
+    assert extract_configured(result,f)[0]['Số hiệu bằng']=='12345 /PT.'
+
+
 def test_api_template_image_extract_and_excel_export(api):
     client,headers,_=api
     saved=client.post('/api/ocr/templates',headers=headers,json={'name':'Thông tin văn bằng','fields':fields()})
