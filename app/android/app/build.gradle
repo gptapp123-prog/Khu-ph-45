@@ -4,8 +4,18 @@ def releaseStorePassword = System.getenv('QLKP_ANDROID_STORE_PASSWORD')
 def releaseAlias = System.getenv('QLKP_ANDROID_KEY_ALIAS')
 def releaseKeyPassword = System.getenv('QLKP_ANDROID_KEY_PASSWORD')
 def releaseSigningReady = [releaseStore, releaseStorePassword, releaseAlias, releaseKeyPassword].every { it }
-if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') } && !releaseSigningReady) {
+def releaseRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+def expectedCertificateSha256 = '490D6E73A8C0826C766BD57E39E779F383E5625C10D8D7B1EF65081A6199C077'
+if (releaseRequested && !releaseSigningReady) {
     throw new GradleException('Bản release cần khóa ký cố định: đặt đủ QLKP_ANDROID_KEYSTORE, QLKP_ANDROID_STORE_PASSWORD, QLKP_ANDROID_KEY_ALIAS, QLKP_ANDROID_KEY_PASSWORD.')
+}
+if (releaseRequested) {
+    def keyStore = java.security.KeyStore.getInstance('JKS')
+    new FileInputStream(releaseStore).withCloseable { stream -> keyStore.load(stream, releaseStorePassword.toCharArray()) }
+    def certificate = keyStore.getCertificate(releaseAlias)
+    if (certificate == null) throw new GradleException('Không tìm thấy alias khóa ký Android đã ấn định.')
+    def fingerprint = java.security.MessageDigest.getInstance('SHA-256').digest(certificate.encoded).encodeHex().toString().toUpperCase()
+    if (fingerprint != expectedCertificateSha256) throw new GradleException('Chứng chỉ ký Android khác khóa phát hành đã ấn định. Dừng để tránh bản cập nhật không tương thích.')
 }
 android {
     namespace 'vn.quanlykhu.mobile'
