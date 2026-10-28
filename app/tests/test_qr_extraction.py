@@ -51,6 +51,17 @@ def test_multiple_qr_with_conflicting_field_stays_blank():
     assert values['Số hiệu bằng']==''
     assert any('nhiều QR' in warning for warning in warnings)
 
+def test_multiple_qr_with_disjoint_fields_does_not_merge_people():
+    values,warnings=qr_values([{'page':1,'text':'Họ và tên: Nguyễn Văn A'},
+                               {'page':2,'text':'Số hiệu bằng: 12345/PT'}],FIELDS)
+    assert all(value=='' for value in values.values())
+    assert any('không tự ghép' in warning for warning in warnings)
+
+def test_repeated_same_qr_payload_is_safe_to_map():
+    payload='Họ và tên: Nguyễn Văn A'
+    values,_=qr_values([{'page':1,'text':payload},{'page':2,'text':payload}],FIELDS[:2])
+    assert values['Họ và tên']=='Nguyễn Văn A'
+
 def test_qr_image_format_limits_and_missing_template(api):
     client,headers,_=api
     assert client.post('/api/qr/decode?template_id=missing',headers=headers,files={'file':('ma.png',qr_png('A'),'image/png')}).status_code==404

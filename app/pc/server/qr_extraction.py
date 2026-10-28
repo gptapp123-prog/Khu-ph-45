@@ -53,6 +53,12 @@ def qr_values(codes,fields):
     result={f['column']:'' for f in fields}
     candidates={f['column']:set() for f in fields}
     warnings=[]
+    # Different payloads may belong to different people or documents. Never
+    # combine their fields into one row, even when the fields do not conflict.
+    distinct={code['text'].strip() for code in codes if code['text'].strip()}
+    if len(distinct)>1:
+        warnings.append('Có nhiều QR khác nội dung; không tự ghép vào một dòng. Xem từng mã QR gốc và nhập sau khi đối chiếu.')
+        return result,warnings
     for code in codes:
         payload=code['text']
         try:parsed=json.loads(payload)
@@ -75,7 +81,6 @@ def qr_values(codes,fields):
         column=field['column'];values=candidates[column]
         if len(values)==1:result[column]=next(iter(values))
         elif len(values)>1:warnings.append(field['label']+': nhiều QR cho giá trị khác nhau; để trống để đối chiếu.')
-    if len(codes)>1:warnings.append('Có nhiều QR trong tệp; đối chiếu từng trang để tránh ghép dữ liệu của các hồ sơ khác nhau.')
     if not codes:warnings.append('Không tìm thấy mã QR đọc được trong tệp.')
     elif not any(result.values()):warnings.append('QR không khớp nhãn trường đã chọn; xem nội dung QR gốc và nhập thủ công nếu cần.')
     return result,warnings
