@@ -36,6 +36,19 @@ def test_dotted_leaders_multiline_and_adjacent_heading():
     assert extract_configured('Ngày sinh: 18/07/1988 Giới tính: Nam',both)[0]=={'Ngày sinh':'18/07/1988','Giới tính':'Nam'}
 
 
+def test_heading_mentioned_in_prose_is_not_extracted():
+    f=[{'label':'Số khung','aliases':[],'column':'Số khung','type':'identifier'}]
+    text='Ghi chú: cần kiểm tra Số khung: RL4JW3EM3M0000000 trên bản gốc'
+    values,warnings=extract_configured(text,f)
+    assert values['Số khung']==''
+    assert any('không tìm thấy' in warning for warning in warnings)
+    same_row='Nhãn hiệu (Brand): TOYOTA Số loại (Model code): INNOVA'
+    f=[{'label':'Nhãn hiệu','aliases':[],'column':'Nhãn hiệu','type':'text'},
+       {'label':'Số loại','aliases':[],'column':'Số loại','type':'text'}]
+    values,_=extract_configured(same_row,f)
+    assert values=={'Nhãn hiệu':'TOYOTA','Số loại':'INNOVA'}
+
+
 def test_conflict_and_missing_stay_blank():
     result,warnings=extract_configured('Số hiệu bằng: 12345/PT\nSố hiệu bằng: 12346/PT\nHọ và tên:\nNgày sinh: 01/01/2000',fields())
     assert result['Số hiệu bằng']=='' and result['Họ và tên']==''

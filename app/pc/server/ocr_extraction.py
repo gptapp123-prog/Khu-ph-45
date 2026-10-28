@@ -46,10 +46,24 @@ def _split_next_label(value,labels):
     return value
 
 
-def _label_positions(line,aliases):
+def _label_positions(line,aliases,known_labels=()):
     """A printed form can contain two headings on one OCR line."""
     for start in range(len(line)):
         if start and not line[start-1].isspace():continue
+        if start:
+            before=line[:start].strip()
+            # Permit the second heading of a form row only after a recognized
+            # first heading and its value. OCR can also leave one stray glyph
+            # before the first heading. A label in ordinary prose is not a
+            # field boundary.
+            noise=len(before)<=2 and before.isalpha()
+            first=any(
+                (rest:=_prefix(before,label)) is not None
+                and rest and rest[0] in SEPARATORS
+                and _after_heading(rest)
+                for label in known_labels
+            ) if ':' in before or '：' in before else False
+            if not (noise or first):continue
         fragment=line[start:]
         for alias in aliases:
             remainder=_prefix(fragment,alias)
@@ -68,14 +82,14 @@ def extract_configured(text,fields):
         matches=[]
         aliases=sorted({normalized(a) for a in [field['label'],*field['aliases']] if a.strip()},key=len,reverse=True)
         for index,line in enumerate(lines):
-            for remainder in _label_positions(line,aliases):
+            for remainder in _label_positions(line,aliases,labels):
                 value=_after_heading(remainder)
                 if not value and index+1<len(lines):
                     following=lines[index+1].strip()
-                    if len(following)>=3 and not following.startswith('[') and not any(_label_positions(following,labels)):value=following
+                    if len(following)>=3 and not following.startswith('[') and not any(_label_positions(following,labels,labels)):value=following
                 if value and field['type']=='multiline' and index+1<len(lines):
                     following=lines[index+1].strip()
-                    if len(following)<90 and not following.startswith('[') and not any(_label_positions(following,labels)):
+                    if len(following)<90 and not following.startswith('[') and not any(_label_positions(following,labels,labels)):
                         value+=' '+following
                 value=_split_next_label(value,labels).strip()
                 if field['type']=='year':
