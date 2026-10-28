@@ -103,6 +103,10 @@ def initialize(conn:sqlite3.Connection):
         conn.execute('ALTER TABLE field_definitions ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0')
     if 'active' not in field_columns:
         conn.execute('ALTER TABLE field_definitions ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
+    # Normalize legacy/default duplicate positions to a stable 1..N sequence.
+    ordered=conn.execute('SELECT id FROM field_definitions ORDER BY display_order,created_at,label').fetchall()
+    for position,row in enumerate(ordered,1):
+        conn.execute('UPDATE field_definitions SET display_order=? WHERE id=?',(position,row[0]))
     if not conn.execute("SELECT 1 FROM meta WHERE key='schema_version'").fetchone():
         conn.execute("INSERT INTO meta(key,value) VALUES('schema_version','7.1.0')")
     for role in ['viewer','reviewer','admin_kp','admin_root','super_admin']:
