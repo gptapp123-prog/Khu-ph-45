@@ -7,15 +7,16 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 from typing import Any, Optional, List, Dict
 from contextlib import asynccontextmanager
-from fastapi import FastAPI,Request,Depends,HTTPException,UploadFile,File
+from fastapi import FastAPI,Request,Depends,HTTPException,UploadFile,File,Form
 from fastapi.responses import HTMLResponse,FileResponse,StreamingResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
-from openpyxl import Workbook
+from openpyxl import Workbook,load_workbook
 from .crypto import Vault
 from .schema import initialize,BASE_FIELDS,CAPABILITIES,DEFAULT_CAPABILITIES
 from .security import SessionStore,ROLES,hash_password,verify_password,masking,now
 from .parsers import parse_file,strip_accents
+from .parsers import validate_headers
 from .ocr_extraction import extract_configured,normalized
 from .qr_extraction import decode_qr_file,qr_values
 from .model_compat import fields_set, copy_with, declared_fields, validate_model
@@ -49,7 +50,7 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.4-qr-import',lifespan=lifespan,
+app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.6-ocr-command-table',lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
@@ -1230,13 +1231,38 @@ class OcrField(BaseModel):
     aliases:List[str]=Field(default_factory=list)
     type:str='text'
     expected_length:Optional[int]=Field(default=None,ge=1,le=100)
+    extract:bool=True
 
 class OcrTemplate(BaseModel):
     name:str=Field(min_length=2,max_length=100)
     fields:List[OcrField]=Field(min_length=1,max_length=30)
 
+@app.post('/api/ocr/columns/scan')
+async def ocr_scan_columns(request:Request,file:UploadFile=File(...),account:dict=Depends(user)):
+    pc_only(request);capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    if not (file.filename or '').lower().endswith('.xlsx'):raise HTTPException(422,'Chọn file XLSX có tiêu đề cột ở hàng đầu tiên.')
+    raw=await file.read(10*1024*1024+1)
+    if len(raw)>10*1024*1024:raise HTTPException(413,'File vượt 10 MB.')
+    try:workbook=load_workbook(io.BytesIO(raw),read_only=True,data_only=False)
+    except Exception:raise HTTPException(422,'Không đọc được file XLSX.')
+    sheets=[]
+    try:
+        for sheet in workbook.worksheets:
+            if sheet.sheet_state!='visible':continue
+            cells=next(sheet.iter_rows(min_row=1,max_row=1),())
+            if any(cell.data_type=='f' for cell in cells):continue
+            heads=[str(cell.value).strip() if cell.value is not None else '' for cell in cells]
+            if not heads or len(heads)>30 or any(not h for h in heads):continue
+            try:heads=validate_headers(heads)
+            except ValueError:continue
+            sheets.append({'name':sheet.title,'columns':heads})
+    finally:workbook.close()
+    if not sheets:raise HTTPException(422,'Không có sheet hiển thị với 1–30 tiêu đề cột hợp lệ ở hàng đầu tiên.')
+    return {'sheets':sheets}
+
 def validate_ocr_fields(fields):
     values=[f.model_dump() if hasattr(f,'model_dump') else f.dict() for f in fields]
+    if not any(f['extract'] for f in values):raise HTTPException(422,'Bảng cần ít nhất một cột được đánh dấu cần quét.')
     columns=set();aliases=set()
     for f in values:
         f['label']=f['label'].strip();f['column']=f['column'].strip()
@@ -1276,7 +1302,10 @@ def ocr_extract(p:OcrExtractRequest,account:dict=Depends(user)):
     capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
     with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(p.template_id,)).fetchone()
     if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
-    fields=json.loads(row['fields_json']);values,warnings=extract_configured(p.text,fields)
+    fields=json.loads(row['fields_json'])
+    selected=[f for f in fields if f.get('extract',True)]
+    values,warnings=extract_configured(p.text,selected)
+    values={f['column']:values.get(f['column'],'') for f in fields}
     return {'fields':fields,'values':values,'warnings':warnings}
 
 @app.post('/api/qr/decode')
@@ -1288,7 +1317,10 @@ async def qr_decode(request:Request,file:UploadFile=File(...),template_id:str=''
     if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
     try:
         codes=decode_qr_file(raw,file.filename or '')
-        values,warnings=qr_values(codes,json.loads(row['fields_json']))
+        fields=json.loads(row['fields_json'])
+        selected=[f for f in fields if f.get('extract',True)]
+        values,warnings=qr_values(codes,selected)
+        values={f['column']:values.get(f['column'],'') for f in fields}
         return {'codes':codes,'values':values,'warnings':warnings}
     except (ValueError,ImportError) as exc:raise HTTPException(422,str(exc))
     except Exception:raise HTTPException(422,'Không đọc được QR; kiểm tra tệp ảnh hoặc PDF trên PC.')
@@ -1298,14 +1330,78 @@ class OcrExportRequest(BaseModel):
     filename:str=Field(min_length=1,max_length=100)
     rows:List[Dict[str,str]]=Field(min_length=1,max_length=20)
 
+def ocr_template_columns(template_id):
+    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(template_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+    return [f['column'] for f in json.loads(row['fields_json'])]
+
+def ocr_template_fields(template_id):
+    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(template_id,)).fetchone()
+    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
+    return json.loads(row['fields_json'])
+
+def validate_ocr_rows(rows,columns,inactive=()):
+    if not 1<=len(rows)<=20 or any(set(item)!=set(columns) or any(not isinstance(v,str) or len(v)>500 for v in item.values()) or any(item[col]!='' for col in inactive) for item in rows):
+        raise HTTPException(422,'Dữ liệu xuất không khớp các cột đã ấn định.')
+
+def open_ocr_target(raw,columns):
+    if len(raw)>10*1024*1024:raise HTTPException(413,'File đích vượt 10 MB.')
+    try:workbook=load_workbook(io.BytesIO(raw),read_only=False,data_only=False)
+    except Exception:raise HTTPException(422,'File đích không phải XLSX hợp lệ.')
+    try:
+        matches=[]
+        for sheet in workbook.worksheets:
+            if sheet.sheet_state!='visible':continue
+            headings=[cell.value for cell in sheet[1]]
+            if headings==columns:matches.append(sheet)
+        if len(matches)!=1:
+            raise HTTPException(422,'File đích phải có đúng một sheet hiển thị với hàng tiêu đề trùng tên và thứ tự các cột trong bảng OCR.')
+        sheet=matches[0]
+        if sheet.merged_cells.ranges:raise HTTPException(422,'Sheet đích có ô gộp; hãy bỏ gộp trước khi thêm dòng.')
+        if sheet.max_row+20>1_048_576:raise HTTPException(422,'Sheet đích đã đạt giới hạn số dòng Excel.')
+        return workbook,sheet
+    except Exception:
+        workbook.close()
+        raise
+
+@app.post('/api/ocr/target/validate')
+async def ocr_target_validate(request:Request,file:UploadFile=File(...),template_id:str=Form(...),account:dict=Depends(user)):
+    pc_only(request);capability(account,'import');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    if not (file.filename or '').lower().endswith('.xlsx'):raise HTTPException(422,'File đích phải là XLSX.')
+    columns=ocr_template_columns(template_id)
+    workbook,sheet=open_ocr_target(await file.read(10*1024*1024+1),columns)
+    try:return {'sheet':sheet.title,'existing_rows':sheet.max_row-1,'columns':columns}
+    finally:workbook.close()
+
+@app.post('/api/ocr/export-into-file')
+async def ocr_export_into_file(request:Request,file:UploadFile=File(...),template_id:str=Form(...),
+                               filename:str=Form(...),rows_json:str=Form(...),account:dict=Depends(user)):
+    pc_only(request);capability(account,'export');permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    if not (file.filename or '').lower().endswith('.xlsx'):raise HTTPException(422,'File đích phải là XLSX.')
+    fields=ocr_template_fields(template_id)
+    columns=[f['column'] for f in fields]
+    inactive=[f['column'] for f in fields if not f.get('extract',True)]
+    try:rows=json.loads(rows_json)
+    except (TypeError,ValueError):raise HTTPException(422,'Dòng xuất không phải JSON hợp lệ.')
+    if not isinstance(rows,list) or any(not isinstance(item,dict) for item in rows):raise HTTPException(422,'Dòng xuất không hợp lệ.')
+    validate_ocr_rows(rows,columns,inactive)
+    name=re.sub(r'[^a-zA-Z0-9_-]','_',filename[:-5] if filename.lower().endswith('.xlsx') else filename).strip('_')
+    if not name or len(name)>100:raise HTTPException(422,'Tên file kết quả không hợp lệ.')
+    workbook,sheet=open_ocr_target(await file.read(10*1024*1024+1),columns)
+    try:
+        for item in rows:sheet.append([spreadsheet_safe(item[column]) for column in columns])
+        stream=io.BytesIO();workbook.save(stream);stream.seek(0)
+    finally:workbook.close()
+    record(account['id'],'EXPORT_OCR_INTO_FILE','ocr_template',template_id,{'rows':len(rows)})
+    commit()
+    return StreamingResponse(stream,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{name}.xlsx"','Cache-Control':'no-store'})
+
 @app.post('/api/ocr/export')
 def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
     pc_only(request);capability(account,'export');permit(account,'reviewer','admin_kp','admin_root','super_admin')
-    with LOCK:row=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(p.template_id,)).fetchone()
-    if not row:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
-    columns=[f['column'] for f in json.loads(row['fields_json'])]
-    if any(set(item)!=set(columns) or any(not isinstance(v,str) or len(v)>500 for v in item.values()) for item in p.rows):
-        raise HTTPException(422,'Dữ liệu xuất không khớp các cột đã ấn định.')
+    fields=ocr_template_fields(p.template_id)
+    columns=[f['column'] for f in fields]
+    validate_ocr_rows(p.rows,columns,[f['column'] for f in fields if not f.get('extract',True)])
     filename=re.sub(r'[^a-zA-Z0-9_-]','_',p.filename[:-5] if p.filename.lower().endswith('.xlsx') else p.filename).strip('_')
     if not filename:raise HTTPException(422,'Tên file không hợp lệ.')
     wb=Workbook();ws=wb.active;ws.title='OCR';ws.append(columns)
@@ -1326,7 +1422,7 @@ async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]
         if ocr_template_id:
             template=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(ocr_template_id,)).fetchone()
             if not template:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
-            requested_fields=json.loads(template['fields_json'])
+            requested_fields=[f for f in json.loads(template['fields_json']) if f.get('extract',True)]
         result=parse_file(raw,file.filename or '',requested_fields=requested_fields,ocr_mode=ocr_mode)
         if result.get('ocr_review') and ocr_mode=='enhanced':result['warnings'].append('Đã tăng tương phản và phóng to trước OCR; phải đối chiếu ảnh gốc.')
         custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')}

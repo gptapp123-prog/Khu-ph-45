@@ -134,3 +134,53 @@ test('QR và OCR khác nhau phải chọn nguồn; QR đơn lẻ vẫn xuất đ
   await page.locator('.ocrConfirm').click();
   await expect(page.locator('#ocrExportRows')).toBeEnabled();
 });
+
+test('chọn file Excel có sẵn, kiểm tra cột trước khi thêm dòng OCR', async ({page},testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'File Excel đích chỉ chọn tại PC chính');
+  await enterApp(page);
+  await page.locator('[data-page="import"]').click();
+  const fields=[{label:'Họ và tên',column:'Họ và tên',type:'text',aliases:[]}];
+  await page.route('**/api/ocr/templates',async route=>await route.fulfill({json:{items:[{id:'ocr-template',name:'Danh sách',fields}]}}));
+  await page.locator('#openConfiguredOcr').click();
+  await page.locator('#ocrTemplateSelect').selectOption('ocr-template');
+  let validation=0;
+  await page.route('**/api/ocr/target/validate',async route=>{validation++;await route.fulfill({json:{sheet:'Danh sách',existing_rows:2,columns:['Họ và tên']}})});
+  await page.locator('#ocrTargetFile').setInputFiles({name:'danh-sach.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('test-xlsx')});
+  await expect(page.locator('#ocrTargetStatus')).toContainText('2 dòng hiện có');
+  await page.route('**/api/qr/decode?*',async route=>await route.fulfill({json:{codes:[],values:{},warnings:[]}}));
+  await page.route('**/api/import/preview?*',async route=>await route.fulfill({json:{ocr_review:true,raw_text:'Họ và tên: Nguyễn A',warnings:[]}}));
+  await page.route('**/api/ocr/extract',async route=>await route.fulfill({json:{fields,values:{'Họ và tên':'Nguyễn A'},warnings:[]}}));
+  await page.locator('#ocrFiles').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:Buffer.from([137,80,78,71,13,10,26,10])});
+  await page.locator('#ocrReadFiles').click();
+  await page.locator('.ocrConfirm').click();
+  let posted='';
+  await page.route('**/api/ocr/export-into-file',async route=>{posted=route.request().postData()||'';await route.fulfill({body:Buffer.from('fake-xlsx'),contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});
+  await page.locator('#ocrExportRows').click();
+  await expect.poll(()=>posted).toContain('danh-sach.xlsx');
+  expect(posted).toContain('Nguyễn A');
+  expect(validation).toBe(1);
+});
+
+test('quét tiêu đề, tạo bảng lệnh và chỉ đánh dấu cột cần OCR', async ({page},testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Tạo bảng lệnh chỉ dùng tại PC chính');
+  await enterApp(page);
+  await page.locator('[data-page="import"]').click();
+  let saved:any;
+  await page.route('**/api/ocr/templates',async route=>{
+    if(route.request().method()==='POST'){saved=route.request().postDataJSON();await route.fulfill({json:{id:'new-template'}})}
+    else await route.fulfill({json:{items:[]}});
+  });
+  await page.locator('#openConfiguredOcr').click();
+  await page.route('**/api/ocr/columns/scan',async route=>await route.fulfill({json:{sheets:[{name:'Danh sách',columns:['Mã hồ sơ','Họ và tên','Năm sinh','Địa chỉ','Nghề nghiệp','Ghi chú']} ]}}));
+  await page.locator('#ocrHeaderFile').setInputFiles({name:'cot.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('fake')});
+  await page.locator('#ocrScanHeaders').click();
+  await expect(page.locator('.ocrHeaderSelected')).toHaveCount(6);
+  await page.locator('#ocrCreateFromHeaders').click();
+  await expect(page.locator('.ocrFieldRow')).toHaveCount(6);
+  await expect(page.locator('.ocrExtract:checked')).toHaveCount(0);
+  for(const index of [1,2,3,4])await page.locator('.ocrExtract').nth(index).check();
+  await page.locator('#ocrSaveTemplate').click();
+  await expect.poll(()=>saved?.fields?.length).toBe(6);
+  expect(saved.fields.map((f:any)=>f.column)).toEqual(['Mã hồ sơ','Họ và tên','Năm sinh','Địa chỉ','Nghề nghiệp','Ghi chú']);
+  expect(saved.fields.filter((f:any)=>f.extract).map((f:any)=>f.column)).toEqual(['Họ và tên','Năm sinh','Địa chỉ','Nghề nghiệp']);
+});
