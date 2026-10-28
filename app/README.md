@@ -4,7 +4,7 @@
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
 **Trạng thái (28/10/2026):** mã nguồn + script cài đặt thử; có script tạo thư mục gói PC với thư viện offline trên Windows. **CHƯA có EXE/MSI hoặc APK ký phát hành.**
 
-Khóa cập nhật Android: có script tạo keystore một lần ngoài GitHub và cấu hình Gradle yêu cầu ký bản release; xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. Chưa tạo khóa phát hành thực tế hoặc APK ký trong repo. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
+Khóa cập nhật Android đã tạo và bàn giao riêng ngoài GitHub; Gradle yêu cầu đúng chứng chỉ đã ấn định khi ký bản release. Xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. Chưa build APK ký. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
 
 ## Gói cài PC offline để thử nghiệm
 
