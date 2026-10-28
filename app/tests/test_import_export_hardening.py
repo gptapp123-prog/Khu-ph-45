@@ -286,3 +286,45 @@ def test_dropdown_migration_stops_when_count_changed_after_preview(api):
     stopped=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
         **payload,'expected_count':preview['affected_count'],'confirmation':'CHUYEN DU LIEU'})
     assert stopped.status_code==409 and 'xem trước lại' in stopped.json()['detail']
+
+def test_dropdown_migration_preview_details_history_and_safe_undo(api):
+    client,headers=api
+    field_id=client.post('/api/fields',headers=headers,json={
+        'name':'ket_qua','label':'Kết quả','type':'dropdown','options':['Chờ','Xong']}).json()['id']
+    resident=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Cần Xem','dob':'28-10-1990','team_id':3,
+        'custom_values':{'ket_qua':'Chờ'}})
+    assert resident.status_code==200
+    payload={'from_value':'Chờ','to_value':'Xong'}
+    preview=client.post('/api/fields/'+field_id+'/option-migration/preview',headers=headers,json=payload)
+    assert preview.status_code==200
+    assert preview.json()['sample'][0]['full_name']=='Nguyễn Cần Xem'
+    assert preview.json()['sample'][0]['dob']=='28-10-1990'
+    migrated=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
+        **payload,'expected_count':1,'confirmation':'CHUYEN DU LIEU'})
+    migration_id=migrated.json()['migration_id']
+    history=client.get('/api/fields/'+field_id+'/option-migrations',headers=headers)
+    assert history.status_code==200 and history.json()['items'][0]['id']==migration_id
+    undone=client.post('/api/fields/'+field_id+'/option-migrations/'+migration_id+'/undo',headers=headers,json={'confirmation':'HOAN TAC'})
+    assert undone.status_code==200 and undone.json()['restored']==1
+    listed=client.get('/api/residents',headers=headers).json()['items'][0]
+    assert listed['custom_values']['ket_qua']=='Chờ'
+    second=client.post('/api/fields/'+field_id+'/option-migrations/'+migration_id+'/undo',headers=headers,json={'confirmation':'HOAN TAC'})
+    assert second.status_code==409 and 'đã được hoàn tác' in second.json()['detail']
+
+def test_dropdown_undo_stops_if_migrated_resident_was_edited(api):
+    client,headers=api
+    field_id=client.post('/api/fields',headers=headers,json={
+        'name':'trang_thai_phu','label':'Trạng thái phụ','type':'dropdown',
+        'options':['Một','Hai','Ba']}).json()['id']
+    created=client.post('/api/residents',headers=headers,json={
+        'full_name':'Người Đã Sửa','team_id':1,'custom_values':{'trang_thai_phu':'Một'}})
+    resident_id=created.json()['id'];payload={'from_value':'Một','to_value':'Hai'}
+    migrated=client.post('/api/fields/'+field_id+'/option-migration/commit',headers=headers,json={
+        **payload,'expected_count':1,'confirmation':'CHUYEN DU LIEU'})
+    migration_id=migrated.json()['migration_id']
+    edited=client.put('/api/residents/'+resident_id,headers=headers,json={
+        'full_name':'Người Đã Sửa','team_id':1,'custom_values':{'trang_thai_phu':'Ba'}})
+    assert edited.status_code==200
+    stopped=client.post('/api/fields/'+field_id+'/option-migrations/'+migration_id+'/undo',headers=headers,json={'confirmation':'HOAN TAC'})
+    assert stopped.status_code==409 and 'hồ sơ đã thay đổi' in stopped.json()['detail']
