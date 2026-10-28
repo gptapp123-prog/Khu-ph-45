@@ -216,3 +216,33 @@ def test_non_dropdown_rejects_configured_options(api):
     response=client.post('/api/fields',headers=headers,json={
         'name':'ghi_chu_phu','label':'Ghi chú phụ','type':'text','options':['Sai']})
     assert response.status_code==422 and 'Chỉ trường danh sách' in response.json()['detail']
+
+def test_dropdown_option_in_use_cannot_be_removed(api):
+    client,headers=api
+    created=client.post('/api/fields',headers=headers,json={
+        'name':'muc_uu_tien','label':'Mức ưu tiên','type':'dropdown',
+        'options':['Cao','Thường']})
+    field_id=created.json()['id']
+    resident=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Đang Dùng','team_id':1,
+        'custom_values':{'muc_uu_tien':'Cao'}})
+    assert resident.status_code==200,resident.text
+    blocked=client.patch('/api/fields/'+field_id,headers=headers,json={'options':['Thường']})
+    assert blocked.status_code==409 and 'Cao (1 hồ sơ)' in blocked.json()['detail']
+    managed=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'][0]
+    assert managed['usage_count']==1 and json.loads(managed['options_json'])==['Cao','Thường']
+
+def test_custom_fields_can_move_up_and_down_without_deleting_values(api):
+    client,headers=api
+    first=client.post('/api/fields',headers=headers,json={
+        'name':'truong_mot','label':'Trường một','type':'text'}).json()['id']
+    second=client.post('/api/fields',headers=headers,json={
+        'name':'truong_hai','label':'Trường hai','type':'text'}).json()['id']
+    before=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom']
+    assert [x['id'] for x in before]==[first,second]
+    moved=client.post('/api/fields/'+second+'/move',headers=headers,json={'direction':'up'})
+    assert moved.status_code==200 and moved.json()['moved'] is True
+    after=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom']
+    assert [x['id'] for x in after]==[second,first]
+    edge=client.post('/api/fields/'+second+'/move',headers=headers,json={'direction':'up'})
+    assert edge.status_code==200 and edge.json()['moved'] is False
