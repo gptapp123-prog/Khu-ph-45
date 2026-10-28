@@ -357,3 +357,60 @@ def test_duplicate_review_requires_missing_cccd_and_changes_create_new_candidate
     assert updated.status_code==200
     item=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
     assert {item['left']['id'],item['right']['id']}=={first,second}
+
+def test_duplicate_merge_preview_commit_and_undo_preserves_both_snapshots(api):
+    client,headers=api
+    field_id=client.post('/api/fields',headers=headers,json={
+        'name':'ma_phu','label':'Mã phụ','type':'text'}).json()['id']
+    primary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Lê Văn Gộp','dob':'02-03-1991','team_id':4,'phone':'0900000001',
+        'custom_values':{'ma_phu':'A'}}).json()['id']
+    secondary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Lê Văn Gộp','dob':'02-03-1991','team_id':4,'cccd':'079000000333',
+        'permanent_address':'Địa chỉ bổ sung','custom_values':{'ma_phu':'B'}}).json()['id']
+    candidate=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
+    payload={'primary_id':primary,'secondary_id':secondary}
+    preview=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge-preview',headers=headers,json=payload)
+    assert preview.status_code==200 and preview.json()['proposed']['cccd']=='079000000333'
+    assert any(x['field']=='custom:ma_phu' for x in preview.json()['conflicts'])
+    merged=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge',headers=headers,json={
+        **payload,'expected_signature':preview.json()['signature'],'confirmation':'GOP HO SO'})
+    assert merged.status_code==200,merged.text
+    active=client.get('/api/residents',headers=headers).json()['items']
+    assert len(active)==1 and active[0]['id']==primary
+    assert active[0]['cccd']=='079000000333' and active[0]['permanent_address']=='Địa chỉ bổ sung'
+    assert active[0]['custom_values']['ma_phu']=='A'
+    history=client.get('/api/resident-merges',headers=headers)
+    assert history.status_code==200 and history.json()['items'][0]['id']==merged.json()['merge_id']
+    undone=client.post('/api/resident-merges/'+merged.json()['merge_id']+'/undo',headers=headers,json={'confirmation':'HOAN TAC GOP'})
+    assert undone.status_code==200 and undone.json()['restored']==2
+    restored=client.get('/api/residents',headers=headers).json()['items']
+    assert len(restored)==2
+    values={x['id']:x for x in restored}
+    assert values[primary]['cccd'] is None and values[primary]['custom_values']['ma_phu']=='A'
+    assert values[secondary]['cccd']=='079000000333' and values[secondary]['custom_values']['ma_phu']=='B'
+
+def test_duplicate_merge_stale_preview_and_undo_after_edit_are_blocked(api):
+    client,headers=api
+    primary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Phạm Văn Xung Đột','dob':'01-01-1990','team_id':1}).json()['id']
+    secondary=client.post('/api/residents',headers=headers,json={
+        'full_name':'Phạm Văn Xung Đột','dob':'01-01-1990','team_id':1,'phone':'0900000009'}).json()['id']
+    candidate=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
+    payload={'primary_id':primary,'secondary_id':secondary}
+    preview=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge-preview',headers=headers,json=payload).json()
+    assert client.put('/api/residents/'+primary,headers=headers,json={
+        'full_name':'Phạm Văn Xung Đột','dob':'01-01-1990','team_id':1,'occupation':'Đã sửa'}).status_code==200
+    stale=client.post('/api/residents/duplicate-candidates/'+candidate['candidate_id']+'/merge',headers=headers,json={
+        **payload,'expected_signature':preview['signature'],'confirmation':'GOP HO SO'})
+    assert stale.status_code in (404,409)
+    fresh_candidate=client.get('/api/residents/duplicate-candidates',headers=headers).json()['items'][0]
+    fresh=client.post('/api/residents/duplicate-candidates/'+fresh_candidate['candidate_id']+'/merge-preview',headers=headers,json=payload).json()
+    merged=client.post('/api/residents/duplicate-candidates/'+fresh_candidate['candidate_id']+'/merge',headers=headers,json={
+        **payload,'expected_signature':fresh['signature'],'confirmation':'GOP HO SO'})
+    assert merged.status_code==200
+    assert client.put('/api/residents/'+primary,headers=headers,json={
+        'full_name':'Phạm Văn Xung Đột','dob':'01-01-1990','team_id':1,
+        'occupation':'Sửa sau gộp','phone':'0900000009'}).status_code==200
+    blocked=client.post('/api/resident-merges/'+merged.json()['merge_id']+'/undo',headers=headers,json={'confirmation':'HOAN TAC GOP'})
+    assert blocked.status_code==409 and 'đã thay đổi' in blocked.json()['detail']
