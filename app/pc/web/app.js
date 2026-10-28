@@ -109,7 +109,7 @@ $('logoutBtn').addEventListener('click',async()=>{
  try{await api('/logout',{method:'POST'})}catch(_){}
  S.token=null;S.me=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[];authScreen();
 });
-window.addEventListener('pagehide',()=>{S.token=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[]});
+window.addEventListener('pagehide',()=>{(S.ocrObjectUrls||[]).forEach(url=>URL.revokeObjectURL(url));S.token=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[]});
 function go(page){
  S.page=page;const titles={dashboard:'Tổng quan',residents:'Danh sách nhân khẩu',households:'Hộ gia đình',import:'Quét & nhập dữ liệu',
  export:'Xuất báo cáo',accounts:'Tài khoản',permissions:'Ma trận phân quyền',devices:'Quản lý thiết bị',fields:'Trường dữ liệu',templates:'Mẫu dữ liệu',audit:'Nhật ký hệ thống'};
@@ -219,6 +219,7 @@ async function importPage(){
 }
 async function configuredOcrPage(){
  if(!S.isPC){toast('Trích và xuất file chỉ thực hiện tại PC chính.',true);return}
+ (S.ocrObjectUrls||[]).forEach(url=>URL.revokeObjectURL(url));S.ocrObjectUrls=[];
  const templates=(await api('/ocr/templates')).items;S.ocrTemplates=templates;S.ocrRows=[];
  $('content').innerHTML=`<div class="card"><div class="card-heading"><h3>Bảng nội dung cần trích</h3><button class="outline" id="ocrBack">Quay lại</button></div>
  <p class="footnote">Chỉ những cột trong bảng đã chọn mới được đưa vào file Excel. Giá trị không rõ sẽ để trống để kiểm tra.</p>
@@ -248,7 +249,8 @@ async function configuredOcrPage(){
     if(!preview.ocr_review||!preview.raw_text)throw Error('Tệp không có văn bản OCR để trích.');
     const result=await api('/ocr/extract',{method:'POST',body:{template_id:id,text:preview.raw_text}});
     const block=document.createElement('div');block.className='card';
-    block.innerHTML=`<h3>${esc(file.name)}</h3>${[...(preview.warnings||[]),...result.warnings].map(note).join('')}${table(['Nội dung yêu cầu','Cột file đích','Giá trị OCR cần đối chiếu'],result.fields.map((f,i)=>`<tr><td>${esc(f.label)}</td><td>${esc(f.column)}</td><td><input class="ocrConfirmed" data-index="${i}" value="${esc(result.values[f.column]||'')}" maxlength="500"></td></tr>`))}<details><summary>Văn bản OCR gốc để đối chiếu</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(preview.raw_text)}</pre></details><button class="outline ocrConfirm">Xác nhận dòng này</button>`;
+    const sourceImage=file.type.startsWith('image/')?URL.createObjectURL(file):'';if(sourceImage)S.ocrObjectUrls.push(sourceImage);
+    block.innerHTML=`<h3>${esc(file.name)}</h3>${[...(preview.warnings||[]),...result.warnings].map(note).join('')}${sourceImage?`<details><summary>Xem ảnh gốc để đối chiếu</summary><img src="${esc(sourceImage)}" alt="Ảnh nguồn ${esc(file.name)}" style="max-width:100%;max-height:720px;object-fit:contain"></details>`:''}${table(['Nội dung yêu cầu','Cột file đích','Giá trị OCR cần đối chiếu'],result.fields.map((f,i)=>`<tr><td>${esc(f.label)}</td><td>${esc(f.column)}</td><td><input class="ocrConfirmed" data-index="${i}" value="${esc(result.values[f.column]||'')}" maxlength="500"></td></tr>`))}<details><summary>Văn bản OCR gốc để đối chiếu</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(preview.raw_text)}</pre></details><button class="outline ocrConfirm">Xác nhận dòng này</button>`;
     $('ocrResult').append(block);
     block.querySelector('.ocrConfirm').onclick=()=>{const row={};result.fields.forEach((f,i)=>row[f.column]=block.querySelector(`.ocrConfirmed[data-index="${i}"]`).value.trim());S.ocrRows.push(row);block.querySelectorAll('input').forEach(x=>x.disabled=true);block.querySelector('.ocrConfirm').disabled=true;$('ocrExportRows').disabled=false;toast('Đã xác nhận '+S.ocrRows.length+' dòng.');};
    }catch(e){$('ocrResult').insertAdjacentHTML('beforeend',note(file.name+': '+e.message))}

@@ -1,8 +1,24 @@
 from __future__ import annotations
-import io,csv,re,unicodedata
+import io,csv,re,unicodedata,hashlib
+from pathlib import Path
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from PIL import Image
+
+VIETNAMESE_MODEL=Path(__file__).resolve().parents[1]/'ocr_models'/'vie.traineddata'
+VIETNAMESE_MODEL_SHA256='79df64caf7bcfb2a27df5042ecb6121e196eada34da774956995747636d5bfa1'
+
+def ocr_image(image):
+    """Use the bundled Vietnamese model; never fall back silently to English."""
+    if not VIETNAMESE_MODEL.is_file() or hashlib.sha256(VIETNAMESE_MODEL.read_bytes()).hexdigest()!=VIETNAMESE_MODEL_SHA256:
+        raise ValueError('Thiếu hoặc sai bộ nhận dạng tiếng Việt đi kèm ứng dụng PC.')
+    import pytesseract
+    try:
+        return pytesseract.image_to_string(image,lang='vie',config='--tessdata-dir "'+str(VIETNAMESE_MODEL.parent)+'"')
+    except pytesseract.TesseractNotFoundError as exc:
+        raise ValueError('PC chưa cài chương trình Tesseract OCR.') from exc
+    except pytesseract.TesseractError as exc:
+        raise ValueError('Tesseract OCR không đọc được ảnh; kiểm tra cài đặt trên PC.') from exc
 
 KEYWORDS={'cccd':['cccd','can cuoc','so dinh danh','so cccd'],
 'full_name':['ho ten','ten day du','ten'], 'dob':['ngay sinh','sinh ngay'],
@@ -123,9 +139,8 @@ def render_pdf_page(raw,page_number):
                 raise ValueError('Trang PDF quá lớn để OCR an toàn.')
             bitmap=page.render(scale=scale)
             try:
-                import pytesseract
                 with bitmap.to_pil() as image:
-                    return pytesseract.image_to_string(image,lang='vie+eng')
+                    return ocr_image(image)
             finally:bitmap.close()
         finally:page.close()
     finally:document.close()
@@ -196,7 +211,6 @@ def parse_file(raw:bytes,filename:str):
         for page_number,page in enumerate(pdf.pages):
             content=(page.extract_text() or '').strip()
             if not content:
-                import pytesseract
                 images=list(page.images)
                 if not images:
                     texts.append(render_pdf_page(raw,page_number))
@@ -206,16 +220,15 @@ def parse_file(raw:bytes,filename:str):
                 for item in images[:10]:
                     with Image.open(io.BytesIO(item.data)) as img:
                         if img.width*img.height>20_000_000:raise ValueError('Ảnh trong PDF quá lớn.')
-                        page_text.append(pytesseract.image_to_string(img,lang='vie+eng'))
+                        page_text.append(ocr_image(img))
                 content='\n'.join(page_text)
             texts.append(content)
         if not any(x.strip() for x in texts):raise ValueError('Không đọc được nội dung PDF.')
         return review_result(texts,'PDF')
     elif ext in ('png','jpg','jpeg','webp'):
-        import pytesseract
         with Image.open(io.BytesIO(raw)) as img:
             if img.width*img.height>20_000_000:raise ValueError('Ảnh quá lớn.')
-            content=pytesseract.image_to_string(img,lang='vie+eng')
+            content=ocr_image(img)
         return review_result([content],'OCR ảnh')
     else:raise ValueError('Định dạng hỗ trợ: XLSX, CSV, PDF, PNG, JPG, WEBP.')
     result={'headers':headers,'preview':rows[:10],'rows':rows,'mapping':automap(headers),'count':len(rows)}

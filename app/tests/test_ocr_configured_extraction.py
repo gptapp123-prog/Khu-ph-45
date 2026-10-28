@@ -5,6 +5,7 @@ from openpyxl import load_workbook
 from PIL import Image
 from server.ocr_extraction import extract_configured
 from server.parsers import parse_file
+from server.parsers import ocr_image
 from test_foundation_accounts import api  # noqa: F401 - shared vault fixture
 
 
@@ -39,6 +40,28 @@ def test_conflict_and_missing_stay_blank():
     result,warnings=extract_configured('Số hiệu bằng: 12345/PT\nSố hiệu bằng: 12346/PT\nHọ và tên:\nNgày sinh: 01/01/2000',fields())
     assert result['Số hiệu bằng']=='' and result['Họ và tên']==''
     assert any('nhiều giá trị' in w for w in warnings)
+
+
+def test_ocr_never_invents_value_from_following_unrelated_heading():
+    text='Số hiệu bằng:\n\nv Họ và tên: Nguyễn Văn A\nHọc sinh trường: , : THPT Thủ Đức'
+    result,warnings=extract_configured(text,fields())
+    assert result['Số hiệu bằng']==''
+    assert result['Họ và tên']=='Nguyễn Văn A'
+    assert result['Trường']=='THPT Thủ Đức'
+    assert any('Số hiệu bằng' in warning for warning in warnings)
+
+
+def test_ocr_uses_bundled_vietnamese_model_and_checks_integrity():
+    from unittest.mock import patch
+    import pytest
+    with patch('pytesseract.image_to_string',return_value='Học sinh trường: THPT Thủ Đức') as mock:
+        assert 'THPT Thủ Đức' in ocr_image(Image.new('RGB',(30,30),'white'))
+        assert mock.call_args.kwargs['lang']=='vie'
+        assert '--tessdata-dir' in mock.call_args.kwargs['config']
+    with patch('server.parsers.VIETNAMESE_MODEL') as path:
+        path.is_file.return_value=False
+        with pytest.raises(ValueError,match='Thiếu hoặc sai bộ nhận dạng'):
+            ocr_image(Image.new('RGB',(30,30),'white'))
 
 
 def test_api_template_image_extract_and_excel_export(api):

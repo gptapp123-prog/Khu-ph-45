@@ -26,7 +26,7 @@ def _prefix(line,alias):
 def _after_heading(remainder):
     if not remainder:return ''
     if remainder[0] in SEPARATORS:remainder=remainder[1:]
-    return re.sub(r'^[\s.…·_]+','',remainder).strip()
+    return re.sub(r'^[\s.…·_,;:|]+','',remainder).strip()
 
 
 def _split_next_label(value,labels):
@@ -66,7 +66,7 @@ def extract_configured(text,fields):
                 value=_after_heading(remainder)
                 if not value and index+1<len(lines):
                     following=lines[index+1].strip()
-                    if not any(_prefix(following,label) is not None for label in labels):value=following
+                    if len(following)>=3 and not any(_label_positions(following,labels)):value=following
                 value=_split_next_label(value,labels).strip()
                 if field['type']=='year':
                     years=re.findall(r'(?<!\d)(?:18|19|20)\d{2}(?!\d)',value)

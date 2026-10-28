@@ -48,7 +48,7 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.3.0-windows-compatibility',lifespan=lifespan,
+app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.1-ocr-vietnamese',lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
@@ -1290,7 +1290,7 @@ def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
     columns=[f['column'] for f in json.loads(row['fields_json'])]
     if any(set(item)!=set(columns) or any(not isinstance(v,str) or len(v)>500 for v in item.values()) for item in p.rows):
         raise HTTPException(422,'Dữ liệu xuất không khớp các cột đã ấn định.')
-    filename=re.sub(r'[^a-zA-Z0-9_-]','_',p.filename.removesuffix('.xlsx')).strip('_')
+    filename=re.sub(r'[^a-zA-Z0-9_-]','_',p.filename[:-5] if p.filename.lower().endswith('.xlsx') else p.filename).strip('_')
     if not filename:raise HTTPException(422,'Tên file không hợp lệ.')
     wb=Workbook();ws=wb.active;ws.title='OCR';ws.append(columns)
     for item in p.rows:ws.append([spreadsheet_safe(item[col]) for col in columns])
