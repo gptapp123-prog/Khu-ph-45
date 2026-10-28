@@ -156,7 +156,7 @@ def home():return (WEB/'index.html').read_text(encoding='utf-8')
 
 @app.get('/api/health')
 def health():
-    return {'application':'Quản lý Khu phố','version':'7.3.0-windows-compatibility','data_location':'PC_ONLY',
+    return {'application':'Quản lý Khu phố','version':app.version,'data_location':'PC_ONLY',
             'setup_required':not bool(db().execute('SELECT 1 FROM accounts LIMIT 1').fetchone())}
 
 @app.post('/api/setup')
