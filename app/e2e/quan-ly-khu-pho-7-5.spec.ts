@@ -87,6 +87,7 @@ test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đ�
     else await route.fulfill({json:{id:'test-template'}});
   });
   await page.locator('#openConfiguredOcr').click();
+  page.once('dialog',dialog=>dialog.accept());
   await page.locator('#ocrVehiclePreset').click();
   await expect(page.locator('.ocrFieldRow')).toHaveCount(9);
   await expect(page.locator('.ocrLabel').nth(3)).toHaveValue('Số khung');
@@ -100,8 +101,8 @@ test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đ�
   await page.locator('#ocrFiles').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:Buffer.from([137,80,78,71,13,10,26,10])});
   await page.locator('#ocrReadFiles').click();
   await expect(page.locator('.ocrConfirmed')).toHaveValue('RL4JW3EM3M0000000');
-  await page.locator('.ocrZoom').fill('180');
+  await page.locator('.ocrZoom').evaluate((el:HTMLInputElement)=>{el.value='180';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await expect(page.locator('.ocrSourceImage')).toHaveAttribute('style',/width: 180%/);
-  await page.locator('.ocrBrightness').fill('130');
+  await page.locator('.ocrBrightness').evaluate((el:HTMLInputElement)=>{el.value='130';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await expect(page.locator('.ocrSourceImage')).toHaveCSS('filter','brightness(1.3)');
 });
