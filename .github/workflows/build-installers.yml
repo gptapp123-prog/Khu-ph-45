@@ -64,6 +64,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installed application failed to start" }
           & (Join-Path $installDir 'tesseract/tesseract.exe') --version
           if ($LASTEXITCODE -ne 0) { throw "Installed OCR engine failed to start" }
+          & (Join-Path $installDir 'QuanLyKhuPho.exe') --check-install
+          if ($LASTEXITCODE -ne 0) { throw "Installed OCR pipeline failed" }
           Get-FileHash dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:

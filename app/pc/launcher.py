@@ -5,6 +5,19 @@ from server.app import configure_vault,app
 import uvicorn
 from win_compat import assess
 
+def check_install():
+    """Exercise the packaged OCR path without opening or creating a vault."""
+    from PIL import Image,ImageDraw,ImageFont
+    from server.parsers import ocr_image
+    canvas=Image.new('RGB',(700,130),'white')
+    draw=ImageDraw.Draw(canvas)
+    try:font=ImageFont.truetype('arial.ttf',52)
+    except OSError:font=ImageFont.load_default()
+    draw.text((20,20),'12345 ABC',fill='black',font=font)
+    recognized=ocr_image(canvas)
+    if not recognized.strip():raise RuntimeError('OCR không đọc được ảnh kiểm tra.')
+    print('OK: chương trình, Tesseract và mô hình OCR Việt/Anh đã chạy. Kết quả ảnh thử:',recognized.strip()[:100])
+
 def main():
     # A frozen console program can inherit cp1252 from Windows shells even
     # when the application uses Vietnamese UI and help text.
@@ -26,7 +39,16 @@ def main():
     ap.add_argument('--port',type=int,default=8765)
     ap.add_argument('--cert',help='PEM chứng chỉ TLS máy chủ, cấu hình cho ứng dụng mobile')
     ap.add_argument('--key',help='PEM khóa riêng TLS')
+    ap.add_argument('--check-install',action='store_true',help='Kiểm tra OCR cục bộ, không mở kho dữ liệu.')
     args=ap.parse_args()
+    if args.check_install:
+        try:check_install()
+        except Exception as exc:
+            print('KIỂM TRA CÀI ĐẶT LỖI:',exc,file=sys.stderr)
+            if exc.__cause__ is not None:
+                print('Chi tiết OCR ảnh thử:',repr(exc.__cause__),file=sys.stderr)
+            sys.exit(4)
+        return
     if compatibility['track']=='legacy' and args.host not in ('127.0.0.1','::1','localhost'):
         ap.error('Windows 7/8: không được bật LAN trong giai đoạn chưa nghiệm thu bảo mật. Chỉ chạy nội bộ trên PC.')
     if args.host not in ('127.0.0.1','::1','localhost') and not (args.cert and args.key):

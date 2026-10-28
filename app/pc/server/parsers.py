@@ -1,5 +1,5 @@
 from __future__ import annotations
-import io,csv,re,unicodedata,hashlib,lzma,tempfile,threading,atexit
+import io,csv,re,unicodedata,hashlib,lzma,tempfile,threading,atexit,os
 from pathlib import Path
 from openpyxl import load_workbook
 from pypdf import PdfReader
@@ -39,7 +39,11 @@ def ocr_image(image,requested_fields=None,mode='auto'):
     """Recognize the page, then reread selected headings in their image regions."""
     model_dir=ocr_model_dir()
     import pytesseract
-    config='--tessdata-dir "'+str(model_dir)+'"'
+    # pytesseract's Windows argument splitting can forward literal quotes in
+    # --tessdata-dir. Tesseract then looks for `"C:\..."/vie.traineddata`.
+    # Set once to the verified model directory inherited by every OCR subprocess.
+    os.environ['TESSDATA_PREFIX']=str(model_dir)
+    config=''
     try:
         prepared=prepare_ocr_image(image,force=(mode=='enhanced'))
         text=pytesseract.image_to_string(prepared,lang='vie+eng',config=config)
