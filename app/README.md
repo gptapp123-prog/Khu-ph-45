@@ -6,6 +6,8 @@
 
 GitHub Actions `Build application installers` đóng gói EXE cài Windows từ PyInstaller + Inno Setup, gồm Tesseract OCR và mô hình Việt/Anh, đồng thời tạo APK Android **debug** để thử nghiệm. Tải từ mục Artifacts của lần chạy workflow. EXE Windows **chưa ký mã**; APK debug dùng khóa thử nghiệm và **không cập nhật được** bản phát hành ký bằng khóa `qlkp-release`. Chỉ coi là gói thử nghiệm cho Windows 10/11 x64 và Android thử nghiệm cho đến khi nghiệm thu trên thiết bị thật. Chưa có cơ chế tự cập nhật hay bộ cài Windows 7.
 
+Sau khi cài Windows, có thể chạy `QuanLyKhuPho.exe --check-install` trong thư mục chương trình để thử Tesseract và mô hình OCR bằng ảnh nhân tạo; lệnh này không mở kho dữ liệu. CI chạy cùng lệnh sau khi cài thử trên Windows runner.
+
 Khóa cập nhật Android đã tạo và bàn giao riêng ngoài GitHub; Gradle yêu cầu đúng chứng chỉ đã ấn định khi ký bản release. Xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. Chưa build APK ký. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
 
 ## Gói cài PC offline để thử nghiệm
