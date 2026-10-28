@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Biểu tượng Quản lý Khu phố, khiên quấn xích vàng">
+<defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0aa"/><stop offset="0.28" stop-color="#e8b644"/><stop offset="0.62" stop-color="#a7700b"/><stop offset="1" stop-color="#ffe49b"/></linearGradient><linearGradient id="steel" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#184463"/><stop offset="0.55" stop-color="#071d35"/><stop offset="1" stop-color="#0a0f22"/></linearGradient></defs>
+<rect width="512" height="512" rx="110" fill="#05172b"/>
+<path d="M256 57 C322 91 385 96 425 100 L425 244 C425 343 361 413 256 467 C151 413 87 343 87 244 L87 100 C129 96 191 91 256 57 Z" fill="url(#gold)"/>
+<path d="M256 76 C316 108 373 114 407 119 L407 244 C407 334 348 400 256 447 C164 400 105 334 105 244 L105 119 C139 114 197 108 256 76 Z" fill="url(#steel)"/>
+<path d="M256 101 V418 C177 377 127 317 127 243 V139 C171 130 211 120 256 101 Z" fill="#123c57" opacity=".55"/>
+<g fill="none" stroke="url(#gold)" stroke-width="24" stroke-linecap="round">
+<rect x="103" y="255" width="112" height="53" rx="26" transform="rotate(-31 159 281)"/>
+<rect x="177" y="209" width="112" height="53" rx="26" transform="rotate(-31 233 236)"/>
+<rect x="252" y="160" width="112" height="53" rx="26" transform="rotate(-31 308 187)"/>
+<rect x="319" y="113" width="112" height="53" rx="26" transform="rotate(-31 375 139)"/>
+</g><path d="M128 287 L391 126" stroke="#ffde75" stroke-width="6" stroke-linecap="round" opacity=".65"/>
+</svg>

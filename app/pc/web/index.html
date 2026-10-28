@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a2340"><meta name="color-scheme" content="light">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Quản lý Khu phố — Hệ thống nội bộ</title>
+<link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/framework.css"></head>
+<body><div id="toast" role="alert" aria-live="polite"></div>
+<div id="authScreen" class="auth-shell">
+  <div class="auth-brand"><img src="/static/icon.svg" alt="Khiên quấn xích vàng"><div><h1>QUẢN LÝ KHU PHỐ</h1><p>Hệ thống quản lý dữ liệu tập trung</p></div></div>
+  <div class="auth-card"><div class="eyebrow">KẾT NỐI PC CHÍNH</div>
+  <h2 id="authTitle">Đăng nhập hệ thống</h2><p class="muted" id="authHelp">Dữ liệu chỉ được lưu tại PC chính. Điện thoại không tạo kho dữ liệu riêng.</p>
+  <form id="loginForm"><label>Tên đăng nhập<input id="username" autocomplete="off" required placeholder="Tên đăng nhập"></label>
+  <label>Mật khẩu<input id="password" type="password" autocomplete="off" required placeholder="Mật khẩu"></label>
+  <label id="setupNameWrap" class="hidden">Họ và tên quản trị viên<input id="setupName" autocomplete="off" placeholder="Họ tên có dấu"></label>
+  <button type="submit" class="primary" id="loginButton">Đăng nhập</button></form>
+  <div id="pendingApproval" class="hint hidden" role="status"><strong>Chờ PC chính phê duyệt phiên đăng nhập</strong>
+    <p>Yêu cầu hết hạn sau 3 phút. Quản trị viên mở mục Thiết bị trên PC, duyệt thiết bị (nếu mới), sau đó cho phép phiên đăng nhập.</p>
+    <button id="checkApproval" type="button" class="outline small">Kiểm tra phê duyệt</button></div>
+  <p class="security-note">🔒 Không dùng bộ nhớ ngoại tuyến · Phiên truy cập tự hết hạn · Kết nối mobile phải có HTTPS</p>
+  </div><div class="foot-auth">Ứng dụng nội bộ · Khu phố · PC lưu trữ duy nhất</div>
+</div>
+<div id="appScreen" class="app-shell hidden">
+  <aside class="sidebar"><div class="brand"><img src="/static/icon.svg" alt="Khiên xích vàng"><div><strong>QUẢN LÝ<br>KHU PHỐ</strong><small>PC SERVER / MOBILE CLIENT</small></div></div>
+    <div class="menu-tag">HỆ THỐNG</div><nav id="nav" aria-label="Danh mục chức năng">
+    <button data-page="dashboard" class="nav-link active"><span>▦</span> Tổng quan</button>
+    <button data-page="features" class="nav-link"><span>☷</span> Bảng chức năng</button>
+    <div class="menu-tag">DỮ LIỆU DÂN CƯ</div>
+    <button data-page="residents" class="nav-link"><span>♙</span> Nhân khẩu</button>
+    <button data-page="households" class="nav-link"><span>⌂</span> Hộ gia đình</button>
+    <button data-page="import" class="nav-link edit-only"><span>▤</span> Nhập liệu & OCR</button>
+    <button data-page="export" class="nav-link pc-only edit-only"><span>⇩</span> Báo cáo / Xuất file</button>
+    <div class="menu-tag admin-only">QUẢN TRỊ</div>
+    <button data-page="accounts" class="nav-link admin-only"><span>♧</span> Tài khoản</button>
+    <button data-page="permissions" class="nav-link super-only pc-only"><span>⊞</span> Ma trận phân quyền</button>
+    <button data-page="devices" class="nav-link admin-only"><span>▣</span> Thiết bị</button>
+    <button data-page="fields" class="nav-link admin-only"><span>≡</span> Trường dữ liệu</button>
+    <button data-page="templates" class="nav-link admin-only"><span>▧</span> Mẫu nhập liệu</button>
+    <button data-page="audit" class="nav-link root-only"><span>◷</span> Nhật ký truy cập</button>
+    <div class="menu-tag">PHÂN HỆ MỞ RỘNG</div>
+    <button class="nav-link planned-link" disabled><span>⌖</span><span>Địa bàn & số nhà<small>Chưa triển khai</small></span></button>
+    <button class="nav-link planned-link" disabled><span>▥</span><span>Cơ sở kinh doanh<small>Chưa triển khai</small></span></button>
+    <button class="nav-link planned-link" disabled><span>◫</span><span>Công việc & phản ánh<small>Chưa triển khai</small></span></button>
+    </nav><div class="sidebar-foot">Dữ liệu lưu duy nhất trên PC<br><span class="green-dot">●</span> Kết nối trực tiếp · Không cloud</div>
+  </aside>
+  <main class="main"><header class="topbar"><div><div class="breadcrumbs">HỆ THỐNG NỘI BỘ / <span id="pageBread">Tổng quan</span></div><h2 id="pageTitle">Tổng quan</h2></div>
+    <div class="top-actions"><span class="user-pill" id="userDisplay"></span><button class="outline small" id="changePasswordBtn">Đổi mật khẩu</button><button class="outline small" id="logoutBtn">Đăng xuất</button></div></header>
+    <div class="content" id="content" aria-live="polite"></div>
+  </main><nav class="bottom-nav" aria-label="Điều hướng điện thoại"><button data-mobile-page="dashboard">Tổng quan</button><button data-mobile-page="features">Chức năng</button><button data-mobile-page="residents">Dân cư</button><button data-mobile-page="households">Hộ gia đình</button><button data-mobile-page="import">Nhập</button></nav>
+</div><script src="/static/app.js" defer></script><script src="/static/framework.js" defer></script></body></html>

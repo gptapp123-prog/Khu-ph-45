@@ -1,0 +1,15 @@
+# NHANH TƯƠNG THÍCH CŨ: Python 3.8 / Windows 7 SP1, Windows 8
+# CHƯA KIỂM THỬ TRÊN WIN7 THẬT. Các thư viện và OS này hết bảo trì;
+# CHỈ dùng để đánh giá tương thích trên máy cô lập, KHÔNG dùng dữ liệu nhạy cảm.
+fastapi==0.103.2
+uvicorn==0.23.2
+pydantic==1.10.15
+cryptography==41.0.7
+argon2-cffi==23.1.0
+python-multipart==0.0.20
+openpyxl==3.1.2
+pypdf==4.3.1
+# pypdfium2/PDF full-page rendering requires separate validation on Windows 7.
+pytesseract==0.3.10
+Pillow==10.4.0
+zxing-cpp==2.2.0
