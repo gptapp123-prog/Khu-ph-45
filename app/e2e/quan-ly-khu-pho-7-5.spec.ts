@@ -77,3 +77,31 @@ test('OCR nhiều tệp: chọn trường, sửa giá trị và xác nhận riê
   expect(committed.selected).toEqual(['team_id','full_name']);
   await expect(page.locator('#importResult')).toContainText('còn 0 tệp');
 });
+
+test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đối chiếu', async ({page},testInfo) => {
+  test.skip(testInfo.project.name.startsWith('mobile'), 'Xuất OCR chỉ dùng tại PC chính');
+  await enterApp(page);
+  await page.locator('[data-page="import"]').click();
+  await page.route('**/api/ocr/templates',async route=>{
+    if(route.request().method()==='GET')await route.fulfill({json:{items:[{id:'test-template',name:'Giấy đăng ký xe',fields:[{label:'Số khung',column:'Số khung',type:'identifier',aliases:[],expected_length:17}]}]}});
+    else await route.fulfill({json:{id:'test-template'}});
+  });
+  await page.locator('#openConfiguredOcr').click();
+  await page.locator('#ocrVehiclePreset').click();
+  await expect(page.locator('.ocrFieldRow')).toHaveCount(9);
+  await expect(page.locator('.ocrLabel').nth(3)).toHaveValue('Số khung');
+  await page.locator('#ocrTemplateSelect').selectOption('test-template');
+  await page.locator('#ocrImageMode').selectOption('enhanced');
+  await page.route('**/api/import/preview?*',async route=>{
+    expect(route.request().url()).toContain('ocr_mode=enhanced');
+    await route.fulfill({json:{ocr_review:true,raw_text:'Số khung: RL4JW3EM3M0000000',warnings:[]}});
+  });
+  await page.route('**/api/ocr/extract',async route=>await route.fulfill({json:{fields:[{label:'Số khung',column:'Số khung',type:'identifier',aliases:[],expected_length:17}],values:{'Số khung':'RL4JW3EM3M0000000'},warnings:[]}}));
+  await page.locator('#ocrFiles').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:Buffer.from([137,80,78,71,13,10,26,10])});
+  await page.locator('#ocrReadFiles').click();
+  await expect(page.locator('.ocrConfirmed')).toHaveValue('RL4JW3EM3M0000000');
+  await page.locator('.ocrZoom').fill('180');
+  await expect(page.locator('.ocrSourceImage')).toHaveAttribute('style',/width: 180%/);
+  await page.locator('.ocrBrightness').fill('130');
+  await expect(page.locator('.ocrSourceImage')).toHaveCSS('filter','brightness(1.3)');
+});

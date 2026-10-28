@@ -5,7 +5,7 @@ from openpyxl import load_workbook
 from PIL import Image
 from server.ocr_extraction import extract_configured
 from server.parsers import parse_file
-from server.parsers import ocr_image
+from server.parsers import ocr_image,prepare_ocr_image
 from test_foundation_accounts import api  # noqa: F401 - shared vault fixture
 
 
@@ -76,9 +76,51 @@ def test_layout_crop_recovers_displaced_identifier_and_rejects_wrong_digits():
         text=ocr_image(image,f)
     assert extract_configured(text,f)[0]['Số hiệu bằng']=='12345 /PT.'
     assert '[OCR đọc lại vùng ảnh' in text
-    with patch('pytesseract.image_to_data',return_value=data),patch('pytesseract.image_to_string',side_effect=[page,'Số hiệu bằng: 99999 /PT.']):
+    with patch('pytesseract.image_to_data',return_value=data),patch('pytesseract.image_to_string',side_effect=[page,'Số hiệu bằng: 99999 /PT.','']):
         text=ocr_image(image,f)
     assert extract_configured(text,f)[0]['Số hiệu bằng']==''
+
+
+def test_auto_enhanced_retry_only_fills_missing_configured_field():
+    from unittest.mock import patch
+    f=[{'label':'Số khung','aliases':[],'column':'Số khung','type':'identifier','expected_length':17}]
+    data={'text':[],'left':[],'top':[],'height':[],'conf':[]}
+    primary='Số khung: RL4W3EM3M3375080\nNhãn khác: Bỏ qua'
+    enhanced='Số khung: RL4JW3EM3M3375080\nNhãn khác: Bỏ qua'
+    with patch('pytesseract.image_to_data',return_value=data),patch('pytesseract.image_to_string',side_effect=[primary,enhanced]):
+        text=ocr_image(Image.new('RGB',(1000,600),'white'),f)
+    values,warnings=extract_configured(text,f)
+    assert values['Số khung']=='RL4JW3EM3M3375080'
+    assert 'Nhãn khác' not in values
+    assert '[OCR tự cân sáng' in text
+
+
+def test_bilingual_labels_multiline_dates_and_identifier_length():
+    configured=[
+        {'label':'Tên chủ xe','aliases':[],'column':'Chủ xe','type':'text'},
+        {'label':'Địa chỉ','aliases':[],'column':'Địa chỉ','type':'multiline'},
+        {'label':'Số khung','aliases':[],'column':'Số khung','type':'identifier','expected_length':17},
+        {'label':'Ngày cấp','aliases':[],'column':'Ngày cấp','type':'date'},
+    ]
+    text="Tên chủ xe (Owner's full name):\nNGUYỄN THỊ MINH AN\nĐịa chỉ (Address): 123 Tỉnh Lộ 10, Quận Bình\nTân\nSố khung (Chassis N°): RL4JW3EM3M0000000\nNgày cấp: 27 tháng 01 năm 2021"
+    values,warnings=extract_configured(text,configured)
+    assert values=={'Chủ xe':'NGUYỄN THỊ MINH AN','Địa chỉ':'123 Tỉnh Lộ 10, Quận Bình Tân','Số khung':'RL4JW3EM3M0000000','Ngày cấp':'27-01-2021'}
+    assert warnings==[]
+    text=text.replace('RL4JW3EM3M0000000','RL4JW3EM30000000')
+    values,warnings=extract_configured(text,configured)
+    assert values['Số khung']=='' and any('độ dài' in w for w in warnings)
+
+
+def test_auto_light_and_zoom_only_for_small_or_dark_images():
+    image=Image.new('RGB',(450,300),(35,35,35))
+    from PIL import ImageDraw
+    ImageDraw.Draw(image).text((10,10),'TEST',fill='white')
+    prepared=prepare_ocr_image(image)
+    assert min(prepared.size)>=600
+    assert prepared.getpixel((5,5))[0]>35
+    normal=Image.new('RGB',(1400,1000),'white')
+    assert prepare_ocr_image(normal).size==normal.size
+    assert min(prepare_ocr_image(Image.new('RGB',(800,1000),'white'),force=True).size)>=1200
 
 
 def test_api_template_image_extract_and_excel_export(api):
@@ -91,6 +133,11 @@ def test_api_template_image_extract_and_excel_export(api):
     with patch('pytesseract.image_to_string',return_value=text):
         preview=client.post('/api/import/preview?ocr_template_id='+tid,headers=headers,files={'file':('anh.png',stream.getvalue(),'image/png')})
     assert preview.status_code==200,preview.text
+    invalid_mode=client.post('/api/import/preview?ocr_mode=unsafe',headers=headers,files={'file':('anh.png',stream.getvalue(),'image/png')})
+    assert invalid_mode.status_code==422
+    with patch('pytesseract.image_to_string',return_value=text):
+        enhanced=client.post('/api/import/preview?ocr_template_id='+tid+'&ocr_mode=enhanced',headers=headers,files={'file':('anh.png',stream.getvalue(),'image/png')})
+    assert enhanced.status_code==200 and any('tăng tương phản' in x for x in enhanced.json()['warnings'])
     extracted=client.post('/api/ocr/extract',headers=headers,json={'template_id':tid,'text':preview.json()['raw_text']})
     assert extracted.status_code==200,extracted.text
     row=extracted.json()['values']

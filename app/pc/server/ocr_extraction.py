@@ -10,7 +10,10 @@ def normalized(value):
 COMMON_LABELS=('họ và tên','họ tên','ngày sinh','năm sinh','giới tính','nơi sinh',
                'học sinh trường','trường','tại hội đồng thi','hội đồng thi',
                'xếp loại tốt nghiệp','xếp loại','số hiệu bằng','vào sổ cấp bằng số',
-               'nghề nghiệp','địa chỉ','quê quán','thường trú','cccd')
+               'nghề nghiệp','địa chỉ','quê quán','thường trú','cccd',
+               'chủ xe','tên chủ xe','số biển kiểm soát','biển số đăng ký',
+               'số khung','số máy','nhãn hiệu','số loại','màu sơn',
+               'số chỗ ngồi','thời hạn bảo hiểm','từ','đến','phí bảo hiểm')
 SEPARATORS=':：-–—'
 
 
@@ -19,6 +22,9 @@ def _prefix(line,alias):
     for end in range(1,min(len(line),len(alias)*3+12)+1):
         if normalized(line[:end])==alias:
             remainder=line[end:].lstrip()
+            if remainder.startswith('('):
+                close=remainder.find(')',1,85)
+                if close!=-1:remainder=remainder[close+1:].lstrip()
             if not remainder or remainder[0] in SEPARATORS+'.…':return remainder
     return None
 
@@ -67,10 +73,25 @@ def extract_configured(text,fields):
                 if not value and index+1<len(lines):
                     following=lines[index+1].strip()
                     if len(following)>=3 and not following.startswith('[') and not any(_label_positions(following,labels)):value=following
+                if value and field['type']=='multiline' and index+1<len(lines):
+                    following=lines[index+1].strip()
+                    if len(following)<90 and not following.startswith('[') and not any(_label_positions(following,labels)):
+                        value+=' '+following
                 value=_split_next_label(value,labels).strip()
                 if field['type']=='year':
                     years=re.findall(r'(?<!\d)(?:18|19|20)\d{2}(?!\d)',value)
                     value=years[0] if len(set(years))==1 else ''
+                if field['type']=='date' and value:
+                    match=re.search(r'(?<!\d)(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})(?!\d)',value)
+                    if not match:match=re.search(r'(?:ngày\s*)?(\d{1,2})\s*tháng\s*(\d{1,2})\s*năm\s*(\d{4})',value,re.I)
+                    if match:
+                        from datetime import date
+                        try:value=date(int(match.group(3)),int(match.group(2)),int(match.group(1))).strftime('%d-%m-%Y')
+                        except ValueError:value=''
+                    else:value=''
+                if field.get('expected_length') and value and len(re.sub(r'[\s.\-]','',value))!=field['expected_length']:
+                    warnings.append(f'{field["label"]}: độ dài mã không đúng; cần đối chiếu.')
+                    value=''
                 if value:matches.append(value[:500])
         unique=list(dict.fromkeys(matches));column=field['column']
         result[column]=unique[0] if len(unique)==1 else ''

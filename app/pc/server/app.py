@@ -48,7 +48,7 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.2-ocr-layout',lifespan=lifespan,
+app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.3-ocr-image-adjustment',lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
@@ -1228,6 +1228,7 @@ class OcrField(BaseModel):
     column:str=Field(min_length=1,max_length=100)
     aliases:List[str]=Field(default_factory=list)
     type:str='text'
+    expected_length:Optional[int]=Field(default=None,ge=1,le=100)
 
 class OcrTemplate(BaseModel):
     name:str=Field(min_length=2,max_length=100)
@@ -1239,7 +1240,7 @@ def validate_ocr_fields(fields):
     for f in values:
         f['label']=f['label'].strip();f['column']=f['column'].strip()
         f['aliases']=[a.strip() for a in f['aliases']]
-        if not f['label'] or not f['column'] or f['type'] not in ('text','year') or len(f['aliases'])>12 or any(not a or len(a)>100 for a in f['aliases']):
+        if not f['label'] or not f['column'] or f['type'] not in ('text','year','date','identifier','multiline') or len(f['aliases'])>12 or any(not a or len(a)>100 for a in f['aliases']):
             raise HTTPException(422,'Trường OCR, bí danh hoặc kiểu dữ liệu không hợp lệ.')
         key=normalized(f['column'])
         if key in columns:raise HTTPException(422,'Tên cột xuất bị trùng.')
@@ -1299,9 +1300,10 @@ def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
     return StreamingResponse(stream,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{filename}.xlsx"','Cache-Control':'no-store'})
 
 @app.post('/api/import/preview')
-async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]=None,account:dict=Depends(user)):
+async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]=None,ocr_mode:str='auto',account:dict=Depends(user)):
     capability(account,'import')
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
+    if ocr_mode not in ('auto','enhanced'):raise HTTPException(422,'Chế độ xử lý ảnh không hợp lệ.')
     raw=await file.read(10*1024*1024+1)
     if len(raw)>10*1024*1024:raise HTTPException(413,'Tệp vượt 10 MB.')
     try:
@@ -1310,7 +1312,8 @@ async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]
             template=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(ocr_template_id,)).fetchone()
             if not template:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
             requested_fields=json.loads(template['fields_json'])
-        result=parse_file(raw,file.filename or '',requested_fields=requested_fields)
+        result=parse_file(raw,file.filename or '',requested_fields=requested_fields,ocr_mode=ocr_mode)
+        if result.get('ocr_review') and ocr_mode=='enhanced':result['warnings'].append('Đã tăng tương phản và phóng to trước OCR; phải đối chiếu ảnh gốc.')
         custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')}
         custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')})
         for header in result['headers']:
