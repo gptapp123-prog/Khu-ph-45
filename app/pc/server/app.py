@@ -710,8 +710,13 @@ def preview_option_migration(field_id:str,p:OptionMigrationPreview,request:Reque
     pc_only(request);capability(account,'manage_fields');permit(account,'admin_root','super_admin')
     with LOCK:
         row,options,source,target,count=option_migration_context(field_id,p)
+        sample=[dict(x) for x in db().execute('''SELECT r.id,r.full_name,r.dob,r.team_id,r.deleted_at
+            FROM field_values v JOIN residents r ON r.id=v.resident_id
+            WHERE v.field_id=? AND v.value=? ORDER BY r.full_name LIMIT 50''',(field_id,source))]
+        for item in sample:item['dob']=display_date(item.get('dob'))
         return {'field_id':field_id,'field_label':row['label'],'from_value':source,
                 'to_value':target,'affected_count':count,'target_exists':target in options,
+                'sample':sample,'sample_limited':count>len(sample),
                 'message':'Chỉ xem trước; chưa thay đổi dữ liệu.'}
 
 @app.post('/api/fields/{field_id}/option-migration/commit')
@@ -729,6 +734,17 @@ def commit_option_migration(field_id:str,p:OptionMigrationCommit,request:Request
             if candidate not in next_options:next_options.append(candidate)
         db().execute('SAVEPOINT option_migration')
         try:
+            migration_id=uuid.uuid4().hex
+            resident_ids=[x[0] for x in db().execute(
+                'SELECT resident_id FROM field_values WHERE field_id=? AND value=? ORDER BY resident_id',
+                (field_id,source)).fetchall()]
+            db().execute('''INSERT INTO field_option_migrations
+                (id,field_id,from_value,to_value,affected_count,options_before_json,options_after_json,actor,created_at)
+                VALUES(?,?,?,?,?,?,?,?,?)''',
+                (migration_id,field_id,source,target,count,json.dumps(options,ensure_ascii=False),
+                 json.dumps(next_options,ensure_ascii=False),account['id'],now()))
+            db().executemany('INSERT INTO field_option_migration_items(migration_id,resident_id) VALUES(?,?)',
+                             [(migration_id,rid) for rid in resident_ids])
             changed=db().execute('UPDATE field_values SET value=? WHERE field_id=? AND value=?',
                                  (target,field_id,source)).rowcount
             if changed!=count:raise RuntimeError('Số hồ sơ cập nhật không khớp kết quả xem trước.')
@@ -741,7 +757,56 @@ def commit_option_migration(field_id:str,p:OptionMigrationCommit,request:Request
         except Exception:
             db().execute('ROLLBACK TO option_migration');db().execute('RELEASE option_migration')
             raise
-        return {'ok':True,'updated':changed,'options':next_options}
+        return {'ok':True,'migration_id':migration_id,'updated':changed,'options':next_options}
+
+@app.get('/api/fields/{field_id}/option-migrations')
+def list_option_migrations(field_id:str,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'manage_fields');permit(account,'admin_root','super_admin')
+    with LOCK:
+        if not db().execute('SELECT 1 FROM field_definitions WHERE id=?',(field_id,)).fetchone():
+            raise HTTPException(404,'Không tìm thấy trường tùy biến.')
+        rows=db().execute('''SELECT id,from_value,to_value,affected_count,created_at,undone_at
+            FROM field_option_migrations WHERE field_id=? ORDER BY created_at DESC LIMIT 50''',(field_id,)).fetchall()
+        return {'items':[dict(x) for x in rows]}
+
+class OptionMigrationUndo(BaseModel):
+    confirmation:str
+
+@app.post('/api/fields/{field_id}/option-migrations/{migration_id}/undo')
+def undo_option_migration(field_id:str,migration_id:str,p:OptionMigrationUndo,request:Request,account:dict=Depends(user)):
+    pc_only(request);capability(account,'manage_fields');permit(account,'admin_root','super_admin')
+    if p.confirmation!='HOAN TAC':raise HTTPException(422,'Thiếu xác nhận HOAN TAC.')
+    with LOCK:
+        migration=db().execute('SELECT * FROM field_option_migrations WHERE id=? AND field_id=?',
+                               (migration_id,field_id)).fetchone()
+        if not migration:raise HTTPException(404,'Không tìm thấy giao dịch chuyển đổi.')
+        if migration['undone_at']:raise HTTPException(409,'Giao dịch này đã được hoàn tác.')
+        field=db().execute('SELECT options_json FROM field_definitions WHERE id=?',(field_id,)).fetchone()
+        if not field or json.loads(field['options_json'] or '[]')!=json.loads(migration['options_after_json']):
+            raise HTTPException(409,'Cấu hình lựa chọn đã thay đổi sau giao dịch. Không thể hoàn tác tự động.')
+        items=[x[0] for x in db().execute(
+            'SELECT resident_id FROM field_option_migration_items WHERE migration_id=?',(migration_id,)).fetchall()]
+        if len(items)!=migration['affected_count']:raise HTTPException(409,'Danh sách hồ sơ hoàn tác không toàn vẹn.')
+        marks=','.join('?' for _ in items)
+        current=db().execute('SELECT count(*) FROM field_values WHERE field_id=? AND value=? AND resident_id IN ('+marks+')',
+                             [field_id,migration['to_value']]+items).fetchone()[0]
+        if current!=len(items):
+            raise HTTPException(409,'Một hoặc nhiều hồ sơ đã thay đổi sau giao dịch. Không thể hoàn tác tự động.')
+        db().execute('SAVEPOINT option_migration_undo')
+        try:
+            changed=db().execute('UPDATE field_values SET value=? WHERE field_id=? AND value=? AND resident_id IN ('+marks+')',
+                                 [migration['from_value'],field_id,migration['to_value']]+items).rowcount
+            db().execute('UPDATE field_definitions SET options_json=? WHERE id=?',
+                         (migration['options_before_json'],field_id))
+            db().execute('UPDATE field_option_migrations SET undone_at=?,undone_by=? WHERE id=?',
+                         (now(),account['id'],migration_id))
+            record(account['id'],'UNDO_FIELD_OPTION_MIGRATION','field',field_id,
+                   {'migration_id':migration_id,'count':changed})
+            db().execute('RELEASE option_migration_undo');commit()
+        except Exception:
+            db().execute('ROLLBACK TO option_migration_undo');db().execute('RELEASE option_migration_undo')
+            raise
+        return {'ok':True,'restored':changed}
 
 @app.get('/api/accounts')
 def accounts(account:dict=Depends(user)):
