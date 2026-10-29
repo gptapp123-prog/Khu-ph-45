@@ -185,11 +185,19 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
   await enterApp(page);
   const mobile=testInfo.project.name.startsWith('mobile');
   await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
-  const name='Nguyễn CSV '+testInfo.project.name;
+  const runId=testInfo.project.name+'-'+testInfo.retry;
+  const name='Nguyễn CSV '+runId;
   await page.locator('#fileIn').setInputFiles({name:'dan-cu.csv',mimeType:'text/csv',
     buffer:Buffer.from('\uFEFFHọ và tên,Mã hộ,Năm sinh\n'+name+',CHUA-CO-'+testInfo.project.name+',1988\n')});
   await page.locator('#previewFile').click();
   await expect(page.locator('#importDefaultTeam')).toBeVisible();
+  await page.locator('#saveImportTemplate').click();
+  await page.locator('#modalForm input[name="name"]').fill('Mẫu nhập '+runId);
+  await page.locator('#modalForm button[type="submit"]').click();
+  await expect(page.locator('#importTemplate option').filter({hasText:'Mẫu nhập '+runId})).toHaveCount(1);
+  await page.locator('.mapSelect[data-header="Họ và tên"]').selectOption('');
+  await page.locator('#importTemplate').selectOption({label:'Mẫu nhập '+runId});
+  await expect(page.locator('.mapSelect[data-header="Họ và tên"]')).toHaveValue('full_name');
   await page.locator('#importDefaultTeam').selectOption('3');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   page.on('dialog',dialog=>dialog.accept());
@@ -198,4 +206,37 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
   await expect(page.locator('#importResult')).toContainText('chưa gắn hộ');
   await (mobile?page.locator('[data-mobile-page="residents"]'):page.locator('[data-page="residents"]')).click();
   await expect(page.getByText(name,{exact:true})).toBeVisible();
+});
+
+test('xuất thật chỉ giữ dòng và cột được chọn', async ({page},testInfo) => {
+  await enterApp(page);
+  const mobile=testInfo.project.name.startsWith('mobile');
+  const suffix=testInfo.project.name;
+  await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
+  await page.locator('#fileIn').setInputFiles({name:'xuat-chon.csv',mimeType:'text/csv',buffer:Buffer.from('Họ và tên,Tổ\nXuất Chọn '+suffix+',3\nKhông Xuất '+suffix+',3\n')});
+  await page.locator('#previewFile').click();
+  page.on('dialog',d=>d.accept());
+  await page.locator('#commitImport').click();
+  await expect(page.getByRole('heading',{name:'Kết quả nhập'})).toBeVisible();
+  await (mobile?page.locator('[data-mobile-page="features"]'):page.locator('[data-page="features"]')).click();
+  await page.locator('#featureSearch').fill('F-031');
+  await page.locator('[data-fw-page="export"]').click();
+  await page.locator('#exportScope').selectOption('selected');
+  await page.getByRole('checkbox',{name:'Chọn Xuất Chọn '+suffix,exact:true}).check();
+  for(const field of await page.locator('.exportField').all())await field.uncheck();
+  await page.locator('.exportField[value="full_name"]').check();
+  await page.locator('#saveExportTemplate').click();
+  await page.locator('#modalForm input[name="name"]').fill('Mẫu xuất '+suffix);
+  await page.locator('#modalForm button[type="submit"]').click();
+  await expect(page.locator('#exportTemplate option').filter({hasText:'Mẫu xuất '+suffix})).toHaveCount(1);
+  await page.locator('.exportField[value="cccd"]').check();
+  await page.locator('#exportTemplate').selectOption({label:'Mẫu xuất '+suffix});
+  await expect(page.locator('.exportField[value="cccd"]')).not.toBeChecked();
+  await page.locator('#exportFormat').selectOption('json');
+  const pending=page.waitForEvent('download');
+  await page.locator('#doExport').click();
+  const download=await pending;
+  const stream=await download.createReadStream();
+  const chunks:Buffer[]=[];for await(const chunk of stream!)chunks.push(Buffer.from(chunk));
+  expect(JSON.parse(Buffer.concat(chunks).toString('utf8'))).toEqual([{full_name:'Xuất Chọn '+suffix}]);
 });

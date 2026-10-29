@@ -535,3 +535,57 @@ def test_birth_year_conflict_does_not_save_resident(api):
     assert response.status_code == 422
     assert 'không khớp' in response.json()['detail']
     assert client.get('/api/residents', headers=headers).json()['total'] == 0
+
+
+def test_export_only_selected_rows_and_fields(api):
+    client, headers = api
+    ids=[]
+    for name in ['Người Được Chọn', 'Người Không Chọn']:
+        response=client.post('/api/residents',headers=headers,json={'full_name':name,'team_id':3})
+        assert response.status_code==200
+        ids.append(response.json()['id'])
+    response=client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':ids[0]})
+    assert response.status_code==200
+    assert response.json()==[{'full_name':'Người Được Chọn'}]
+    assert client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':''}).status_code==422
+    assert client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':ids[0],'team':4}).json()==[]
+
+
+def test_saved_template_rejects_unknown_duplicate_or_inconsistent_fields(api):
+    client,headers=api
+    for fields,mapping in [([],{}),(['missing'],{}),(['full_name','full_name'],{}),
+                           (['full_name'],{'Tên':'cccd'}),
+                           (['full_name'],{'Tên':'full_name','Họ tên':'full_name'})]:
+        response=client.post('/api/templates',headers=headers,json={
+            'name':'Mẫu kiểm tra','fields':fields,'mapping':mapping})
+        assert response.status_code==422,response.text
+    response=client.post('/api/templates',headers=headers,json={
+        'name':'Mẫu hợp lệ','fields':['full_name'],'mapping':{'Họ và tên':'full_name'}})
+    assert response.status_code==200,response.text
+    items=client.get('/api/templates',headers=headers).json()['items']
+    assert len(items)==1
+    assert json.loads(items[0]['fields_json'])==['full_name']
+
+
+def test_template_writes_and_parallel_resident_reads_keep_permissions(api):
+    from concurrent.futures import ThreadPoolExecutor
+    client,headers=api
+    resident=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Đọc Song Song','team_id':3})
+    assert resident.status_code==200
+    def task(index):
+        if index%2:
+            response=client.post('/api/templates',headers=headers,json={
+                'name':'Mẫu song song '+str(index),'fields':['full_name'],
+                'mapping':{'Họ và tên':'full_name'}})
+        else:
+            response=client.get('/api/residents?limit=200',headers=headers)
+            if response.status_code==200:
+                assert response.json()['items'][0]['full_name']=='Nguyễn Đọc Song Song'
+        return response.status_code,response.text
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results=list(pool.map(task,range(24)))
+    assert all(code==200 for code,_ in results),results

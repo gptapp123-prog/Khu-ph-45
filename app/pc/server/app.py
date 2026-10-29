@@ -147,8 +147,9 @@ def lan_link(request:Request,account:dict=Depends(user)):
 
 def capability(account:dict, code:str):
     if code not in CAPABILITIES:raise RuntimeError('Unknown capability')
-    row=db().execute('SELECT allowed FROM role_permissions WHERE role=? AND capability=?',
-                     (account['role'],code)).fetchone()
+    with LOCK:
+        row=db().execute('SELECT allowed FROM role_permissions WHERE role=? AND capability=?',
+                         (account['role'],code)).fetchone()
     if not row or not row['allowed']:raise HTTPException(403,'Vai trò không được cấp quyền cho thao tác này.')
 
 def approvals_gc():
@@ -1249,6 +1250,13 @@ def templates(account:dict=Depends(user)):
 def add_template(p:TemplateIn,account:dict=Depends(user)):
     capability(account,'manage_templates')
     permit(account,'admin_kp','admin_root','super_admin')
+    valid=set(BASE_FIELDS)|{'custom:'+r['name'] for r in db().execute('SELECT name FROM field_definitions WHERE active=1')}
+    if not p.fields or len(p.fields)>100 or len(p.fields)!=len(set(p.fields)) or any(k not in valid for k in p.fields):
+        raise HTTPException(422,'Mẫu phải có từ 1 đến 100 trường đang hoạt động, không trùng.')
+    if len(p.mapping)>100 or any(not k.strip() or len(k)>180 or v not in p.fields for k,v in p.mapping.items()):
+        raise HTTPException(422,'Ánh xạ mẫu phải có tiêu đề nguồn và trường đích nằm trong mẫu.')
+    if len(set(p.mapping.values()))!=len(p.mapping):
+        raise HTTPException(422,'Không ghép nhiều cột nguồn vào cùng trường đích trong mẫu.')
     with LOCK:
         rid=uuid.uuid4().hex
         db().execute('INSERT INTO templates VALUES(?,?,?,?,?)',(rid,p.name,json.dumps(p.fields,ensure_ascii=False),json.dumps(p.mapping,ensure_ascii=False),now()))
@@ -1550,7 +1558,7 @@ def spreadsheet_safe(value):
     return value
 
 @app.get('/api/export')
-def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='xlsx',team:Optional[int]=None,account:dict=Depends(user)):
+def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='xlsx',team:Optional[int]=None,resident_ids:Optional[str]=None,account:dict=Depends(user)):
     capability(account,'export')
     pc_only(request)
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
@@ -1567,6 +1575,11 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
         scope,args=team_scope(account)
         where+=scope;params+=args
         if team:where+=' AND team_id=?';params.append(team)
+        if resident_ids is not None:
+            ids=list(dict.fromkeys(resident_ids.split(',')))
+            if not ids or len(ids)>200 or any(not re.fullmatch(r'[0-9a-f]{32}',item) for item in ids):
+                raise HTTPException(422,'Chọn từ 1 đến 200 hồ sơ hợp lệ để xuất.')
+            where+=' AND id IN ('+','.join('?' for _ in ids)+')';params+=ids
         resident_rows=db().execute('SELECT * FROM residents WHERE '+where+' ORDER BY full_name',params).fetchall()
         custom=custom_values_for([r['id'] for r in resident_rows],account['role'])
         rows=[]

@@ -337,6 +337,7 @@ function showPreview(){
  $('importResult').innerHTML=`${warnings}<div class="card"><div class="card-heading"><h3>Đã đọc ${p.count} dòng · ${headers.length} cột</h3><span class="chip success">Xử lý tại PC</span></div><h3>1. Chọn cột nguồn</h3><div class="checkgrid">${checkboxes}</div></div>
  <div class="two-col"><div class="card"><h3>2. Ánh xạ vào trường chuẩn</h3>${table(['Cột nguồn','Trường đích'],selector)}</div><div class="card"><h3>3. Xem trước (${Math.min(10,p.count)} dòng)</h3>${headers.length?table(headers,preview):'<p>Không có trường.</p>'}</div></div>
  <div class="card"><div class="toolbar"><label>Tổ áp dụng khi dòng thiếu Tổ<select id="importDefaultTeam"><option value="">Chưa chọn</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label><button id="commitImport" class="primary" ${p.count?'':'disabled'}>Nhập dữ liệu vào kho PC</button></div><div class="footnote">Yêu cầu trường Họ tên và Tổ; CCCD trùng được báo và bỏ qua. Bản nhập không tự ghi đè hồ sơ cũ.</div></div>`;
+ bindImportTemplates(p).catch(e=>toast(e.message,true));
  $('commitImport').addEventListener('click',async()=>{
   const checked=Array.from(document.querySelectorAll('.includeHeader:checked')).map(x=>x.dataset.header);
   const mapping={};document.querySelectorAll('.mapSelect').forEach(x=>{if(checked.includes(x.dataset.header)&&x.value)mapping[x.dataset.header]=x.value});
@@ -382,16 +383,88 @@ function showOcrReview(){
   }catch(e){toast(e.message,true)}
  });
 }
+async function bindImportTemplates(preview){
+ const items=(await api('/templates')).items.filter(t=>{try{return Object.keys(JSON.parse(t.mapping_json||'{}')).length>0}catch{return false}});
+ if(S.preview!==preview||!$('commitImport'))return;
+ const panel=document.createElement('div');panel.className='card';
+ panel.innerHTML='<h3>Mẫu ghép cột nhập</h3><select id="importTemplate"><option value="">Chọn mẫu đã lưu</option>'+items.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')+'</select><button class="outline" id="saveImportTemplate">Lưu cách ghép cột hiện tại</button>';
+ $('importResult').prepend(panel);
+ $('importTemplate').onchange=()=>{
+  const template=items.find(t=>t.id===$('importTemplate').value);if(!template)return;
+  try{
+   const mapping=JSON.parse(template.mapping_json);
+   const missing=Object.keys(mapping).filter(h=>!preview.headers.includes(h));
+   const invalid=Object.values(mapping).filter(k=>!allKeys.includes(k));
+   if(missing.length||invalid.length)throw Error('Không áp dụng mẫu: thiếu cột nguồn hoặc trường đích không còn khả dụng. '+missing.join(', '));
+   document.querySelectorAll('.mapSelect').forEach(x=>{x.value=mapping[x.dataset.header]||''});
+   document.querySelectorAll('.includeHeader').forEach(x=>{x.checked=!!mapping[x.dataset.header]});
+   toast('Đã áp dụng mẫu. Kiểm tra lại từng cột và chọn Tổ trước khi nhập.');
+  }catch(e){toast(e.message,true)}
+ };
+ $('saveImportTemplate').onclick=()=>modal('Lưu mẫu ghép cột','<label>Tên mẫu<input required minlength="2" maxlength="100" name="name"></label>',async values=>{
+  if(S.preview!==preview)throw Error('Tệp xem trước đã thay đổi.');
+  const checked=Array.from(document.querySelectorAll('.includeHeader:checked')).map(x=>x.dataset.header);
+  const mapping={};document.querySelectorAll('.mapSelect').forEach(x=>{if(checked.includes(x.dataset.header)&&x.value)mapping[x.dataset.header]=x.value});
+  const fields=[...new Set(Object.values(mapping))];
+  const saved=await api('/templates',{method:'POST',body:{name:values.name,fields,mapping}});
+  items.push({id:saved.id,name:values.name,fields_json:JSON.stringify(fields),mapping_json:JSON.stringify(mapping)});
+  if(S.preview===preview&&$('importTemplate'))$('importTemplate').add(new Option(values.name,saved.id));
+  toast('Đã lưu mẫu. Mẫu dùng được cho tệp có cùng tiêu đề cột.');
+ });
+}
+
 async function exportPage(){
  await ensureFields();
  if(!S.isPC){$('content').innerHTML=note('Xuất file chỉ được phép trên PC chính.');return}
  $('content').innerHTML=`<div class="card"><h3>Xuất file theo trường và phạm vi</h3>${note('Chỉ PC chính được tạo tệp xuất. Người dùng mobile không được tải dữ liệu cư dân xuống thiết bị.')}<h3 style="margin-top:20px">Chọn trường xuất</h3><div class="checkgrid">${allKeys.map(k=>`<label class="checkline"><input class="exportField" type="checkbox" value="${k}" ${['full_name','cccd','team_id'].includes(k)?'checked':''}>${esc(fieldLabels[k])}</label>`).join('')}</div>
  <div class="form-grid" style="margin-top:20px"><label>Định dạng<select id="exportFormat"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV UTF-8 BOM</option><option value="json">JSON UTF-8</option></select></label><label>Lọc tổ<select id="exportTeam"><option value="">Tất cả tổ được phép</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label></div>
+ <label style="margin-top:18px">Phạm vi xuất<select id="exportScope"><option value="all">Tất cả hồ sơ trong Tổ được chọn</option><option value="selected">Chỉ các hồ sơ đánh dấu bên dưới</option></select></label><div id="exportRowChoices"></div>
  <div class="toolbar" style="margin-top:18px"><button class="primary" id="doExport">Xuất file tại PC</button></div></div>`;
+ let exportTemplates=[];let templateOrder=[];
+ const templatePanel=document.createElement('div');templatePanel.className='card';
+ templatePanel.innerHTML='<h3>Mẫu cột xuất</h3><label>Mẫu đã lưu<select id="exportTemplate"><option value="">Tự chọn cột</option></select></label><button class="outline" id="saveExportTemplate">Lưu các cột đang chọn thành mẫu</button>';
+ $('content').prepend(templatePanel);
+ const refreshExportTemplates=async()=>{
+  exportTemplates=(await api('/templates')).items;
+  $('exportTemplate').innerHTML='<option value="">Tự chọn cột</option>'+exportTemplates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+ };
+ await refreshExportTemplates();
+ $('exportTemplate').onchange=()=>{
+  const template=exportTemplates.find(t=>t.id===$('exportTemplate').value);
+  if(!template){templateOrder=[];return}
+  try{
+   const keys=JSON.parse(template.fields_json);
+   const unavailable=keys.filter(k=>!allKeys.includes(k));
+   if(unavailable.length){templateOrder=[];$('exportTemplate').value='';throw Error('Mẫu có trường không còn được phép hoặc đã ẩn: '+unavailable.join(', '))}
+   templateOrder=keys;
+   document.querySelectorAll('.exportField').forEach(x=>{x.checked=keys.includes(x.value)});
+  }catch(e){toast(e.message,true)}
+ };
+ $('saveExportTemplate').onclick=()=>modal('Lưu mẫu cột xuất','<label>Tên mẫu<input name="name" required minlength="2" maxlength="100"></label>',async values=>{
+  const selected=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+  if(!selected.length)throw Error('Chọn ít nhất một cột trước khi lưu mẫu.');
+  const ordered=[...templateOrder.filter(k=>selected.includes(k)),...selected.filter(k=>!templateOrder.includes(k))];
+  await api('/templates',{method:'POST',body:{name:values.name,fields:ordered,mapping:{}}});
+  await refreshExportTemplates();toast('Đã lưu mẫu cột xuất.');
+ });
+ const loadExportRows=async()=>{
+  $('exportRowChoices').innerHTML='';
+  if($('exportScope').value!=='selected')return;
+  try{const d=await api('/residents?limit=200'+($('exportTeam').value?'&team='+$('exportTeam').value:''));
+   $('exportRowChoices').innerHTML='<p>Đánh dấu hồ sơ cần xuất (tối đa 200 hồ sơ hiển thị). Đổi Tổ sẽ bỏ lựa chọn cũ.</p>'+table(['Chọn','Họ tên','Ngày sinh','Tổ'],d.items.map(r=>`<tr><td><input class="exportRow" type="checkbox" value="${esc(r.id)}" aria-label="Chọn ${esc(r.full_name)}"></td>${cell(r.full_name)}${cell(r.dob)}${cell(r.team_id)}</tr>`));
+  }catch(e){toast(e.message,true)}
+ };
+ $('exportScope').onchange=loadExportRows;$('exportTeam').onchange=loadExportRows;
  $('doExport').addEventListener('click',async()=>{
- const fields=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+ const checkedFields=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+ const fields=[...templateOrder.filter(k=>checkedFields.includes(k)),...checkedFields.filter(k=>!templateOrder.includes(k))];
  if(!fields.length){toast('Chọn ít nhất một trường.',true);return}
  const format=$('exportFormat').value;let uri='/export?format='+format+'&fields='+fields.join(',')+($('exportTeam').value?'&team='+$('exportTeam').value:'');
+ if($('exportScope').value==='selected'){
+  const ids=Array.from(document.querySelectorAll('.exportRow:checked')).map(x=>x.value);
+  if(!ids.length){toast('Chưa chọn hồ sơ để xuất.',true);return}
+  uri+='&resident_ids='+encodeURIComponent(ids.join(','));
+ }
  try{const blob=await api(uri,{raw:true});let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='QuanLyKhuPho_'+new Date().toISOString().slice(0,10)+'.'+format;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Đã tạo tệp xuất từ PC.')}catch(e){toast(e.message,true)}
  });
 }
