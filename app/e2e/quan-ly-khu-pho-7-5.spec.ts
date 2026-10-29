@@ -184,3 +184,21 @@ test('quét tiêu đề, tạo bảng lệnh và chỉ đánh dấu cột cần 
   expect(saved.fields.map((f:any)=>f.column)).toEqual(['Mã hồ sơ','Họ và tên','Năm sinh','Địa chỉ','Nghề nghiệp','Ghi chú']);
   expect(saved.fields.filter((f:any)=>f.extract).map((f:any)=>f.column)).toEqual(['Họ và tên','Năm sinh','Địa chỉ','Nghề nghiệp']);
 });
+
+test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân khẩu', async ({page},testInfo) => {
+  await enterApp(page);
+  const mobile=testInfo.project.name.startsWith('mobile');
+  await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
+  const name='Nguyễn CSV '+testInfo.project.name;
+  await page.locator('#fileIn').setInputFiles({name:'dan-cu.csv',mimeType:'text/csv',
+    buffer:Buffer.from('\uFEFFHọ và tên,Mã hộ,Năm sinh\n'+name+',CHUA-CO-'+testInfo.project.name+',1988\n')});
+  await page.locator('#previewFile').click();
+  await expect(page.locator('#importDefaultTeam')).toBeVisible();
+  await page.locator('#importDefaultTeam').selectOption('3');
+  page.on('dialog',dialog=>dialog.accept());
+  await page.locator('#commitImport').click();
+  await expect(page.getByRole('heading',{name:'Kết quả nhập'})).toBeVisible();
+  await expect(page.locator('#importResult')).toContainText('chưa gắn hộ');
+  await (mobile?page.locator('[data-mobile-page="residents"]'):page.locator('[data-page="residents"]')).click();
+  await expect(page.getByText(name,{exact:true})).toBeVisible();
+});
