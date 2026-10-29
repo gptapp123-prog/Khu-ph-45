@@ -217,6 +217,13 @@ test('xuất thật chỉ giữ dòng và cột được chọn', async ({page},
   await page.getByRole('checkbox',{name:'Chọn Xuất Chọn '+suffix,exact:true}).check();
   for(const field of await page.locator('.exportField').all())await field.uncheck();
   await page.locator('.exportField[value="full_name"]').check();
+  await page.locator('#saveExportTemplate').click();
+  await page.locator('#modalForm input[name="name"]').fill('Mẫu xuất '+suffix);
+  await page.locator('#modalForm button[type="submit"]').click();
+  await expect(page.locator('#exportTemplate option').filter({hasText:'Mẫu xuất '+suffix})).toHaveCount(1);
+  await page.locator('.exportField[value="cccd"]').check();
+  await page.locator('#exportTemplate').selectOption({label:'Mẫu xuất '+suffix});
+  await expect(page.locator('.exportField[value="cccd"]')).not.toBeChecked();
   await page.locator('#exportFormat').selectOption('json');
   const pending=page.waitForEvent('download');
   await page.locator('#doExport').click();
