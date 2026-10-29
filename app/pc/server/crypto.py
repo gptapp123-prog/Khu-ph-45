@@ -33,7 +33,7 @@ class Vault:
         self.path.parent.mkdir(parents=True,exist_ok=True)
         if self.path.is_symlink():
             raise ValueError('Không cho phép đường dẫn dữ liệu dạng liên kết.')
-        self.conn=sqlite3.connect(':memory:',check_same_thread=False)
+        self.conn=sqlite3.connect(':memory:',check_same_thread=False,cached_statements=0)
         self.conn.row_factory=sqlite3.Row
         self._was_legacy=False
         try:
@@ -174,7 +174,7 @@ class Vault:
         expected=checksum_path.read_text(encoding='ascii').split()[0].lower();actual=hashlib.sha256(raw).hexdigest()
         if len(expected)!=64 or not hmac.compare_digest(expected,actual):raise ValueError('Checksum bản sao lưu không khớp.')
         sql=self._validate_blob(raw);rollback=self.backup(Path(rollback_dir));self._atomic_write(self.path,raw)
-        replacement=sqlite3.connect(':memory:',check_same_thread=False);replacement.row_factory=sqlite3.Row
+        replacement=sqlite3.connect(':memory:',check_same_thread=False,cached_statements=0);replacement.row_factory=sqlite3.Row
         try:
             replacement.executescript(sql);replacement.execute('PRAGMA foreign_keys=ON');replacement.execute('PRAGMA secure_delete=ON');replacement.execute('PRAGMA trusted_schema=OFF')
         except Exception:
