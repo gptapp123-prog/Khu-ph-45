@@ -552,3 +552,19 @@ def test_export_only_selected_rows_and_fields(api):
         'format':'json','fields':'full_name','resident_ids':''}).status_code==422
     assert client.get('/api/export',headers=headers,params={
         'format':'json','fields':'full_name','resident_ids':ids[0],'team':4}).json()==[]
+
+
+def test_saved_template_rejects_unknown_duplicate_or_inconsistent_fields(api):
+    client,headers=api
+    for fields,mapping in [([],{}),(['missing'],{}),(['full_name','full_name'],{}),
+                           (['full_name'],{'Tên':'cccd'}),
+                           (['full_name'],{'Tên':'full_name','Họ tên':'full_name'})]:
+        response=client.post('/api/templates',headers=headers,json={
+            'name':'Mẫu kiểm tra','fields':fields,'mapping':mapping})
+        assert response.status_code==422,response.text
+    response=client.post('/api/templates',headers=headers,json={
+        'name':'Mẫu hợp lệ','fields':['full_name'],'mapping':{'Họ và tên':'full_name'}})
+    assert response.status_code==200,response.text
+    items=client.get('/api/templates',headers=headers).json()['items']
+    assert len(items)==1
+    assert json.loads(items[0]['fields_json'])==['full_name']
