@@ -1,5 +1,7 @@
 # QUẢN LÝ KHU PHỐ MỚI — NHÁNH PHÁT TRIỂN 7.5
 
+Phiên bản phát hành Windows và Android lấy từ `release.properties` (hiện 7.5.7); workflow đối chiếu thông tin trong APK và gói cài. APK ký phát hành được ký ngoài GitHub bằng khóa đã ấn định. Bản debug chỉ dùng kiểm thử, không thể nâng cấp trực tiếp bản release. Nội dung trạng thái và kiểm thử dưới đây ghi nhận tại thời điểm ban giao trước, không thay thế kết quả CI và nghiệm thu thực tế của bản 7.5.7.
+
 **Ngày:** 27/10/2026  
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
 **Trạng thái (28/10/2026):** mã nguồn + script cài đặt thử; có script tạo thư mục gói PC với thư viện offline trên Windows. **CHƯA có EXE/MSI hoặc APK ký phát hành.**
