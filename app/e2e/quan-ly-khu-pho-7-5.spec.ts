@@ -190,6 +190,13 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
     buffer:Buffer.from('\uFEFFHọ và tên,Mã hộ,Năm sinh\n'+name+',CHUA-CO-'+testInfo.project.name+',1988\n')});
   await page.locator('#previewFile').click();
   await expect(page.locator('#importDefaultTeam')).toBeVisible();
+  await page.locator('#saveImportTemplate').click();
+  await page.locator('#modalForm input[name="name"]').fill('Mẫu nhập '+testInfo.project.name);
+  await page.locator('#modalForm button[type="submit"]').click();
+  await expect(page.locator('#importTemplate option').filter({hasText:'Mẫu nhập '+testInfo.project.name})).toHaveCount(1);
+  await page.locator('.mapSelect[data-header="Họ và tên"]').selectOption('');
+  await page.locator('#importTemplate').selectOption({label:'Mẫu nhập '+testInfo.project.name});
+  await expect(page.locator('.mapSelect[data-header="Họ và tên"]')).toHaveValue('full_name');
   await page.locator('#importDefaultTeam').selectOption('3');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   page.on('dialog',dialog=>dialog.accept());
