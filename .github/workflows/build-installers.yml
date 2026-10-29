@@ -37,7 +37,7 @@ jobs:
       - name: Build desktop executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onedir --console --name QuanLyKhuPho --icon pc/web/QuanLyKhuPho.ico --paths pc --add-data "pc/web;web" --add-data "pc/ocr_models;ocr_models" --collect-all zxingcpp --collect-all pypdfium2 pc/launcher.py
+          pyinstaller --noconfirm --clean --onedir --console --name QuanLyKhuPho --icon pc/web/QuanLyKhuPho.ico --paths pc --add-data "pc/web;web" --add-data "pc/ocr_models;ocr_models" --add-data "release.properties;." --collect-all zxingcpp --collect-all pypdfium2 pc/launcher.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (!(Test-Path dist/QuanLyKhuPho/QuanLyKhuPho.exe)) { throw "Missing executable" }
           if (!(Test-Path dist/QuanLyKhuPho/_internal/ocr_models/vie.traineddata)) { throw "Missing Vietnamese OCR model" }
@@ -53,11 +53,14 @@ jobs:
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $iscc)) { throw "Inno Setup compiler missing" }
-          & $iscc packaging/QuanLyKhuPho.iss
+          $version = (Get-Content release.properties | Where-Object { $_ -match '^versionName=' }) -replace '^versionName=', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+          & $iscc "/DAppVersion=$version" packaging/QuanLyKhuPho.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe)) { throw "Missing installer" }
+          $installer = "dist_installer/QuanLyKhuPho_PC_${version}_Setup.exe"
+          if (!(Test-Path $installer)) { throw "Missing installer" }
           $installDir = Join-Path $env:RUNNER_TEMP 'QLKP-Install-Smoke'
-          $setup = (Resolve-Path dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe).Path
+          $setup = (Resolve-Path $installer).Path
           $result = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT', '/NORESTART', "/DIR=$installDir") -Wait -PassThru
           if ($result.ExitCode -ne 0) { throw "Installer failed: $($result.ExitCode)" }
           & (Join-Path $installDir 'QuanLyKhuPho.exe') --help
@@ -66,11 +69,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installed OCR engine failed to start" }
           & (Join-Path $installDir 'QuanLyKhuPho.exe') --check-install
           if ($LASTEXITCODE -ne 0) { throw "Installed OCR pipeline failed" }
-          Get-FileHash dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe -Algorithm SHA256 | Format-List
+          $installedVersion = (Get-Content (Join-Path $installDir '_internal/release.properties') | Where-Object { $_ -match '^versionName=' }) -replace '^versionName=', ''
+          if ($installedVersion -ne $version) { throw "Installed version mismatch: $installedVersion != $version" }
+          Get-FileHash $installer -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
-          name: QuanLyKhuPho-PC-7.5.6-unsigned
-          path: app/dist_installer/QuanLyKhuPho_PC_7_5_6_Setup.exe
+          name: QuanLyKhuPho-PC-unified-version-unsigned
+          path: app/dist_installer/QuanLyKhuPho_PC_*_Setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -88,6 +93,15 @@ jobs:
           gradle-version: '8.7'
       - name: Build Android test APK
         run: gradle -p app/android assembleDebug --no-daemon
+      - name: Check Android version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          source app/release.properties
+          aapt="$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          metadata="$("$aapt" dump badging app/android/app/build/outputs/apk/debug/app-debug.apk | head -1)"
+          echo "$metadata"
+          [[ "$metadata" == *"versionCode='$versionCode'"* && "$metadata" == *"versionName='$versionName'"* ]]
       - uses: actions/upload-artifact@v4
         with:
           name: QuanLyKhuPho-Android-debug-not-release
@@ -109,6 +123,15 @@ jobs:
           gradle-version: '8.7'
       - name: Build unsigned release for offline signing
         run: gradle -p app/android assembleRelease -PqlkpUnsignedForOfflineSigning=true --no-daemon
+      - name: Check Android release version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          source app/release.properties
+          aapt="$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          metadata="$("$aapt" dump badging app/android/app/build/outputs/apk/release/app-release-unsigned.apk | head -1)"
+          echo "$metadata"
+          [[ "$metadata" == *"versionCode='$versionCode'"* && "$metadata" == *"versionName='$versionName'"* ]]
       - name: Align APK and include signing verifier
         shell: bash
         run: |

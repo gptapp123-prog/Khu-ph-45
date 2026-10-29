@@ -1,4 +1,11 @@
 plugins { id 'com.android.application' }
+def releaseProperties = new Properties()
+file('../../release.properties').withInputStream { releaseProperties.load(it) }
+def unifiedVersion = releaseProperties.getProperty('versionName')
+def unifiedCode = releaseProperties.getProperty('versionCode')?.toInteger()
+if (!(unifiedVersion ==~ /\d+\.\d+\.\d+/) || !unifiedCode || unifiedCode < 704) {
+    throw new GradleException('app/release.properties: versionName/versionCode không hợp lệ.')
+}
 def releaseStore = System.getenv('QLKP_ANDROID_KEYSTORE')
 def releaseStorePassword = System.getenv('QLKP_ANDROID_STORE_PASSWORD')
 def releaseAlias = System.getenv('QLKP_ANDROID_KEY_ALIAS')
@@ -23,7 +30,7 @@ if (releaseRequested && !offlineSigning) {
 android {
     namespace 'vn.quanlykhu.mobile'
     compileSdk 35
-    defaultConfig { applicationId 'vn.quanlykhu.mobile'; minSdk 26; targetSdk 34; versionCode 703; versionName '7.3.0-source' }
+    defaultConfig { applicationId 'vn.quanlykhu.mobile'; minSdk 26; targetSdk 34; versionCode unifiedCode; versionName unifiedVersion }
     signingConfigs {
       if (releaseSigningReady && !offlineSigning) {
         release {

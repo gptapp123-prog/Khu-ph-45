@@ -50,7 +50,16 @@ async def lifespan(app:FastAPI):
     MOBILE_APPROVALS.clear()
     if VAULT:VAULT.conn.close()
 
-app=FastAPI(title='Quản lý Khu phố — PC Server',version='7.5.6-ocr-command-table',lifespan=lifespan,
+def application_version():
+    version_file=ROOT.parent/'release.properties'
+    if not version_file.is_file() and hasattr(sys,'_MEIPASS'):
+        version_file=Path(sys._MEIPASS)/'release.properties'
+    for line in version_file.read_text(encoding='utf-8').splitlines():
+        if line.startswith('versionName='):
+            return line.partition('=')[2].strip()
+    raise RuntimeError('Thiếu versionName trong release.properties')
+
+app=FastAPI(title='Quản lý Khu phố — PC Server',version=application_version(),lifespan=lifespan,
             docs_url=None,redoc_url=None,openapi_url=None)
 app.mount('/static',StaticFiles(directory=str(WEB)),name='static')
 
