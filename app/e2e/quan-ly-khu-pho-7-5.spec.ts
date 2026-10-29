@@ -185,17 +185,18 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
   await enterApp(page);
   const mobile=testInfo.project.name.startsWith('mobile');
   await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
-  const name='Nguyễn CSV '+testInfo.project.name;
+  const runId=testInfo.project.name+'-'+testInfo.retry;
+  const name='Nguyễn CSV '+runId;
   await page.locator('#fileIn').setInputFiles({name:'dan-cu.csv',mimeType:'text/csv',
     buffer:Buffer.from('\uFEFFHọ và tên,Mã hộ,Năm sinh\n'+name+',CHUA-CO-'+testInfo.project.name+',1988\n')});
   await page.locator('#previewFile').click();
   await expect(page.locator('#importDefaultTeam')).toBeVisible();
   await page.locator('#saveImportTemplate').click();
-  await page.locator('#modalForm input[name="name"]').fill('Mẫu nhập '+testInfo.project.name);
+  await page.locator('#modalForm input[name="name"]').fill('Mẫu nhập '+runId);
   await page.locator('#modalForm button[type="submit"]').click();
-  await expect(page.locator('#importTemplate option').filter({hasText:'Mẫu nhập '+testInfo.project.name})).toHaveCount(1);
+  await expect(page.locator('#importTemplate option').filter({hasText:'Mẫu nhập '+runId})).toHaveCount(1);
   await page.locator('.mapSelect[data-header="Họ và tên"]').selectOption('');
-  await page.locator('#importTemplate').selectOption({label:'Mẫu nhập '+testInfo.project.name});
+  await page.locator('#importTemplate').selectOption({label:'Mẫu nhập '+runId});
   await expect(page.locator('.mapSelect[data-header="Họ và tên"]')).toHaveValue('full_name');
   await page.locator('#importDefaultTeam').selectOption('3');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
