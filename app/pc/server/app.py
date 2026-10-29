@@ -1550,7 +1550,7 @@ def spreadsheet_safe(value):
     return value
 
 @app.get('/api/export')
-def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='xlsx',team:Optional[int]=None,account:dict=Depends(user)):
+def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='xlsx',team:Optional[int]=None,resident_ids:Optional[str]=None,account:dict=Depends(user)):
     capability(account,'export')
     pc_only(request)
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
@@ -1567,6 +1567,11 @@ def export_data(request:Request,fields:str='full_name,cccd,team_id',format:str='
         scope,args=team_scope(account)
         where+=scope;params+=args
         if team:where+=' AND team_id=?';params.append(team)
+        if resident_ids is not None:
+            ids=list(dict.fromkeys(resident_ids.split(',')))
+            if not ids or len(ids)>200 or any(not re.fullmatch(r'[0-9a-f]{32}',item) for item in ids):
+                raise HTTPException(422,'Chọn từ 1 đến 200 hồ sơ hợp lệ để xuất.')
+            where+=' AND id IN ('+','.join('?' for _ in ids)+')';params+=ids
         resident_rows=db().execute('SELECT * FROM residents WHERE '+where+' ORDER BY full_name',params).fetchall()
         custom=custom_values_for([r['id'] for r in resident_rows],account['role'])
         rows=[]

@@ -535,3 +535,20 @@ def test_birth_year_conflict_does_not_save_resident(api):
     assert response.status_code == 422
     assert 'không khớp' in response.json()['detail']
     assert client.get('/api/residents', headers=headers).json()['total'] == 0
+
+
+def test_export_only_selected_rows_and_fields(api):
+    client, headers = api
+    ids=[]
+    for name in ['Người Được Chọn', 'Người Không Chọn']:
+        response=client.post('/api/residents',headers=headers,json={'full_name':name,'team_id':3})
+        assert response.status_code==200
+        ids.append(response.json()['id'])
+    response=client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':ids[0]})
+    assert response.status_code==200
+    assert response.json()==[{'full_name':'Người Được Chọn'}]
+    assert client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':''}).status_code==422
+    assert client.get('/api/export',headers=headers,params={
+        'format':'json','fields':'full_name','resident_ids':ids[0],'team':4}).json()==[]

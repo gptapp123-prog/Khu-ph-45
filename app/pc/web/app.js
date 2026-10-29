@@ -387,11 +387,25 @@ async function exportPage(){
  if(!S.isPC){$('content').innerHTML=note('Xuất file chỉ được phép trên PC chính.');return}
  $('content').innerHTML=`<div class="card"><h3>Xuất file theo trường và phạm vi</h3>${note('Chỉ PC chính được tạo tệp xuất. Người dùng mobile không được tải dữ liệu cư dân xuống thiết bị.')}<h3 style="margin-top:20px">Chọn trường xuất</h3><div class="checkgrid">${allKeys.map(k=>`<label class="checkline"><input class="exportField" type="checkbox" value="${k}" ${['full_name','cccd','team_id'].includes(k)?'checked':''}>${esc(fieldLabels[k])}</label>`).join('')}</div>
  <div class="form-grid" style="margin-top:20px"><label>Định dạng<select id="exportFormat"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV UTF-8 BOM</option><option value="json">JSON UTF-8</option></select></label><label>Lọc tổ<select id="exportTeam"><option value="">Tất cả tổ được phép</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label></div>
+ <label style="margin-top:18px">Phạm vi xuất<select id="exportScope"><option value="all">Tất cả hồ sơ trong Tổ được chọn</option><option value="selected">Chỉ các hồ sơ đánh dấu bên dưới</option></select></label><div id="exportRowChoices"></div>
  <div class="toolbar" style="margin-top:18px"><button class="primary" id="doExport">Xuất file tại PC</button></div></div>`;
+ const loadExportRows=async()=>{
+  $('exportRowChoices').innerHTML='';
+  if($('exportScope').value!=='selected')return;
+  try{const d=await api('/residents?limit=200'+($('exportTeam').value?'&team='+$('exportTeam').value:''));
+   $('exportRowChoices').innerHTML='<p>Đánh dấu hồ sơ cần xuất (tối đa 200 hồ sơ hiển thị). Đổi Tổ sẽ bỏ lựa chọn cũ.</p>'+table(['Chọn','Họ tên','Ngày sinh','Tổ'],d.items.map(r=>`<tr><td><input class="exportRow" type="checkbox" value="${esc(r.id)}" aria-label="Chọn ${esc(r.full_name)}"></td>${cell(r.full_name)}${cell(r.dob)}${cell(r.team_id)}</tr>`));
+  }catch(e){toast(e.message,true)}
+ };
+ $('exportScope').onchange=loadExportRows;$('exportTeam').onchange=loadExportRows;
  $('doExport').addEventListener('click',async()=>{
  const fields=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
  if(!fields.length){toast('Chọn ít nhất một trường.',true);return}
  const format=$('exportFormat').value;let uri='/export?format='+format+'&fields='+fields.join(',')+($('exportTeam').value?'&team='+$('exportTeam').value:'');
+ if($('exportScope').value==='selected'){
+  const ids=Array.from(document.querySelectorAll('.exportRow:checked')).map(x=>x.value);
+  if(!ids.length){toast('Chưa chọn hồ sơ để xuất.',true);return}
+  uri+='&resident_ids='+encodeURIComponent(ids.join(','));
+ }
  try{const blob=await api(uri,{raw:true});let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='QuanLyKhuPho_'+new Date().toISOString().slice(0,10)+'.'+format;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Đã tạo tệp xuất từ PC.')}catch(e){toast(e.message,true)}
  });
 }
