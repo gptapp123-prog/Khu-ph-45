@@ -1,7 +1,7 @@
 fastapi==0.128.2
 uvicorn==0.48.0
 cryptography==46.0.4
-qrcode==8.2
+qrcode==7.4.2
 argon2-cffi==25.1.0
 python-multipart==0.0.29
 openpyxl==3.1.5
