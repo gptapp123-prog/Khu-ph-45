@@ -389,6 +389,33 @@ async function exportPage(){
  <div class="form-grid" style="margin-top:20px"><label>Định dạng<select id="exportFormat"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV UTF-8 BOM</option><option value="json">JSON UTF-8</option></select></label><label>Lọc tổ<select id="exportTeam"><option value="">Tất cả tổ được phép</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label></div>
  <label style="margin-top:18px">Phạm vi xuất<select id="exportScope"><option value="all">Tất cả hồ sơ trong Tổ được chọn</option><option value="selected">Chỉ các hồ sơ đánh dấu bên dưới</option></select></label><div id="exportRowChoices"></div>
  <div class="toolbar" style="margin-top:18px"><button class="primary" id="doExport">Xuất file tại PC</button></div></div>`;
+ let exportTemplates=[];let templateOrder=[];
+ const templatePanel=document.createElement('div');templatePanel.className='card';
+ templatePanel.innerHTML='<h3>Mẫu cột xuất</h3><label>Mẫu đã lưu<select id="exportTemplate"><option value="">Tự chọn cột</option></select></label><button class="outline" id="saveExportTemplate">Lưu các cột đang chọn thành mẫu</button>';
+ $('content').prepend(templatePanel);
+ const refreshExportTemplates=async()=>{
+  exportTemplates=(await api('/templates')).items;
+  $('exportTemplate').innerHTML='<option value="">Tự chọn cột</option>'+exportTemplates.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+ };
+ await refreshExportTemplates();
+ $('exportTemplate').onchange=()=>{
+  const template=exportTemplates.find(t=>t.id===$('exportTemplate').value);
+  if(!template){templateOrder=[];return}
+  try{
+   const keys=JSON.parse(template.fields_json);
+   const unavailable=keys.filter(k=>!allKeys.includes(k));
+   if(unavailable.length){templateOrder=[];$('exportTemplate').value='';throw Error('Mẫu có trường không còn được phép hoặc đã ẩn: '+unavailable.join(', '))}
+   templateOrder=keys;
+   document.querySelectorAll('.exportField').forEach(x=>{x.checked=keys.includes(x.value)});
+  }catch(e){toast(e.message,true)}
+ };
+ $('saveExportTemplate').onclick=()=>modal('Lưu mẫu cột xuất','<label>Tên mẫu<input name="name" required minlength="2" maxlength="100"></label>',async values=>{
+  const selected=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+  if(!selected.length)throw Error('Chọn ít nhất một cột trước khi lưu mẫu.');
+  const ordered=[...templateOrder.filter(k=>selected.includes(k)),...selected.filter(k=>!templateOrder.includes(k))];
+  await api('/templates',{method:'POST',body:{name:values.name,fields:ordered,mapping:{}}});
+  await refreshExportTemplates();toast('Đã lưu mẫu cột xuất.');
+ });
  const loadExportRows=async()=>{
   $('exportRowChoices').innerHTML='';
   if($('exportScope').value!=='selected')return;
@@ -398,7 +425,8 @@ async function exportPage(){
  };
  $('exportScope').onchange=loadExportRows;$('exportTeam').onchange=loadExportRows;
  $('doExport').addEventListener('click',async()=>{
- const fields=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+ const checkedFields=Array.from(document.querySelectorAll('.exportField:checked')).map(x=>x.value);
+ const fields=[...templateOrder.filter(k=>checkedFields.includes(k)),...checkedFields.filter(k=>!templateOrder.includes(k))];
  if(!fields.length){toast('Chọn ít nhất một trường.',true);return}
  const format=$('exportFormat').value;let uri='/export?format='+format+'&fields='+fields.join(',')+($('exportTeam').value?'&team='+$('exportTeam').value:'');
  if($('exportScope').value==='selected'){
