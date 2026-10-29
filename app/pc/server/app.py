@@ -1249,6 +1249,13 @@ def templates(account:dict=Depends(user)):
 def add_template(p:TemplateIn,account:dict=Depends(user)):
     capability(account,'manage_templates')
     permit(account,'admin_kp','admin_root','super_admin')
+    valid=set(BASE_FIELDS)|{'custom:'+r['name'] for r in db().execute('SELECT name FROM field_definitions WHERE active=1')}
+    if not p.fields or len(p.fields)>100 or len(p.fields)!=len(set(p.fields)) or any(k not in valid for k in p.fields):
+        raise HTTPException(422,'Mẫu phải có từ 1 đến 100 trường đang hoạt động, không trùng.')
+    if len(p.mapping)>100 or any(not k.strip() or len(k)>180 or v not in p.fields for k,v in p.mapping.items()):
+        raise HTTPException(422,'Ánh xạ mẫu phải có tiêu đề nguồn và trường đích nằm trong mẫu.')
+    if len(set(p.mapping.values()))!=len(p.mapping):
+        raise HTTPException(422,'Không ghép nhiều cột nguồn vào cùng trường đích trong mẫu.')
     with LOCK:
         rid=uuid.uuid4().hex
         db().execute('INSERT INTO templates VALUES(?,?,?,?,?)',(rid,p.name,json.dumps(p.fields,ensure_ascii=False),json.dumps(p.mapping,ensure_ascii=False),now()))
