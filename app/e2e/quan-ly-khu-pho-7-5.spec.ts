@@ -79,9 +79,8 @@ test('OCR nhiều tệp: chọn trường, sửa giá trị và xác nhận riê
 });
 
 test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đối chiếu', async ({page},testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'Xuất OCR chỉ dùng tại PC chính');
   await enterApp(page);
-  await page.locator('[data-page="import"]').click();
+  await (testInfo.project.name.startsWith('mobile')?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
   await page.route('**/api/ocr/templates',async route=>{
     if(route.request().method()==='GET')await route.fulfill({json:{items:[{id:'test-template',name:'Giấy đăng ký xe',fields:[{label:'Số khung',column:'Số khung',type:'identifier',aliases:[],expected_length:17}]}]}});
     else await route.fulfill({json:{id:'test-template'}});
@@ -108,9 +107,8 @@ test('bảng OCR có mẫu xe, chọn chế độ ảnh và phóng to để đ�
 });
 
 test('QR và OCR khác nhau phải chọn nguồn; QR đơn lẻ vẫn xuất đúng cột', async ({page},testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'Xuất QR chỉ dùng tại PC chính');
   await enterApp(page);
-  await page.locator('[data-page="import"]').click();
+  await (testInfo.project.name.startsWith('mobile')?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
   const fields=[{label:'Số hiệu bằng',column:'Số hiệu bằng',type:'identifier',aliases:[]}];
   await page.route('**/api/ocr/templates',async route=>await route.fulfill({json:{items:[{id:'qr-template',name:'Mã QR',fields}]}}));
   await page.locator('#openConfiguredOcr').click();
@@ -136,9 +134,8 @@ test('QR và OCR khác nhau phải chọn nguồn; QR đơn lẻ vẫn xuất đ
 });
 
 test('chọn file Excel có sẵn, kiểm tra cột trước khi thêm dòng OCR', async ({page},testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'File Excel đích chỉ chọn tại PC chính');
   await enterApp(page);
-  await page.locator('[data-page="import"]').click();
+  await (testInfo.project.name.startsWith('mobile')?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
   const fields=[{label:'Họ và tên',column:'Họ và tên',type:'text',aliases:[]}];
   await page.route('**/api/ocr/templates',async route=>await route.fulfill({json:{items:[{id:'ocr-template',name:'Danh sách',fields}]}}));
   await page.locator('#openConfiguredOcr').click();
@@ -162,9 +159,8 @@ test('chọn file Excel có sẵn, kiểm tra cột trước khi thêm dòng OCR
 });
 
 test('quét tiêu đề, tạo bảng lệnh và chỉ đánh dấu cột cần OCR', async ({page},testInfo) => {
-  test.skip(testInfo.project.name.startsWith('mobile'), 'Tạo bảng lệnh chỉ dùng tại PC chính');
   await enterApp(page);
-  await page.locator('[data-page="import"]').click();
+  await (testInfo.project.name.startsWith('mobile')?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
   let saved:any;
   await page.route('**/api/ocr/templates',async route=>{
     if(route.request().method()==='POST'){saved=route.request().postDataJSON();await route.fulfill({json:{id:'new-template'}})}
@@ -195,6 +191,7 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
   await page.locator('#previewFile').click();
   await expect(page.locator('#importDefaultTeam')).toBeVisible();
   await page.locator('#importDefaultTeam').selectOption('3');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   page.on('dialog',dialog=>dialog.accept());
   await page.locator('#commitImport').click();
   await expect(page.getByRole('heading',{name:'Kết quả nhập'})).toBeVisible();
