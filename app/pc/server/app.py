@@ -176,6 +176,7 @@ class Setup(BaseModel):
 @app.get('/',response_class=HTMLResponse)
 def home():return (WEB/'index.html').read_text(encoding='utf-8')
 
+
 @app.get('/api/health')
 def health():
     return {'application':'Quản lý Khu phố','version':app.version,'data_location':'PC_ONLY',
@@ -1580,3 +1581,14 @@ def backup(request:Request,account:dict=Depends(user)):
         record(account['id'],'BACKUP_LOCAL','vault');commit()
         path=VAULT.backup(VAULT.path.parent/'backups')
     return {'ok':True,'location':str(path),'note':'Sao lưu mã hóa trên cùng PC, không chuyển ra nơi khác.'}
+
+# Register this fallback after every API route so it cannot shadow /api/*.
+@app.get('/{screen:path}',response_class=HTMLResponse)
+def app_screen(screen:str):
+    allowed={'bang-chuc-nang','nhan-khau','ho-gia-dinh','phan-quyen','thiet-bi',
+             'truong-du-lieu','mau-nhap-lieu','dia-chi-lien-ket',
+             'cong-viec','to-chuc','reports','bao-cao-thang','import','tro-ly',
+             'lich-su','conflicts','sao-luu','tai-khoan','cai-dat','huong-dan',
+             'login','setup','owner-setup'}
+    if screen not in allowed:raise HTTPException(404,'Không tìm thấy đường dẫn.')
+    return home()

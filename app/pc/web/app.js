@@ -3,6 +3,14 @@
 // All session secrets, previews and form values live in RAM only.
 const S={token:null,me:null,page:'dashboard',preview:null,residents:[],households:[],editing:null,isNative:!!window.KPDevice,
   isPC:(['localhost','127.0.0.1','::1'].includes(location.hostname)),pendingLogin:null,fields:null};
+const routePages={'/':'dashboard','/bang-chuc-nang':'features','/nhan-khau':'residents','/ho-gia-dinh':'households',
+ '/phan-quyen':'permissions','/thiet-bi':'devices','/truong-du-lieu':'fields','/mau-nhap-lieu':'templates','/dia-chi-lien-ket':'lanLink',
+ '/import':'import','/reports':'export','/bao-cao-thang':'monthlyReport',
+ '/tai-khoan':'accounts','/lich-su':'audit','/sao-luu':'backupPage','/conflicts':'conflictPage',
+ '/cong-viec':'workPage','/to-chuc':'organizationPage','/tro-ly':'assistantPage',
+ '/cai-dat':'settingsPage','/huong-dan':'helpPage'};
+const pageRoutes=Object.fromEntries(Object.entries(routePages).map(([path,page])=>[page,path]));
+const pendingRoute=routePages[location.pathname]||'dashboard';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const roles={viewer:'Chỉ xem',reviewer:'Rà soát',admin_kp:'Quản trị khu phố',admin_root:'Quản trị gốc',super_admin:'Quản trị hệ thống'};
@@ -73,7 +81,7 @@ function finishLogin(r){
    document.querySelectorAll('.edit-only').forEach(x=>x.classList.toggle('hidden',!canEdit()));
    document.querySelectorAll('.pc-only').forEach(x=>x.classList.toggle('hidden',!S.isPC));
    if(!canEdit())document.querySelector('[data-mobile-page="import"]').classList.add('hidden');
-   authScreen(false);if(r.must_change_password){forcePasswordChange();}else{go('dashboard');}
+   authScreen(false);if(r.must_change_password){forcePasswordChange();}else{go(pendingRoute,false);}
 }
 let approvalPolling=false;
 async function checkMobileApproval(){
@@ -110,19 +118,32 @@ $('logoutBtn').addEventListener('click',async()=>{
  S.token=null;S.me=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[];authScreen();
 });
 window.addEventListener('pagehide',()=>{(S.ocrObjectUrls||[]).forEach(url=>URL.revokeObjectURL(url));S.token=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[]});
-function go(page){
+function go(page,updateHistory=true){
+ if(updateHistory && pageRoutes[page] && location.pathname!==pageRoutes[page])history.pushState({page},'',pageRoutes[page]);
  S.page=page;const titles={dashboard:'Tổng quan',residents:'Danh sách nhân khẩu',households:'Hộ gia đình',import:'Quét & nhập dữ liệu',
- export:'Xuất báo cáo',accounts:'Tài khoản',permissions:'Ma trận phân quyền',devices:'Quản lý thiết bị',lanLink:'Địa chỉ liên kết',fields:'Trường dữ liệu',templates:'Mẫu dữ liệu',audit:'Nhật ký hệ thống'};
+ export:'Xuất báo cáo',accounts:'Tài khoản',permissions:'Ma trận phân quyền',devices:'Quản lý thiết bị',lanLink:'Địa chỉ liên kết',fields:'Trường dữ liệu',templates:'Mẫu dữ liệu',audit:'Nhật ký hệ thống',
+ monthlyReport:'Báo cáo tháng',backupPage:'Sao lưu',conflictPage:'Xung đột dữ liệu',workPage:'Công việc',organizationPage:'Tổ chức',assistantPage:'Trợ lý',settingsPage:'Cài đặt',helpPage:'Hướng dẫn'};
  $('pageTitle').textContent=titles[page]||page;$('pageBread').textContent=titles[page]||page;
  document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
  document.querySelectorAll('[data-mobile-page]').forEach(x=>x.classList.toggle('active',x.dataset.mobilePage===page));
  $('content').innerHTML='<div class="card"><p class="muted">Đang tải từ PC chính…</p></div>';
- const fn={dashboard,residents,households,importPage,exportPage,accounts,permissions,devices,lanLink,fields,templates,audit};
+ const fn={dashboard,residents,households,importPage,exportPage,accounts,permissions,devices,lanLink,fields,templates,audit,
+   monthlyReport:()=>unavailable('Báo cáo tháng','Chưa có nghiệp vụ tổng hợp báo cáo tháng.'),
+   workPage:()=>unavailable('Công việc','Phân hệ công việc chưa triển khai.'),
+   organizationPage:()=>unavailable('Tổ chức','Phân hệ tổ chức chưa triển khai.'),
+   assistantPage:()=>unavailable('Trợ lý','Trợ lý chưa được kết nối với dữ liệu và quyền của app.'),
+   settingsPage:()=>unavailable('Cài đặt','Chưa có màn hình cấu hình hệ thống đầy đủ.'),helpPage:helpPage,
+   conflictPage:()=>unavailable('Xung đột dữ liệu','Hiện chỉ có đối chiếu xung đột tại bước nhập OCR/QR; chưa có hàng đợi xung đột riêng.'),
+   backupPage:backupPage};
  const key=page==='import'?'importPage':page==='export'?'exportPage':page;
  fn[key]?.().catch(err=>{if(err.message.includes('hết hạn')){S.token=null;authScreen();}else $('content').innerHTML='<div class="card"><p class="muted">'+esc(err.message)+'</p><button class="outline" id="retry">Thử lại</button></div>';toast(err.message,true);$('retry')?.addEventListener('click',()=>go(page))});
 }
 document.querySelectorAll('[data-page]').forEach(x=>x.addEventListener('click',()=>go(x.dataset.page)));
 document.querySelectorAll('[data-mobile-page]').forEach(x=>x.addEventListener('click',()=>go(x.dataset.mobilePage)));
+window.addEventListener('popstate',()=>{if(S.token)go(routePages[location.pathname]||'dashboard',false);else authScreen()});
+async function unavailable(title,reason){$('content').innerHTML=`<div class="card"><h3>${esc(title)}</h3>${note(reason)}<p>Chưa có chức năng ghi dữ liệu ở đường dẫn này.</p></div>`}
+async function helpPage(){$('content').innerHTML='<div class="card"><h3>Hướng dẫn sử dụng</h3><p>PC chính giữ kho dữ liệu. Điện thoại kết nối bằng HTTPS cùng mạng LAN, đăng nhập và chờ PC duyệt phiên.</p><p>Nhập dữ liệu: chọn file, tạo bảng lệnh từ tiêu đề cột, kiểm tra giá trị OCR/QR rồi mới xác nhận ghi.</p></div>'}
+async function backupPage(){if(!S.isPC||S.me?.role!=='super_admin'){unavailable('Sao lưu','Chỉ quản trị hệ thống tại PC chính được sao lưu.');return}await audit();}
 function note(text){return '<div class="hint">'+esc(text)+'</div>'}
 function table(headers,rows){return '<div class="table-wrap"><table><thead><tr>'+headers.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'}
 function cell(x){return '<td>'+esc(x)+'</td>'}
