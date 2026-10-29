@@ -236,7 +236,7 @@ async function households(){
 }
 async function importPage(){
  await ensureFields();
- $('content').innerHTML=`<div class="card"><h3>Nhập dữ liệu vào PC chính</h3><div class="toolbar"><button class="primary" id="openConfiguredOcr">Trích OCR theo bảng nội dung</button></div>${note('Đọc file XLSX, CSV, PDF văn bản hoặc ảnh CCCD trên PC. Tệp nguồn được xử lý trong RAM, không ghi ra ổ đĩa hay đưa lên máy chủ ngoài.')}
+ $('content').innerHTML=`<div class="card"><h3>Nhập dữ liệu vào PC chính</h3><div class="toolbar"><button class="primary" id="openConfiguredOcr">Trích OCR theo bảng nội dung</button></div>${note('Đọc file XLSX, CSV, PDF văn bản hoặc ảnh tài liệu trên PC. Tệp nguồn được xử lý trong RAM, không ghi ra ổ đĩa hay đưa lên máy chủ ngoài.')}
  <div class="toolbar" style="margin-top:16px"><input id="fileIn" type="file" multiple accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg,.webp"><button class="primary" id="previewFile">Đọc & xem trước</button></div><p class="footnote">Mỗi tệp tối đa 10 MB; PDF scan và ảnh cần Tesseract tiếng Việt trên PC. Các tệp được đối chiếu riêng.</p></div><div id="importResult"></div>`;
  $('previewFile').addEventListener('click',async()=>{
   S.importQueue=Array.from($('fileIn').files||[]);if(!S.importQueue.length){toast('Chọn tệp trước khi đọc.',true);return}
@@ -313,7 +313,16 @@ async function configuredOcrPage(){
 async function previewNextFile(){
  const file=S.importQueue?.shift();if(!file)return;
  const fd=new FormData();fd.append('file',file);
- try{S.preview=await api('/import/preview',{method:'POST',body:fd});showPreview();
+ try{
+  let query='';
+  if(file.name.toLowerCase().endsWith('.xlsx')){
+   const scan=await api('/ocr/columns/scan',{method:'POST',body:fd});
+   if(scan.sheets.length>1){
+    $('importResult').innerHTML=`<div class="card"><h3>Chọn sheet cần nhập</h3><p>Chỉ nhập sheet được chọn. Không chọn sheet hướng dẫn.</p><select id="importSheetChoice">${scan.sheets.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')}</select><button id="loadImportSheet">Đọc sheet</button></div>`;
+    await new Promise(resolve=>{$('loadImportSheet').onclick=()=>{query='?sheet_name='+encodeURIComponent($('importSheetChoice').value);resolve()}});
+   }else query='?sheet_name='+encodeURIComponent(scan.sheets[0].name);
+  }
+  S.preview=await api('/import/preview'+query,{method:'POST',body:fd});showPreview();
   $('importResult').insertAdjacentHTML('afterbegin',note('Tệp: '+file.name+' · còn '+S.importQueue.length+' tệp'));
   if(S.importQueue.length){const next=document.createElement('button');next.className='outline';next.textContent='Bỏ qua tệp này, xem tiếp';next.onclick=previewNextFile;$('importResult').prepend(next)}
  }catch(e){toast(file.name+': '+e.message,true);if(S.importQueue.length)await previewNextFile()}
@@ -324,18 +333,21 @@ function showPreview(){
  const warnings=(p.warnings||[]).map(w=>note(w)).join('');
  const checkboxes=headers.map(h=>`<label class="checkline"><input class="includeHeader" type="checkbox" data-header="${esc(h)}" ${p.mapping[h]?'checked':''}> ${esc(h)}</label>`).join('');
  const selector=headers.map(h=>`<tr><td>${esc(h)}</td><td><select class="mapSelect" data-header="${esc(h)}"><option value="">Không nhập</option>${allKeys.map(k=>`<option value="${k}" ${p.mapping[h]===k?'selected':''}>${esc(fieldLabels[k])}</option>`).join('')}</select></td></tr>`);
- const preview=p.preview.map(r=>'<tr>'+headers.slice(0,7).map(h=>cell(String(r[h]||'').slice(0,85))).join('')+'</tr>');
+ const preview=p.preview.map(r=>'<tr>'+headers.map(h=>cell(String(r[h]||'').slice(0,85))).join('')+'</tr>');
  $('importResult').innerHTML=`${warnings}<div class="card"><div class="card-heading"><h3>Đã đọc ${p.count} dòng · ${headers.length} cột</h3><span class="chip success">Xử lý tại PC</span></div><h3>1. Chọn cột nguồn</h3><div class="checkgrid">${checkboxes}</div></div>
- <div class="two-col"><div class="card"><h3>2. Ánh xạ vào trường chuẩn</h3>${table(['Cột nguồn','Trường đích'],selector)}</div><div class="card"><h3>3. Xem trước (${Math.min(10,p.count)} dòng)</h3>${headers.length?table(headers.slice(0,7),preview):'<p>Không có trường.</p>'}</div></div>
- <div class="card"><div class="toolbar"><button id="commitImport" class="primary">Nhập dữ liệu vào kho PC</button></div><div class="footnote">Yêu cầu trường Họ tên và Tổ; CCCD trùng được báo và bỏ qua. Bản nhập không tự ghi đè hồ sơ cũ.</div></div>`;
+ <div class="two-col"><div class="card"><h3>2. Ánh xạ vào trường chuẩn</h3>${table(['Cột nguồn','Trường đích'],selector)}</div><div class="card"><h3>3. Xem trước (${Math.min(10,p.count)} dòng)</h3>${headers.length?table(headers,preview):'<p>Không có trường.</p>'}</div></div>
+ <div class="card"><div class="toolbar"><label>Tổ áp dụng khi dòng thiếu Tổ<select id="importDefaultTeam"><option value="">Chưa chọn</option>${Array.from({length:15},(_,i)=>`<option value="${i+1}">Tổ ${i+1}</option>`).join('')}</select></label><button id="commitImport" class="primary" ${p.count?'':'disabled'}>Nhập dữ liệu vào kho PC</button></div><div class="footnote">Yêu cầu trường Họ tên và Tổ; CCCD trùng được báo và bỏ qua. Bản nhập không tự ghi đè hồ sơ cũ.</div></div>`;
  $('commitImport').addEventListener('click',async()=>{
   const checked=Array.from(document.querySelectorAll('.includeHeader:checked')).map(x=>x.dataset.header);
   const mapping={};document.querySelectorAll('.mapSelect').forEach(x=>{if(checked.includes(x.dataset.header)&&x.value)mapping[x.dataset.header]=x.value});
   const selected=[...new Set(Object.values(mapping))];
-  if(!selected.includes('full_name')||!selected.includes('team_id')){toast('Cần ánh xạ Họ tên và Tổ trước khi nhập.',true);return}
+  const omitted=headers.filter(h=>!mapping[h]);
+  if(omitted.length&&!confirm('Các cột sau sẽ KHÔNG được nhập: '+omitted.join(', ')+'. Tiếp tục bỏ các cột này?'))return;
+  const defaultTeam=Number($('importDefaultTeam').value)||null;
+  if(!selected.includes('full_name')||(!selected.includes('team_id')&&!defaultTeam)){toast('Cần ghép Họ tên và chọn Tổ hoặc ghép cột Tổ trước khi nhập.',true);return}
   if(!confirm('Xác nhận nhập dữ liệu vào PC chính? Dữ liệu trùng CCCD sẽ bỏ qua.'))return;
-  try{const r=await api('/import/commit',{method:'POST',body:{rows:p.rows,mapping,selected}});
-   $('importResult').innerHTML=`<div class="card"><h3>Kết quả nhập</h3><div class="cards"><div class="metric"><strong>${r.inserted}</strong>&nbsp;thành công</div><div class="metric"><strong>${r.duplicates}</strong>&nbsp;trùng</div><div class="metric"><strong>${r.invalid}</strong>&nbsp;không hợp lệ</div></div>${r.errors?.length?table(['Dòng','Lý do'],r.errors.map(x=>'<tr>'+cell(x.line)+cell(x.reason)+'</tr>')):''}</div>`;
+  try{const r=await api('/import/commit',{method:'POST',body:{rows:p.rows,mapping,selected,default_team:defaultTeam}});
+   $('importResult').innerHTML=`<div class="card"><h3>Kết quả nhập</h3><div class="cards"><div class="metric"><strong>${r.inserted}</strong>&nbsp;thành công</div><div class="metric"><strong>${r.duplicates}</strong>&nbsp;trùng</div><div class="metric"><strong>${r.invalid}</strong>&nbsp;không hợp lệ</div></div>${(r.warnings||[]).map(w=>note('Dòng '+w.line+': '+w.reason)).join('')}${r.errors?.length?table(['Dòng','Lý do'],r.errors.map(x=>'<tr>'+cell(x.line)+cell(x.reason)+'</tr>')):''}</div>`;
    S.preview=null;toast('Đã hoàn tất xử lý nhập dữ liệu.');if(S.importQueue?.length)await previewNextFile();
   }catch(e){toast(e.message,true)}
  });
