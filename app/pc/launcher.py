@@ -4,6 +4,7 @@ from pathlib import Path
 from server.app import configure_vault,app
 import uvicorn
 from win_compat import assess
+from vault_prompt import request_vault_password
 
 def check_install():
     """Exercise the packaged OCR path without opening or creating a vault."""
@@ -55,8 +56,11 @@ def main():
         ap.error('Cấm mở LAN bằng HTTP. Cần chỉ định --cert và --key để kích hoạt HTTPS.')
     if (args.cert and not args.key) or (args.key and not args.cert):ap.error('Phải có cả chứng chỉ và khóa riêng.')
     print('QUẢN LÝ KHU PHỐ — PC CHÍNH; dữ liệu lưu trên PC; không có cloud.')
-    pw=getpass.getpass('Mật khẩu mở kho dữ liệu PC (>=12 ký tự): ')
-    try:configure_vault(args.data,pw)
+    try:
+        pw=request_vault_password(args.data)
+        configure_vault(args.data,pw)
+    except (EOFError,KeyboardInterrupt):
+        print('Đã hủy. Không tạo hoặc thay thế kho dữ liệu.',file=sys.stderr);sys.exit(2)
     except Exception as e:
         print('Không mở được kho dữ liệu:',e,file=sys.stderr);sys.exit(2)
     proto='https' if args.cert else 'http'
