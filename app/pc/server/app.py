@@ -147,8 +147,9 @@ def lan_link(request:Request,account:dict=Depends(user)):
 
 def capability(account:dict, code:str):
     if code not in CAPABILITIES:raise RuntimeError('Unknown capability')
-    row=db().execute('SELECT allowed FROM role_permissions WHERE role=? AND capability=?',
-                     (account['role'],code)).fetchone()
+    with LOCK:
+        row=db().execute('SELECT allowed FROM role_permissions WHERE role=? AND capability=?',
+                         (account['role'],code)).fetchone()
     if not row or not row['allowed']:raise HTTPException(403,'Vai trò không được cấp quyền cho thao tác này.')
 
 def approvals_gc():
