@@ -1,6 +1,6 @@
 # QUẢN LÝ KHU PHỐ MỚI — NHÁNH PHÁT TRIỂN 7.5
 
-Phiên bản phát hành Windows và Android lấy từ `release.properties` (hiện 7.5.7); workflow đối chiếu thông tin trong APK và gói cài. APK ký phát hành được ký ngoài GitHub bằng khóa đã ấn định. Bản debug chỉ dùng kiểm thử, không thể nâng cấp trực tiếp bản release. Nội dung trạng thái và kiểm thử dưới đây ghi nhận tại thời điểm ban giao trước, không thay thế kết quả CI và nghiệm thu thực tế của bản 7.5.7.
+Phiên bản phát hành Windows và Android lấy từ `release.properties` (hiện 7.5.8); workflow đối chiếu thông tin trong APK và gói cài. APK ký phát hành được ký ngoài GitHub bằng khóa đã ấn định. Bản debug chỉ dùng kiểm thử, không thể nâng cấp trực tiếp bản release. Nội dung trạng thái và kiểm thử dưới đây ghi nhận tại thời điểm ban giao trước, không thay thế kết quả CI và nghiệm thu thực tế của bản 7.5.8.
 
 **Ngày:** 27/10/2026  
 **Phạm vi:** ứng dụng Quản lý Khu phố mới; hồ sơ 7.2–7.4 chỉ là nguồn kế thừa kỹ thuật, không phải ứng dụng khác.  
@@ -9,6 +9,8 @@ Phiên bản phát hành Windows và Android lấy từ `release.properties` (hi
 GitHub Actions `Build application installers` đóng gói EXE cài Windows từ PyInstaller + Inno Setup, gồm Tesseract OCR và mô hình Việt/Anh, đồng thời tạo APK Android **debug** để thử nghiệm. Tải từ mục Artifacts của lần chạy workflow. EXE Windows **chưa ký mã**; APK debug dùng khóa thử nghiệm và **không cập nhật được** bản phát hành ký bằng khóa `qlkp-release`. Chỉ coi là gói thử nghiệm cho Windows 10/11 x64 và Android thử nghiệm cho đến khi nghiệm thu trên thiết bị thật. Chưa có cơ chế tự cập nhật hay bộ cài Windows 7.
 
 Sau khi cài Windows, có thể chạy `QuanLyKhuPho.exe --check-install` trong thư mục chương trình để thử Tesseract và mô hình OCR bằng ảnh nhân tạo; lệnh này không mở kho dữ liệu. CI chạy cùng lệnh sau khi cài thử trên Windows runner.
+
+Để hiển thị mục **Địa chỉ liên kết** trên PC, khởi chạy `QuanLyKhuPho.exe --host 0.0.0.0 --port 8765 --cert <chung-chi.pem> --key <khoa-rieng.pem>` từ PC Windows 10/11. Quản trị gốc/hệ thống mở mục này trên chính PC: app chỉ hiển thị IP LAN có trong SAN của chứng chỉ và QR tương ứng. Chứng chỉ, khóa riêng do quản trị viên cung cấp và cài tin cậy trên Android; QR không chứa mật khẩu. Tên miền LAN chỉ xuất hiện nếu DNS nội bộ thực sự phân giải về IP PC. Nếu router cấp lại IP thì phải cập nhật chứng chỉ hoặc đặt DHCP reservation; ứng dụng không tự thay đổi cấu hình router. Khóa riêng tuyệt đối không đưa lên GitHub hoặc gửi qua QR.
 
 Khóa cập nhật Android đã tạo và bàn giao riêng ngoài GitHub; Gradle yêu cầu đúng chứng chỉ đã ấn định khi ký bản release. Xem `docs/KHOA_CAP_NHAT_VA_PHAT_HANH.md`. APK Android 7.5.7 đã ký và xác minh v2/v3 bằng chứng chỉ cố định. PC cần chứng thư ký mã riêng khi làm EXE/MSI; không dùng khóa Android thay thế.
 
