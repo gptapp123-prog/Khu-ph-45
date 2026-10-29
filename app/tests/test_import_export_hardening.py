@@ -568,3 +568,24 @@ def test_saved_template_rejects_unknown_duplicate_or_inconsistent_fields(api):
     items=client.get('/api/templates',headers=headers).json()['items']
     assert len(items)==1
     assert json.loads(items[0]['fields_json'])==['full_name']
+
+
+def test_template_writes_and_parallel_resident_reads_keep_permissions(api):
+    from concurrent.futures import ThreadPoolExecutor
+    client,headers=api
+    resident=client.post('/api/residents',headers=headers,json={
+        'full_name':'Nguyễn Đọc Song Song','team_id':3})
+    assert resident.status_code==200
+    def task(index):
+        if index%2:
+            response=client.post('/api/templates',headers=headers,json={
+                'name':'Mẫu song song '+str(index),'fields':['full_name'],
+                'mapping':{'Họ và tên':'full_name'}})
+        else:
+            response=client.get('/api/residents?limit=200',headers=headers)
+            if response.status_code==200:
+                assert response.json()['items'][0]['full_name']=='Nguyễn Đọc Song Song'
+        return response.status_code,response.text
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results=list(pool.map(task,range(24)))
+    assert all(code==200 for code,_ in results),results
