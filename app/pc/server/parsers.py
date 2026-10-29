@@ -144,15 +144,15 @@ def ocr_selected_regions(image,text,fields,pytesseract,config):
     return text+('\n[OCR đọc lại vùng ảnh – cần đối chiếu]\n'+'\n'.join(additions) if additions else '')
 
 KEYWORDS={'cccd':['cccd','can cuoc','so dinh danh','so cccd'],
-'full_name':['ho ten','ten day du','ten'], 'dob':['ngay sinh','sinh ngay'],
+'full_name':['ho va ten','ho ten','ten day du','ten'], 'dob':['ngay sinh','sinh ngay'],
 'gender':['gioi tinh'], 'hometown':['que quan'],
 'permanent_address':['thuong tru','dia chi','noi thuong tru'],
 'team_id':['to dan pho','to','to so'], 'phone':['so dien thoai','sdt','dien thoai'],
-'occupation':['nghe nghiep'], 'health_insurance':['bhyt','bao hiem y te'],
+'occupation':['nghe nghiep'], 'health_insurance':['so the bhyt','so the bao hiem y te','bhyt','bao hiem y te'],
 'note':['ghi chu']}
 
 def strip_accents(v):
-    return ''.join(c for c in unicodedata.normalize('NFD',str(v).lower()) if unicodedata.category(c)!='Mn').strip()
+    return ''.join(c for c in unicodedata.normalize('NFD',str(v).lower().replace('đ','d')) if unicodedata.category(c)!='Mn').strip()
 def validate_headers(headers):
     cleaned=[str(h).strip() for h in headers]
     if not cleaned or not any(cleaned):raise ValueError('Tệp không có tiêu đề cột.')
@@ -274,7 +274,7 @@ def render_pdf_page(raw,page_number,requested_fields=None,ocr_mode='auto'):
         finally:page.close()
     finally:document.close()
 
-def parse_file(raw:bytes,filename:str,requested_fields=None,ocr_mode='auto'):
+def parse_file(raw:bytes,filename:str,requested_fields=None,ocr_mode='auto',sheet_name=None):
     if len(raw)>10*1024*1024:raise ValueError('Giới hạn tệp nhập: 10 MB.')
     ext=filename.lower().rsplit('.',1)[-1] if '.' in filename else ''
     rows=[]
@@ -286,7 +286,10 @@ def parse_file(raw:bytes,filename:str,requested_fields=None,ocr_mode='auto'):
         wb=load_workbook(io.BytesIO(raw),read_only=False,data_only=False)
         headers=[]
         try:
+            if sheet_name is not None and (sheet_name not in wb.sheetnames or wb[sheet_name].sheet_state!='visible'):
+                raise ValueError('Sheet được chọn không tồn tại hoặc đang ẩn.')
             for sh in wb.worksheets:
+                if sheet_name is not None and sh.title!=sheet_name:continue
                 # Hidden sheets are commonly lookup/configuration data. Importing them
                 # silently can disclose or duplicate records, so only visible sheets
                 # participate in a resident import.

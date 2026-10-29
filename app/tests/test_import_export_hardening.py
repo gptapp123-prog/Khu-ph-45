@@ -203,10 +203,10 @@ def test_dropdown_requires_options_and_field_can_be_reordered_renamed_hidden(api
     updated=client.patch('/api/fields/'+field_id,headers=headers,json={
         'label':'Nhóm hồ sơ','options':['Thường','Ưu tiên'],'display_order':2,'active':False})
     assert updated.status_code==200,updated.text
-    managed=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'][0]
+    managed=next(x for x in client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'] if x['id']==field_id)
     assert managed['label']=='Nhóm hồ sơ' and managed['display_order']==2 and managed['active']==0
     assert json.loads(managed['options_json'])==['Thường','Ưu tiên']
-    assert client.get('/api/fields',headers=headers).json()['custom']==[]
+    assert field_id not in [x['id'] for x in client.get('/api/fields',headers=headers).json()['custom']]
     rejected=client.post('/api/residents',headers=headers,json={
         'full_name':'Nguyễn Trường Ẩn','team_id':1,'custom_values':{'phan_loai':'Thường'}})
     assert rejected.status_code==422
@@ -229,7 +229,7 @@ def test_dropdown_option_in_use_cannot_be_removed(api):
     assert resident.status_code==200,resident.text
     blocked=client.patch('/api/fields/'+field_id,headers=headers,json={'options':['Thường']})
     assert blocked.status_code==409 and 'Cao (1 hồ sơ)' in blocked.json()['detail']
-    managed=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'][0]
+    managed=next(x for x in client.get('/api/fields?include_inactive=true',headers=headers).json()['custom'] if x['id']==field_id)
     assert managed['usage_count']==1 and json.loads(managed['options_json'])==['Cao','Thường']
 
 def test_custom_fields_can_move_up_and_down_without_deleting_values(api):
@@ -239,12 +239,13 @@ def test_custom_fields_can_move_up_and_down_without_deleting_values(api):
     second=client.post('/api/fields',headers=headers,json={
         'name':'truong_hai','label':'Trường hai','type':'text'}).json()['id']
     before=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom']
-    assert [x['id'] for x in before]==[first,second]
+    baseline=[x['id'] for x in before if x['id'] not in (first,second)]
+    assert [x['id'] for x in before]==baseline+[first,second]
     moved=client.post('/api/fields/'+second+'/move',headers=headers,json={'direction':'up'})
     assert moved.status_code==200 and moved.json()['moved'] is True
     after=client.get('/api/fields?include_inactive=true',headers=headers).json()['custom']
-    assert [x['id'] for x in after]==[second,first]
-    edge=client.post('/api/fields/'+second+'/move',headers=headers,json={'direction':'up'})
+    assert [x['id'] for x in after]==baseline+[second,first]
+    edge=client.post('/api/fields/'+after[0]['id']+'/move',headers=headers,json={'direction':'up'})
     assert edge.status_code==200 and edge.json()['moved'] is False
 
 def test_dropdown_option_migration_preview_commit_and_audit(api):
@@ -440,3 +441,97 @@ def test_duplicate_merge_allows_per_field_secondary_choice_and_rejects_unknown_c
     assert resident['phone']=='0900000002'
     assert resident['occupation']=='Thợ điện'
     assert resident['custom_values']['ghi_chu_phu']=='Giá trị B'
+
+
+def test_template_columns_roundtrip_with_explicit_default_team(api):
+    client, headers = api
+    raw = ('Họ và tên,Ngày sinh,CCCD,Số điện thoại,Mã hộ,Năm sinh,Dân tộc,Quan hệ với chủ hộ,Là chủ hộ,Tình trạng cư trú\n'
+           'Nguyễn Văn Kiểm,18-07-1988,079123456789,0901234567,0007,1988,Kinh,Chủ hộ,Có,Thường trú\n').encode('utf-8-sig')
+    response = client.post('/api/import/preview', headers=headers,
+                           files={'file': ('template.csv', raw, 'text/csv')})
+    assert response.status_code == 200, response.text
+    preview = response.json()
+    assert not preview['unmapped_headers']
+    selected = list(preview['mapping'].values())
+    response = client.post('/api/import/commit', headers=headers, json={
+        'rows': preview['rows'], 'mapping': preview['mapping'],
+        'selected': selected, 'default_team': 3})
+    assert response.status_code == 200, response.text
+    assert response.json()['inserted'] == 1
+    response = client.get('/api/export', headers=headers,
+                          params={'fields': ','.join(selected), 'format': 'json'})
+    assert response.status_code == 200, response.text
+    row = response.json()[0]
+    assert row['custom:household_code'] == '0007'
+    assert row['custom:birth_year'] == '1988'
+    assert row['custom:is_household_head'] == '1'
+    assert row['dob'] == '18-07-1988'
+    assert row['phone'] == '0901234567'
+
+
+def test_selected_sheet_excludes_instructions_and_rejects_hidden_sheet(api):
+    client, headers = api
+    raw = workbook_bytes([
+        ('Danh sách', [['Họ và tên', 'Tổ'], ['Nguyễn Kiểm Tra', 3]]),
+        ('Hướng dẫn', [['Nội dung hướng dẫn'], ['Không phải dữ liệu dân cư']])])
+    response = client.post('/api/import/preview?sheet_name=Danh%20s%C3%A1ch',
+        headers=headers, files={'file': ('mau.xlsx', raw, 'application/octet-stream')})
+    assert response.status_code == 200, response.text
+    assert response.json()['count'] == 1
+    assert response.json()['rows'][0]['Họ và tên'] == 'Nguyễn Kiểm Tra'
+    response = client.post('/api/import/preview?sheet_name=KhongCo',
+        headers=headers, files={'file': ('mau.xlsx', raw, 'application/octet-stream')})
+    assert response.status_code == 422
+
+
+def test_household_resident_and_export_share_same_saved_record(api):
+    client, headers = api
+    household = client.post('/api/households', headers=headers, json={
+        'code': 'HO-0007', 'address': '12 Đường Kiểm Tra', 'team_id': 3})
+    assert household.status_code == 200, household.text
+    household_id = household.json()['id']
+    resident = client.post('/api/residents', headers=headers, json={
+        'full_name': 'Nguyễn Liên Kết', 'team_id': 3, 'household_id': household_id,
+        'custom_values': {'household_code': 'HO-0007'}})
+    assert resident.status_code == 200, resident.text
+    saved = client.get('/api/residents', headers=headers).json()['items'][0]
+    assert saved['household_id'] == household_id
+    assert saved['custom_values']['household_code'] == 'HO-0007'
+    exported = client.get('/api/export', headers=headers, params={
+        'fields': 'full_name,custom:household_code', 'format': 'json'})
+    assert exported.status_code == 200
+    assert exported.json()[0]['custom:household_code'] == 'HO-0007'
+    wrong_team = client.post('/api/residents', headers=headers, json={
+        'full_name': 'Người Khác Tổ', 'team_id': 4, 'household_id': household_id})
+    assert wrong_team.status_code == 422
+
+
+def test_import_links_exact_household_and_rejects_other_team(api):
+    client, headers = api
+    house = client.post('/api/households', headers=headers, json={
+        'code': '0007', 'address': '12 Đường Kiểm Tra', 'team_id': 3}).json()['id']
+    mapping = {'Tên': 'full_name', 'Mã': 'custom:household_code'}
+    def import_row(name, code, team):
+        return client.post('/api/import/commit', headers=headers, json={
+            'rows': [{'Tên': name, 'Mã': code}], 'mapping': mapping,
+            'selected': list(mapping.values()), 'default_team': team})
+    response = import_row('Người Đúng Hộ', '0007', 3)
+    assert response.status_code == 200 and response.json()['inserted'] == 1
+    saved = client.get('/api/residents', headers=headers).json()['items']
+    assert saved[0]['household_id'] == house
+    response = import_row('Người Khác Tổ', '0007', 4)
+    assert response.json()['invalid'] == 1 and response.json()['inserted'] == 0
+    response = import_row('Người Chờ Gắn Hộ', 'CHUA-CO', 3)
+    assert response.json()['inserted'] == 1
+    assert 'chưa gắn hộ' in response.json()['warnings'][0]['reason']
+    assert len(client.get('/api/households', headers=headers).json()['items']) == 1
+
+
+def test_birth_year_conflict_does_not_save_resident(api):
+    client, headers = api
+    response = client.post('/api/residents', headers=headers, json={
+        'full_name': 'Người Sai Năm', 'team_id': 3, 'dob': '18-07-1988',
+        'custom_values': {'birth_year': '1989'}})
+    assert response.status_code == 422
+    assert 'không khớp' in response.json()['detail']
+    assert client.get('/api/residents', headers=headers).json()['total'] == 0

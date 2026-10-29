@@ -138,6 +138,18 @@ def initialize(conn:sqlite3.Connection):
         for k in BASE_FIELDS:
             mode='masked' if (role=='viewer' and k in ('cccd','phone')) else 'optional'
             conn.execute('INSERT OR IGNORE INTO field_permissions(role,field,mode) VALUES(?,?,?)',(role,k,mode))
+    # Preserve template columns through the existing encrypted custom-field store.
+    # Household code is source data, not an internal household foreign key.
+    template_fields = [('household_code','Mã hộ','text'),
+                       ('birth_year','Năm sinh','number'),
+                       ('ethnicity','Dân tộc','text'),
+                       ('head_relationship','Quan hệ với chủ hộ','text'),
+                       ('is_household_head','Là chủ hộ','checkbox'),
+                       ('residence_status','Tình trạng cư trú','text')]
+    for position,(name,label,kind) in enumerate(template_fields,1000):
+        conn.execute('INSERT OR IGNORE INTO field_definitions '
+                     '(id,name,label,type,created_at,display_order) VALUES(?,?,?,?,?,?)',
+                     ('template_'+name,name,label,kind,'2026-10-29T00:00:00',position))
     # Existing custom definitions receive fail-closed defaults during upgrade.
     for field in conn.execute('SELECT name FROM field_definitions'):
         for role in ['viewer','reviewer','admin_kp','admin_root','super_admin']:

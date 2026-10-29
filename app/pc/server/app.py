@@ -463,6 +463,13 @@ def validate_resident(p:ResidentIn,account:dict):
         h=db().execute('SELECT team_id FROM households WHERE id=?',(p.household_id,)).fetchone()
         if not h or h['team_id']!=p.team_id:raise HTTPException(422,'Hộ không tồn tại hoặc khác tổ.')
     p.custom_values=validate_custom_values(p.custom_values,account['role'])
+    birth_year=p.custom_values.get('birth_year','')
+    if birth_year:
+        if not re.fullmatch(r'\d{4}',birth_year) or not 1800<=int(birth_year)<=datetime.now().year:
+            raise HTTPException(422,'Năm sinh phải gồm 4 chữ số, từ 1800 đến năm hiện tại.')
+        if p.dob and int(birth_year)!=int(p.dob[:4]):
+            raise HTTPException(422,'Năm sinh không khớp Ngày sinh; cần đối chiếu trước khi lưu.')
+
 
 def person_params(p:ResidentIn):
     return [p.full_name.strip(),p.cccd or None,p.dob,p.gender,p.hometown,p.permanent_address,p.team_id,
@@ -1434,7 +1441,7 @@ def ocr_export(p:OcrExportRequest,request:Request,account:dict=Depends(user)):
     return StreamingResponse(stream,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{filename}.xlsx"','Cache-Control':'no-store'})
 
 @app.post('/api/import/preview')
-async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]=None,ocr_mode:str='auto',account:dict=Depends(user)):
+async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]=None,ocr_mode:str='auto',sheet_name:Optional[str]=None,account:dict=Depends(user)):
     capability(account,'import')
     permit(account,'reviewer','admin_kp','admin_root','super_admin')
     if ocr_mode not in ('auto','enhanced'):raise HTTPException(422,'Chế độ xử lý ảnh không hợp lệ.')
@@ -1446,13 +1453,20 @@ async def import_preview(file:UploadFile=File(...),ocr_template_id:Optional[str]
             template=db().execute('SELECT fields_json FROM ocr_extraction_templates WHERE id=?',(ocr_template_id,)).fetchone()
             if not template:raise HTTPException(404,'Không tìm thấy bảng trường OCR.')
             requested_fields=[f for f in json.loads(template['fields_json']) if f.get('extract',True)]
-        result=parse_file(raw,file.filename or '',requested_fields=requested_fields,ocr_mode=ocr_mode)
+        result=parse_file(raw,file.filename or '',requested_fields=requested_fields,ocr_mode=ocr_mode,sheet_name=sheet_name)
         if result.get('ocr_review') and ocr_mode=='enhanced':result['warnings'].append('Đã tăng tương phản và phóng to trước OCR; phải đối chiếu ảnh gốc.')
         custom={strip_accents(r['label']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')}
         custom.update({strip_accents(r['name']):'custom:'+r['name'] for r in db().execute('SELECT name,label FROM field_definitions WHERE active=1')})
         for header in result['headers']:
             if header not in result['mapping'] and strip_accents(header) in custom:
                 result['mapping'][header]=custom[strip_accents(header)]
+        result.setdefault('warnings',[])
+        unmapped=[h for h in result['headers'] if h not in result['mapping']]
+        result['unmapped_headers']=unmapped
+        if unmapped:
+            result['warnings'].append('Chưa ghép trường đích cho các cột: '+', '.join(unmapped)+'. Các cột này chưa được nhập; hãy ghép trường hoặc xác nhận bỏ qua.')
+        if not result.get('ocr_review') and 'team_id' not in result['mapping'].values():
+            result['warnings'].append('Tệp chưa có cột Tổ được nhận diện. Cần bổ sung hoặc ghép cột Tổ trước khi nhập; Mã hộ không phải Tổ.')
         return result
     except HTTPException:raise
     except (ValueError,RuntimeError,ImportError) as e:raise HTTPException(422,str(e))
@@ -1462,6 +1476,7 @@ class ImportCommit(BaseModel):
     rows:List[Dict[str,Any]]
     mapping:Dict[str,str]
     selected:List[str]
+    default_team:Optional[int]=Field(default=None,ge=1,le=15)
 
 @app.post('/api/import/commit')
 def import_commit(p:ImportCommit,account:dict=Depends(user)):
@@ -1478,19 +1493,32 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
     if any(k not in all_targets for k in p.selected):raise HTTPException(422,'Trường đích không hợp lệ.')
     if any(v not in all_targets for v in p.mapping.values()):raise HTTPException(422,'Ánh xạ chứa trường không hợp lệ.')
     if len(p.rows)>5000:raise HTTPException(422,'Quá 5.000 dòng.')
-    if 'full_name' not in p.selected or 'team_id' not in p.selected:raise HTTPException(422,'Bắt buộc chọn Họ tên và Tổ.')
+    if 'full_name' not in p.selected or ('team_id' not in p.selected and p.default_team is None):raise HTTPException(422,'Bắt buộc chọn Họ tên và Tổ hoặc chọn Tổ áp dụng cho tệp.')
     summary={'inserted':0,'duplicates':0,'possible_duplicates':0,'warnings':[],
              'invalid':0,'errors':[]}
     with LOCK:
         for idx,row in enumerate(p.rows):
             data={v:row.get(k) for k,v in p.mapping.items() if v in p.selected and not v.startswith('custom:')}
             data['custom_values']={v[7:]:row.get(k) for k,v in p.mapping.items() if v in p.selected and v.startswith('custom:')}
+            if not data.get('team_id') and p.default_team is not None:data['team_id']=p.default_team
             if not data.get('team_id') and account['team_id']:data['team_id']=account['team_id']
             try:
                 data['team_id']=int(str(data.get('team_id','')).replace('Tổ','').strip())
                 clean={k:(None if v=='' else v) for k,v in data.items()}
                 ri=validate_model(ResidentIn,clean)
                 validate_resident(ri,account)
+                household_code=ri.custom_values.get('household_code','')
+                unlinked_household=False
+                if household_code:
+                    household=db().execute('SELECT id,team_id FROM households WHERE code=?',(household_code,)).fetchone()
+                    if household:
+                        if household['team_id']!=ri.team_id:
+                            raise HTTPException(422,'Mã hộ thuộc Tổ khác; chưa nhập dòng này.')
+                        if ri.household_id and ri.household_id!=household['id']:
+                            raise HTTPException(422,'Mã hộ không khớp hồ sơ hộ được chọn.')
+                        ri.household_id=household['id']
+                    else:
+                        unlinked_household=True
                 candidates=[] if ri.cccd else possible_duplicate_rows(ri.full_name,ri.dob,ri.team_id)
                 if candidates:
                     summary['possible_duplicates']+=1
@@ -1504,6 +1532,8 @@ def import_commit(p:ImportCommit,account:dict=Depends(user)):
                              [rid]+person_params(ri)+[t,t])
                 save_custom_values(rid,ri.custom_values)
                 summary['inserted']+=1
+                if unlinked_household and len(summary['warnings'])<30:
+                    summary['warnings'].append({'line':idx+2,'reason':'Đã lưu Mã hộ '+household_code+' nhưng chưa gắn hộ vì chưa có hồ sơ hộ tương ứng. Không tự tạo hộ.'})
             except Exception as e:
                 if 'UNIQUE' in str(e):summary['duplicates']+=1
                 else:
