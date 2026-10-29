@@ -199,3 +199,29 @@ test('CSV thật: chọn Tổ, lưu trường bổ sung và đọc lại nhân k
   await (mobile?page.locator('[data-mobile-page="residents"]'):page.locator('[data-page="residents"]')).click();
   await expect(page.getByText(name,{exact:true})).toBeVisible();
 });
+
+test('xuất thật chỉ giữ dòng và cột được chọn', async ({page},testInfo) => {
+  await enterApp(page);
+  const mobile=testInfo.project.name.startsWith('mobile');
+  const suffix=testInfo.project.name;
+  await (mobile?page.locator('[data-mobile-page="import"]'):page.locator('[data-page="import"]')).click();
+  await page.locator('#fileIn').setInputFiles({name:'xuat-chon.csv',mimeType:'text/csv',buffer:Buffer.from('Họ và tên,Tổ\nXuất Chọn '+suffix+',3\nKhông Xuất '+suffix+',3\n')});
+  await page.locator('#previewFile').click();
+  page.on('dialog',d=>d.accept());
+  await page.locator('#commitImport').click();
+  await expect(page.getByRole('heading',{name:'Kết quả nhập'})).toBeVisible();
+  await (mobile?page.locator('[data-mobile-page="features"]'):page.locator('[data-page="features"]')).click();
+  await page.locator('#featureSearch').fill('F-031');
+  await page.locator('[data-fw-page="export"]').click();
+  await page.locator('#exportScope').selectOption('selected');
+  await page.getByRole('checkbox',{name:'Chọn Xuất Chọn '+suffix,exact:true}).check();
+  for(const field of await page.locator('.exportField').all())await field.uncheck();
+  await page.locator('.exportField[value="full_name"]').check();
+  await page.locator('#exportFormat').selectOption('json');
+  const pending=page.waitForEvent('download');
+  await page.locator('#doExport').click();
+  const download=await pending;
+  const stream=await download.createReadStream();
+  const chunks:Buffer[]=[];for await(const chunk of stream!)chunks.push(Buffer.from(chunk));
+  expect(JSON.parse(Buffer.concat(chunks).toString('utf8'))).toEqual([{full_name:'Xuất Chọn '+suffix}]);
+});
