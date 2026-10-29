@@ -60,6 +60,8 @@ def main():
     except Exception as e:
         print('Không mở được kho dữ liệu:',e,file=sys.stderr);sys.exit(2)
     proto='https' if args.cert else 'http'
+    from server.lan_link import configure as configure_lan_link
+    configure_lan_link(args.host,args.port,args.cert)
     print(f'Giao diện PC: {proto}://127.0.0.1:{args.port}')
     print('Giữ cửa sổ này mở khi dùng ứng dụng. Nhấn Ctrl+C để dừng.')
     uvicorn.run(app,host=args.host,port=args.port,ssl_certfile=args.cert,ssl_keyfile=args.key,access_log=False,server_header=False)

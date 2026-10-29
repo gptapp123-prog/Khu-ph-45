@@ -1,6 +1,6 @@
 # Danh tính phát hành và khóa cập nhật
 
-Android giữ nguyên `applicationId` là `vn.quanlykhu.mobile`. Bản APK nâng cấp phải được ký bằng **cùng khóa phát hành Android** như bản đã cài, với `versionCode` tăng dần. Khóa debug không dùng cho bản phát hành. Số phiên bản chung của Windows và Android nằm trong `app/release.properties`: `versionName=7.5.7`, `versionCode=70507` (lớn hơn mã 703 của Android 7.3.0). Chỉ công bố bản 7.5.7 sau khi cả hai gói đầu ra đã được kiểm tra và APK được ký bằng khóa phát hành đã ấn định.
+Android giữ nguyên `applicationId` là `vn.quanlykhu.mobile`. Bản APK nâng cấp phải được ký bằng **cùng khóa phát hành Android** như bản đã cài, với `versionCode` tăng dần. Khóa debug không dùng cho bản phát hành. Số phiên bản chung của Windows và Android nằm trong `app/release.properties`: `versionName=7.5.8`, `versionCode=70508` (lớn hơn mã 703 của Android 7.3.0). Chỉ công bố bản 7.5.8 sau khi cả hai gói đầu ra đã được kiểm tra và APK được ký bằng khóa phát hành đã ấn định.
 
 **Khóa phát hành đã được tạo và bàn giao riêng**, không cần tạo lại trên PC. Alias: `qlkp-release`; SHA-256 certificate fingerprint: `49:0D:6E:73:A8:C0:82:6C:76:6B:D5:7E:39:E7:79:F3:83:E5:62:5C:10:D8:D7:B1:EF:65:08:1A:61:99:C0:77`. Gradle đối chiếu dấu vân tay này trước mỗi build release và dừng nếu chọn nhầm khóa. Chép keystore được bàn giao vào nơi bảo mật trên máy build, sao lưu mã hóa ít nhất hai nơi có kiểm soát và giữ mật khẩu riêng. Không đưa khóa, mật khẩu, kho dữ liệu dân cư lên GitHub hoặc trong gói cài. Không tạo khóa khác để thay thế khóa hiện tại.
 

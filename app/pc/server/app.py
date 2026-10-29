@@ -20,6 +20,7 @@ from .parsers import validate_headers
 from .ocr_extraction import extract_configured,normalized
 from .qr_extraction import decode_qr_file,qr_values
 from .model_compat import fields_set, copy_with, declared_fields, validate_model
+from .lan_link import report as lan_link_report
 
 ROOT=Path(__file__).resolve().parents[1]
 WEB=ROOT/'web'
@@ -131,6 +132,18 @@ def user(request:Request):
 
 def permit(account:dict,*allowed):
     if account['role'] not in allowed:raise HTTPException(403,'Không có quyền sử dụng chức năng này.')
+
+@app.get('/api/lan-link')
+def lan_link(request:Request,account:dict=Depends(user)):
+    pc_only(request)
+    permit(account,'admin_root','super_admin')
+    result=lan_link_report()
+    import base64,qrcode,qrcode.image.svg
+    result['qr']=[]
+    for url in result['urls']:
+        image=qrcode.make(url,image_factory=qrcode.image.svg.SvgPathImage)
+        result['qr'].append('data:image/svg+xml;base64,'+base64.b64encode(image.to_string()).decode('ascii'))
+    return result
 
 def capability(account:dict, code:str):
     if code not in CAPABILITIES:raise RuntimeError('Unknown capability')

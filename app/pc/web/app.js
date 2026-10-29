@@ -112,12 +112,12 @@ $('logoutBtn').addEventListener('click',async()=>{
 window.addEventListener('pagehide',()=>{(S.ocrObjectUrls||[]).forEach(url=>URL.revokeObjectURL(url));S.token=null;S.pendingLogin=null;S.preview=null;S.residents=[];S.households=[]});
 function go(page){
  S.page=page;const titles={dashboard:'Tổng quan',residents:'Danh sách nhân khẩu',households:'Hộ gia đình',import:'Quét & nhập dữ liệu',
- export:'Xuất báo cáo',accounts:'Tài khoản',permissions:'Ma trận phân quyền',devices:'Quản lý thiết bị',fields:'Trường dữ liệu',templates:'Mẫu dữ liệu',audit:'Nhật ký hệ thống'};
+ export:'Xuất báo cáo',accounts:'Tài khoản',permissions:'Ma trận phân quyền',devices:'Quản lý thiết bị',lanLink:'Địa chỉ liên kết',fields:'Trường dữ liệu',templates:'Mẫu dữ liệu',audit:'Nhật ký hệ thống'};
  $('pageTitle').textContent=titles[page]||page;$('pageBread').textContent=titles[page]||page;
  document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
  document.querySelectorAll('[data-mobile-page]').forEach(x=>x.classList.toggle('active',x.dataset.mobilePage===page));
  $('content').innerHTML='<div class="card"><p class="muted">Đang tải từ PC chính…</p></div>';
- const fn={dashboard,residents,households,importPage,exportPage,accounts,permissions,devices,fields,templates,audit};
+ const fn={dashboard,residents,households,importPage,exportPage,accounts,permissions,devices,lanLink,fields,templates,audit};
  const key=page==='import'?'importPage':page==='export'?'exportPage':page;
  fn[key]?.().catch(err=>{if(err.message.includes('hết hạn')){S.token=null;authScreen();}else $('content').innerHTML='<div class="card"><p class="muted">'+esc(err.message)+'</p><button class="outline" id="retry">Thử lại</button></div>';toast(err.message,true);$('retry')?.addEventListener('click',()=>go(page))});
 }
@@ -138,6 +138,13 @@ async function dashboard(){
   ${note(S.isPC?'Bạn đang thao tác trên PC chính. Chức năng xuất dữ liệu chỉ có trên PC.':'Bạn đang thao tác từ thiết bị khách. Chức năng xuất tệp và sao lưu đã bị vô hiệu hóa trên mobile.')}
   </div></div>`;
  document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.quick)));
+}
+async function lanLink(){
+ const r=await api('/lan-link');
+ $('content').innerHTML=`<div class="card"><h3>Liên kết điện thoại với PC chính</h3>${note(r.message)}
+ ${r.urls.length?r.urls.map((url,i)=>`<div class="card"><p><strong>${esc(url)}</strong></p><button type="button" class="outline copyLanLink" data-index="${i}">Sao chép địa chỉ</button><div><img src="${esc(r.qr[i])}" width="180" height="180" alt="QR địa chỉ HTTPS ${esc(url)}"></div></div>`).join(''):'<p>Chưa có địa chỉ HTTPS phù hợp để chia sẻ. Kiểm tra chế độ LAN, IP và chứng chỉ trên PC.</p>'}
+ <p class="footnote">QR chỉ chứa địa chỉ PC, không chứa mật khẩu. Điện thoại phải tin cậy chứng chỉ PC trước khi kết nối. IP cố định cần được đặt trên router.</p></div>`;
+ document.querySelectorAll('.copyLanLink').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(r.urls[Number(b.dataset.index)]);toast('Đã sao chép địa chỉ.')}catch{toast('Không thể sao chép; chọn và chép địa chỉ hiển thị.',true)}});
 }
 function formValues(form){const obj={};new FormData(form).forEach((v,k)=>{obj[k]=String(v).trim()||null});return obj}
 function modal(title,html,onSave){
