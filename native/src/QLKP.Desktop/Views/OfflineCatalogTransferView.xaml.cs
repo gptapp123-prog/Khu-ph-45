@@ -12,7 +12,7 @@ namespace QLKP.Desktop.Views {
     throw new UnauthorizedAccessException("Cần đồng thời quyền I06:export và I07:read.");
    var picker=new SaveFileDialog{Filter="Gói danh mục mã hóa (*.qlkpsync)|*.qlkpsync",DefaultExt=".qlkpsync",AddExtension=true,OverwritePrompt=true};
    if(picker.ShowDialog(Window.GetWindow(this))!=true)return;
-   TransferStatus.Text=OfflineCatalogTransfer.ExportReferenceCatalog(session,picker.FileName,PackagePassword.Password);
+   TransferStatus.Text=OfflineCatalogTransfer.Export(session,picker.FileName,PackagePassword.Password);
    PackagePassword.Clear();
   }catch(Exception ex){PackagePassword.Clear();TransferStatus.Text="Không xuất được gói: "+ex.Message;}}
  }

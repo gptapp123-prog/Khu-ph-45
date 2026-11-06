@@ -37,7 +37,7 @@ namespace QLKP.Desktop.Core {
   }
   static bool SafeLabel(string text) {
    // Not a privacy certification: reject obvious contact/identifier patterns and prohibit all free-form notes.
-   return text.StartsWith("[MẪU] ",StringComparison.Ordinal) && text.Length<=80 && !text.Contains("\t") && !text.Contains("\r") &&
+   return !String.IsNullOrWhiteSpace(text) && text.Length<=80 && !text.Contains("\t") && !text.Contains("\r") &&
     !text.Contains("\n") && !Regex.IsMatch(text,@"\b\d{9,}\b|@|https?://",RegexOptions.IgnoreCase);
   }
   public static string Export(Session actor,string fullPath,string phrase) {
@@ -69,7 +69,7 @@ namespace QLKP.Desktop.Core {
   private static string ExportCore(Session actor,string fullPath,string phrase,bool referenceOnly) {
    ValidatePassphrase(phrase);
    if(actor==null || String.IsNullOrWhiteSpace(actor.AreaId))
-    throw new UnauthorizedAccessException("Chỉ tài khoản thuộc khu phố, có quyền I06 và I07, mới được xuất gói mẫu.");
+    throw new UnauthorizedAccessException("Chỉ tài khoản thuộc khu phố, có quyền I06 và I07, mới được xuất gói danh mục.");
    if(String.IsNullOrWhiteSpace(fullPath) || !Path.IsPathRooted(fullPath) ||
     !String.Equals(Path.GetExtension(fullPath),".qlkpsync",StringComparison.OrdinalIgnoreCase))
     throw new InvalidDataException("Chọn tệp .qlkpsync với đường dẫn đầy đủ.");
@@ -80,7 +80,7 @@ namespace QLKP.Desktop.Core {
     try {
     var buffer=new StringBuilder(referenceOnly?"QLKP-CATALOG-V2\n":"QLKP-CATALOG-V1\n");int count=0;
     using(var cmd=new SQLiteCommand(@"SELECT category_code,item_code,item_label,active,version,scope_area
-       FROM shared_catalog_items WHERE scope_area IN ('*',@area) AND active=1
+       FROM shared_catalog_items g WHERE active=1 AND ((@reference=1 AND scope_area='*') OR (@reference=0 AND (scope_area=@area OR (scope_area='*' AND NOT EXISTS(SELECT 1 FROM shared_catalog_items local WHERE local.scope_area=@area AND local.category_code=g.category_code AND local.item_code=g.item_code)))))
        AND category_code IN ('LOAI_NHA','NHOM_CU_TRU','LOAI_CONG_TRINH','NHOM_HO_SO','LOAI_HOAT_DONG','TRANG_THAI')
        AND (@reference=0 OR category_code IN ('LOAI_NHA','NHOM_CU_TRU'))
        ORDER BY category_code,item_code,scope_area LIMIT 1001",conn)) {
@@ -91,7 +91,7 @@ namespace QLKP.Desktop.Core {
       if(!AllowedGroups.Contains(group,StringComparer.Ordinal))continue;
       if(referenceOnly) {
        if(!IsReferenceEntry(group,code,label))throw new InvalidDataException("Chỉ chuyển mã và nhãn chuẩn của LOAI_NHA/NHOM_CU_TRU. Hãy kiểm tra lại danh mục I07.");
-      } else if(!SafeLabel(label))throw new InvalidDataException("Chỉ xuất danh mục giả lập có nhãn [MẪU] và không chứa định danh; từ chối xuất.");
+      } else if(!SafeLabel(label))throw new InvalidDataException("Nhãn danh mục vượt giới hạn hoặc chứa địa chỉ liên hệ/định danh; không xuất gói.");
       if(++count>MaxRows)throw new InvalidDataException("Chỉ xuất tối đa 1.000 nhãn đã kiểm tra.");
       string packed=Convert.ToBase64String(Encoding.UTF8.GetBytes(label));
       string tier=reader.GetString(5)=="*"?"G":"L";
