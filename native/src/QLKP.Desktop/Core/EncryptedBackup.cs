@@ -49,7 +49,7 @@ namespace QLKP.Desktop.Core {
   static byte[] Header(byte[] salt,byte[] nonce) {
    var b=new byte[HeaderSize];
    Buffer.BlockCopy(Magic,0,b,0,8);Buffer.BlockCopy(salt,0,b,8,16);Buffer.BlockCopy(nonce,0,b,24,12);
-   b[36]=(byte)(Iterations>>24);b[37]=(byte)(Iterations>>16);b[38]=(byte)(Iterations>>8);b[39]=(byte)Iterations;
+   b[36]=(byte)((Iterations>>24)&0xff);b[37]=(byte)((Iterations>>16)&0xff);b[38]=(byte)((Iterations>>8)&0xff);b[39]=(byte)(Iterations&0xff);
    return b;
   }
   static void CheckSqliteSnapshot(string path) {

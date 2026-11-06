@@ -46,7 +46,7 @@ namespace QLKP.Desktop.Core {
   [DataMember(Name="steps")] public List<TestRunStep> Steps {get;set;}=new List<TestRunStep>();
   public string StatusDisplay {get{return TestRunHistory.StatusLabel(Status)+(Origin=="IMPORTED"?" (nhập)":"");}}
   public string StartedDisplay {get{return DisplayLabels.UtcStamp(StartedUtc);}}
-  public string LayerDisplay {get{return Layer=="source_sql"?"Nguồn/SQL":Layer=="repository_runtime"?"Dịch vụ":Layer=="build"?"Build":Layer??"";}}
+  public string LayerDisplay {get{return Layer=="source_sql"?"Nguồn/SQL":Layer=="repository_runtime"?"Dịch vụ":Layer=="build"?"Biên dịch":Layer=="ui_e2e"?"Giao diện":Layer=="device"?"Thiết bị":Layer=="install"?"Cài đặt":Layer??"";}}
  }
  [DataContract] internal sealed class TestRunEvent {
   [DataMember(Name="session_id")] public string Id;
@@ -64,7 +64,7 @@ namespace QLKP.Desktop.Core {
   public TestRunRecorder(string kind,string layer) {
    if(!Regex.IsMatch(kind??"",@"^[a-z_]{1,40}$")||!TestRunHistory.Layers.Contains(layer))throw new InvalidDataException("Loại phiên kiểm thử không hợp lệ.");
    Report=new TestRunReport{Id=Guid.NewGuid().ToString("N"),Kind=kind,Layer=layer,Status="RUNNING",StartedUtc=UtcNow,
-    SourceVersion=Assembly.GetExecutingAssembly().GetName().Version+"-P6",EnvironmentName=Environment.OSVersion.Platform+" "+Environment.OSVersion.Version+" "+(Environment.Is64BitProcess?"x64":"x86")};
+    SourceVersion=Assembly.GetExecutingAssembly().GetName().Version+"-P7",EnvironmentName=Environment.OSVersion.Platform+" "+Environment.OSVersion.Version+" "+(Environment.Is64BitProcess?"x64":"x86")};
    string parent=Environment.GetEnvironmentVariable("QLKP_TEST_PARENT_ID");if(Regex.IsMatch(parent??"",@"^[0-9a-f]{32}$"))Report.ParentId=parent;
    string exe=Assembly.GetExecutingAssembly().Location;
    if(File.Exists(exe)){using(var f=File.OpenRead(exe))using(var hash=SHA256.Create())Report.SourceHash=BitConverter.ToString(hash.ComputeHash(f)).Replace("-","").ToLowerInvariant();Report.HashKind="exe_sha256";}
