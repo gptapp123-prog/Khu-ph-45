@@ -51,7 +51,7 @@ namespace QLKP.Desktop.Core {
   }
   static void Execute(SQLiteConnection c,string sql){using(var cmd=new SQLiteCommand(sql,c))cmd.ExecuteNonQuery();}
   static void SelectCipher(SQLiteConnection c) {
-   using(var cmd=new SQLiteCommand("SELECT sqlite3mc_version()",c))if(!Convert.ToString(cmd.ExecuteScalar()).StartsWith("2.6.1",StringComparison.Ordinal))throw new CryptographicException("Không đúng thư viện mã hóa kho.");
+   using(var cmd=new SQLiteCommand("SELECT sqlite3mc_version()",c))if(Convert.ToString(cmd.ExecuteScalar())!="SQLite3 Multiple Ciphers 2.6.1")throw new CryptographicException("Không đúng thư viện mã hóa kho.");
    Execute(c,"PRAGMA cipher='sqlcipher';PRAGMA hmac_use=1;PRAGMA hmac_algorithm=2;PRAGMA plaintext_header_size=0;");
   }
   internal static SQLiteConnection OpenEncrypted(string path,byte[] key,bool readOnly=false,bool create=false) {
@@ -144,17 +144,21 @@ namespace QLKP.Desktop.Core {
     try {
      if(!exists){using(var c=OpenEncrypted(DataStore.DatabasePath,key,false,true))Execute(c,"PRAGMA user_version=0;");return;}
      if(!plain){using(var c=OpenEncrypted(DataStore.DatabasePath,key))Check(c);return;}
+     if(File.Exists(DataStore.DatabasePath+"-wal")||File.Exists(DataStore.DatabasePath+"-journal"))throw new IOException("Kho cũ còn giao dịch chưa đóng. Mở bản cũ, đóng đúng cách rồi chuyển đổi; không xóa tệp giao dịch.");
      string folder=Path.Combine(DataStore.DataFolder,"maintenance");Directory.CreateDirectory(folder);
      string stamp=Guid.NewGuid().ToString("N");stage=Path.Combine(folder,"encrypt-"+stamp+".qlkpvault");
      string retained=Path.Combine(folder,"before-encryption-"+stamp+".qlkpvault");
+     using(var locked=new FileStream(DataStore.DatabasePath,FileMode.Open,FileAccess.Read,FileShare.Read|FileShare.Delete))
      using(var source=OpenPlain(DataStore.DatabasePath)) {
       var tables=Tables(source);var cols=tables.ToDictionary(x=>x,x=>Columns(source,x));string before=Fingerprint(source,tables,cols);
       using(var target=OpenEncrypted(stage,key,false,true)){CopyTrusted(source,target);if(before!=Fingerprint(target,tables,cols))throw new InvalidDataException("Chuyển mã hóa thay đổi dữ liệu; giữ kho cũ.");}
+      source.Close();
+      if(IsPlainSqlite(stage))throw new CryptographicException("Snapshot chưa được mã hóa; không chuyển kho.");
+      File.Copy(stage,retained,false);
+      // Deny concurrent writers through conversion and replacement. The old logical data
+      // has already been retained as a verified encrypted snapshot.
+      File.Replace(stage,DataStore.DatabasePath,null);stage=null;
      }
-     if(IsPlainSqlite(stage))throw new CryptographicException("Snapshot chưa được mã hóa; không chuyển kho.");
-     File.Copy(stage,retained,false);
-     // A single atomic replacement; prior logical data was retained encrypted and verified first.
-     File.Replace(stage,DataStore.DatabasePath,null);stage=null;
      using(var c=OpenEncrypted(DataStore.DatabasePath,key))Check(c);
      StartupDiagnostics.WriteEvent("VAULT_ENCRYPTION_MIGRATION_COMPLETE");
     }finally{Array.Clear(key,0,key.Length);if(stage!=null&&File.Exists(stage))File.Delete(stage);}
