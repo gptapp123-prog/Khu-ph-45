@@ -1,13 +1,13 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title QLKP PILOT V0.19 - XAY DUNG SETUP
+title QLKP PILOT V0.20 - XAY DUNG SETUP
 if /I not "%PROCESSOR_ARCHITECTURE%"=="AMD64" if /I not "%PROCESSOR_ARCHITEW6432%"=="AMD64" (
  echo Can he dieu hanh Windows x64 de build ban nay.
  pause
  exit /b 1
 )
-echo QLKP V0.19 PILOT - Tu dong tai cong cu chinh thuc neu thieu, build, self-test, dong goi.
+echo QLKP V0.20 PILOT - Tu dong tai cong cu chinh thuc neu thieu, build, self-test, dong goi.
 echo Luu y: se cai .NET SDK / VS Build Tools / Inno Setup bang winget khi can.
 echo KHONG duoc nhap du lieu ca nhan that vao ban pilot.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0build-on-windows.ps1" -BootstrapPrereqs -Installer -SmokeTest

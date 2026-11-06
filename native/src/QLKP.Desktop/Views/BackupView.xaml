@@ -6,7 +6,7 @@
   <StackPanel Margin="22" MaxWidth="780" HorizontalAlignment="Left">
    <TextBlock Text="I04 · SAO LƯU VÀ KHÔI PHỤC KHO DỮ LIỆU" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
    <TextBlock Margin="0,10,0,18" TextWrapping="Wrap" Foreground="#AB4316" FontWeight="SemiBold"
-     Text="BẢN THỬ NGHIỆM: Tệp sao lưu .qlkpbak được mã hóa, nhưng cơ sở dữ liệu đang sử dụng chưa mã hóa. Chỉ nhập dữ liệu giả. Mất mật khẩu phục hồi sẽ không thể mở bản sao."/>
+     Text="Kho đang dùng và bản sao đều được mã hóa. Tệp .qlkpbak có thể phục hồi trên máy khác bằng mật khẩu sao lưu. Bản .qlkpvault chỉ dùng với khóa Windows hiện tại. Giữ mật khẩu sao lưu ở nơi an toàn."/>
    <Border BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8">
     <StackPanel>
      <TextBlock Text="BẢN SAO LƯU MỚI" FontWeight="Bold" FontSize="17" Foreground="#16487F"/>
@@ -21,9 +21,9 @@
     <StackPanel>
      <TextBlock Text="KIỂM TRA / KHÔI PHỤC" FontSize="17" FontWeight="Bold" Foreground="#16487F"/>
      <TextBlock Text="Chọn tệp đã sao lưu; trước khi thay thế phải xác minh mật khẩu, chữ ký xác thực và tính toàn vẹn SQLite." TextWrapping="Wrap" Margin="0,8,0,8"/>
-     <Button Content="Chọn tệp .qlkpbak..." Click="ChooseRestore_Click" HorizontalAlignment="Left" Padding="12,6"/>
+     <Button Content="Chọn bản sao…" Click="ChooseRestore_Click" HorizontalAlignment="Left" Padding="12,6"/>
      <TextBlock x:Name="RestoreFileName" Text="Chưa chọn tệp" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/>
-     <TextBlock Text="Mật khẩu mở bản sao" Margin="0,12,0,0"/>
+     <TextBlock Text="Mật khẩu mở .qlkpbak (bỏ trống với bản cục bộ .qlkpvault)" Margin="0,12,0,0"/>
      <PasswordBox x:Name="RestorePass" Width="390" HorizontalAlignment="Left"/>
      <WrapPanel Margin="0,12,0,0">
       <Button Content="Kiểm tra bản sao" Click="Validate_Click" Padding="12,6" Margin="0,0,10,0"/>

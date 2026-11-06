@@ -15,7 +15,7 @@
   </Border>
   <Border DockPanel.Dock="Bottom" Background="#E8EFF8" Padding="8,5">
    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <TextBlock Text="Bản thử nghiệm · Kho chưa mã hóa · Chỉ sử dụng dữ liệu giả" Foreground="#964318" TextWrapping="Wrap" VerticalAlignment="Center"/>
+    <TextBlock Text="Kho dữ liệu mã hóa · Làm việc cục bộ" Foreground="#964318" TextWrapping="Wrap" VerticalAlignment="Center"/>
     <TextBlock Grid.Column="1" x:Name="Status" TextAlignment="Right" VerticalAlignment="Center" Foreground="#526781" Margin="12,4,4,4"/>
    </Grid>
   </Border>

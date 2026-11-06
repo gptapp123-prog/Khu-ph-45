@@ -117,6 +117,7 @@ namespace QLKP.Desktop.Core {
     }
     using(var source=VaultStorage.OpenEncrypted(frozen,key,true))using(var target=VaultStorage.OpenEncrypted(plan.Candidate,key)) {
      plan.AreaCode=Convert.ToString(Scalar(target,null,"SELECT code FROM areas WHERE id=@area",P("@area",actor.AreaId)));
+     if(Convert.ToInt32(Scalar(source,null,"SELECT count(*) FROM areas WHERE code=@code COLLATE NOCASE",P("@code",plan.AreaCode)))!=1)throw new InvalidOperationException("Nguồn phải có đúng một khu phố khớp mã đang quản lý.");
      string sourceArea=Convert.ToString(Scalar(source,null,"SELECT id FROM areas WHERE code=@code COLLATE NOCASE",P("@code",plan.AreaCode)));
      if(String.IsNullOrEmpty(sourceArea))throw new InvalidOperationException("Mã khu phố của nguồn không trùng khu phố đang quản lý. Không hợp nhất khác phạm vi.");
      BuildMerge(source,target,actor,sourceArea,plan);plan.CandidateHash=VaultStorage.Fingerprint(target);
@@ -141,9 +142,10 @@ namespace QLKP.Desktop.Core {
      using(var c=VaultStorage.OpenEncrypted(DatabasePath,key,true))VaultStorage.Check(c);
      plan.RecoveryFile=rollback;plan.Applied=true;
     }
-    plan.Dispose();StartupDiagnostics.WriteEvent("DATA_MERGE_COMPLETED");
+    try{plan.Dispose();}catch(IOException){StartupDiagnostics.WriteEvent("DATA_MERGE_ENCRYPTED_CLEANUP_PENDING");}
+    StartupDiagnostics.WriteEvent("DATA_MERGE_COMPLETED");
    }catch {
-    if(replaced){string repair=MergeStage("merge-repair");try{File.Copy(rollback,repair,false);File.Replace(repair,DatabasePath,null);}finally{if(File.Exists(repair))File.Delete(repair);}}
+    if(replaced&&!plan.Applied){string repair=MergeStage("merge-repair");try{File.Copy(rollback,repair,false);File.Replace(repair,DatabasePath,null);}finally{if(File.Exists(repair))File.Delete(repair);}}
     throw;
    }finally{Array.Clear(key,0,key.Length);}
   }

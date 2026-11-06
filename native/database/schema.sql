@@ -1,4 +1,4 @@
--- QLKP V0.1 / PILOT DATA ONLY - DATABASE IS NOT ENCRYPTED.
+-- QLKP native schema. Database encryption and keys are enforced by VaultStorage.
 -- Tables for first functional vertical slice. No preconfigured accounts/passwords.
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS areas (
@@ -330,7 +330,7 @@ WHEN EXISTS (SELECT 1 FROM module_records src WHERE src.id=NEW.source_id AND (
  (src.feature='F06') OR
  (src.feature='F07' AND NEW.target_feature NOT IN ('A04','C04'))))
 BEGIN SELECT RAISE(ABORT,'F_RELATION_TYPE_DENIED'); END;
--- F06 has no person links, not even anonymous generic links in this unencrypted pilot.
+-- F06 has no person links, not even anonymous generic links without a dedicated workflow.
 CREATE TRIGGER IF NOT EXISTS f06_no_person_link_insert BEFORE INSERT ON module_records
 WHEN NEW.feature='F06' AND (NEW.related_feature<>'' OR NEW.related_id<>'')
 BEGIN SELECT RAISE(ABORT,'F06_AGGREGATE_ONLY'); END;

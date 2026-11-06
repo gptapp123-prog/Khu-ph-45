@@ -100,7 +100,7 @@ namespace QLKP.Desktop.Core {
    if(code=="D01" && draft.Status=="Đang đảm nhiệm" && String.IsNullOrWhiteSpace(GetField(draft,"appointment_reference")))
     throw new InvalidOperationException("Chức trách cần căn cứ phân công đã nhập.");
    // E: Administrative coordination only. NO automated benefit approval, medical diagnosis or payments.
-   // The same module table remains plaintext in this PILOT; only synthetic data is permissible.
+   // Database encryption does not replace per-record permission and business-rule checks.
    if(code=="E01" && draft.Status=="Đã chuyển cơ quan có thẩm quyền" &&
      (String.IsNullOrWhiteSpace(GetField(draft,"source_reference")) || String.IsNullOrWhiteSpace(GetField(draft,"forwarding_reference"))))
     throw new InvalidOperationException("Chuyển hồ sơ an sinh cần nguồn và mã chứng từ chuyển hợp lệ.");
@@ -124,7 +124,7 @@ namespace QLKP.Desktop.Core {
    if(code=="E05" && draft.Status=="Đã có phản hồi" && String.IsNullOrWhiteSpace(GetField(draft,"feedback_reference")))
     throw new InvalidOperationException("Thiếu căn cứ ghi nhận phản hồi khuyến học.");
    if(code=="E06" && (!String.IsNullOrWhiteSpace(draft.RelatedFeature) || !String.IsNullOrWhiteSpace(draft.RelatedId)))
-    throw new InvalidOperationException("E06 chỉ tổng hợp hoạt động cộng đồng; không liên kết hồ sơ y tế cá nhân trong kho chưa mã hóa.");
+    throw new InvalidOperationException("E06 chỉ tổng hợp hoạt động cộng đồng; không liên kết hồ sơ y tế cá nhân khi chưa có phân quyền hồ sơ y tế riêng.");
    if(code=="E06" && draft.Status=="Đã tổng hợp" &&
      (String.IsNullOrWhiteSpace(GetField(draft,"aggregate_count")) || String.IsNullOrWhiteSpace(GetField(draft,"source_reference"))))
     throw new InvalidOperationException("Tổng hợp y tế cần số liệu gộp và nguồn; không được suy đoán.");
@@ -395,7 +395,7 @@ namespace QLKP.Desktop.Core {
    return SaveSourceTask(s,task);
   }
   // Feedback -> A02. Only a stable reference and a synthetic-neutral title are copied;
-  // do not duplicate the reporter's personal details into an unencrypted task.
+  // do not duplicate the reporter's personal details into unrelated task records.
   public static string CreateTaskFromFeedback(Session s,string feedbackId) {
    var source=GetModuleRecord(s,"G01",feedbackId);
    if(!Can(s,"A02","create"))throw new UnauthorizedAccessException("Chưa được cấp quyền tạo A02 từ G01.");

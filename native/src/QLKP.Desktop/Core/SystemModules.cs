@@ -93,6 +93,7 @@ namespace QLKP.Desktop.Core {
     string integrity=Convert.ToString(Scalar(c,null,"PRAGMA quick_check;"));
     long bytes=File.Exists(DatabasePath)?new FileInfo(DatabasePath).Length:0;
     return "Phiên bản nguồn: "+app+" (PILOT)\nLược đồ SQLite: "+schema+
+      "\nKho: AES-256 / HMAC-SHA512 · Khóa Windows DPAPI"+
       "\nKiểm tra SQLite: "+integrity+"\nDung lượng kho (byte): "+bytes.ToString(CultureInfo.InvariantCulture)+
       "\nCập nhật: chỉ kiểm tra gói. Chưa có cơ chế cài bản cập nhật đã ký số.";
    }

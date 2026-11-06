@@ -457,6 +457,7 @@ namespace QLKP.Desktop.Core {
     catch(UnauthorizedAccessException){deniedProfile=true;}
     if(!staleProfile||!deniedProfile)throw new InvalidDataException("B02: chưa chặn cập nhật sai quyền hoặc phiên bản cũ.");
     Console.WriteLine("REPOSITORY_PASS B02 profile/update/stale/deny");
+    DataStore.RunMergeRegression(journal,root,admin,user);
     journal.BeginStep("ACCOUNT_REVOCATION");
     // I02 + I03 runtime checks: changing a ceiling must revoke now-illegal child grants.
     var oldRights=DataStore.GetAccountRights(root,admin.Id);

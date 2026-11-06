@@ -32,6 +32,14 @@ jobs:
         run: ./build-on-windows.ps1 -Installer -SmokeTest
       - name: Install, test installed application and uninstall
         run: ./test-windows-install.ps1
+      - name: Record pinned SQLite public serialization API
+        if: always()
+        run: |
+          $dll=Join-Path (Get-Location) 'build-output\Release\x64\System.Data.SQLite.dll'
+          if(Test-Path $dll){
+            $assembly=[Reflection.Assembly]::LoadFrom($dll)
+            $assembly.GetType('System.Data.SQLite.SQLiteConnection').GetMethods() | Where-Object {$_.Name -match 'Serialize|Deserialize|Handle'} | ForEach-Object {$_.ToString()} | Out-File 'build-logs\sqlite-public-api.txt' -Encoding utf8
+          }
       - name: Collect test history
         if: always()
         run: |

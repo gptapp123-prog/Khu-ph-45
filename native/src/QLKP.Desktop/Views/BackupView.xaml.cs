@@ -19,7 +19,7 @@ namespace QLKP.Desktop.Views {
    finally {BackupPass.Clear();BackupPassAgain.Clear();}
   }
   void ChooseRestore_Click(object sender,RoutedEventArgs e) {
-   var dialog=new OpenFileDialog{Title="Chọn bản sao QLKP",Filter="QLKP encrypted backup (*.qlkpbak)|*.qlkpbak",CheckFileExists=true};
+   var dialog=new OpenFileDialog{Title="Chọn bản sao QLKP",Filter="Bản sao mã hóa (*.qlkpbak;*.qlkpvault)|*.qlkpbak;*.qlkpvault",CheckFileExists=true};
    if(dialog.ShowDialog(Window.GetWindow(this))==true){restoreFile=dialog.FileName;RestorePass.Clear();RestoreFileName.Text=Path.GetFileName(restoreFile);Result.Text="Đã chọn bản sao. Nhập mật khẩu để kiểm tra hoặc khôi phục.";}
   }
   void Validate_Click(object sender,RoutedEventArgs e) {

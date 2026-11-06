@@ -29,7 +29,7 @@
     <Button x:Name="LoginButton" Content="Đăng nhập" Height="42" Click="Login_Click"/>
     <Button Content="Kiểm tra kho dữ liệu" Click="Diagnostics_Click" MinHeight="38" Margin="4,12,4,4"/>
     <Border Background="#FFF3DE" BorderBrush="#E7C887" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,12">
-     <TextBlock Text="Bản thử nghiệm: kho dữ liệu chưa mã hóa. Chỉ sử dụng dữ liệu giả; không nhập CCCD hoặc hồ sơ thật." FontSize="12" TextWrapping="Wrap" Foreground="#8B4418"/>
+     <TextBlock Text="Kho mã hóa gắn với tài khoản Windows. Hãy tạo bản sao phục hồi trước khi đổi máy hoặc cài lại Windows." FontSize="12" TextWrapping="Wrap" Foreground="#8B4418"/>
     </Border>
    </StackPanel>
   </ScrollViewer>

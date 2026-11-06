@@ -10,7 +10,7 @@
  <StackPanel Grid.Row="0" Margin="0,0,0,12">
   <TextBlock Text="THU THẬP · NHẬP NHANH · ĐỐI CHIẾU" FontSize="24" FontWeight="Bold" Foreground="#133660"/>
   <TextBlock Text="Dữ liệu nháp ở bộ nhớ → đối chiếu theo ID/mã hộ → kiểm tra quyền → xác nhận → ghi nguyên lô. Không tự gộp hai người trùng tên." TextWrapping="Wrap" Foreground="#51647A"/>
-  <TextBlock Text="Kho dữ liệu chưa mã hóa. Chỉ sử dụng dữ liệu giả." Foreground="#A54A13" FontWeight="Bold" TextWrapping="Wrap"/>
+  <TextBlock Text="Đối chiếu nội dung và liên kết hồ sơ trước khi nhập." Foreground="#A54A13" FontWeight="Bold" TextWrapping="Wrap"/>
  </StackPanel>
  <WrapPanel Grid.Row="1" Margin="0,0,0,8">
   <TextBlock Text="Nghiệp vụ" VerticalAlignment="Center" Margin="0,0,7,0"/>

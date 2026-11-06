@@ -21,7 +21,7 @@ try {
  New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
  $run=New-QlkpTestRun $runRoot
  Start-QlkpStage $run 'PRECHECK'
- Write-Host '=== QLKP PILOT V0.19 - WINDOWS NATIVE BUILD ===' -ForegroundColor Cyan
+ Write-Host '=== QLKP PILOT V0.20 - WINDOWS NATIVE BUILD ===' -ForegroundColor Cyan
  # Packaging always requires the runtime gate, even when invoked without -SmokeTest.
  if($Installer -and -not $NoInstaller) { $SmokeTest=$true }
  # Do not mistake a setup file left over from an earlier build for a current release.
@@ -173,7 +173,7 @@ try {
  Complete-QlkpTestRun $run 'PASS'
  Write-Host ("Hồ sơ kiểm thử: "+(Join-Path $run.directory 'session.json'))
  Write-Host "Build log: $log"
- Write-Warning 'PILOT chưa mã hóa: CHỈ SỬ DỤNG DỮ LIỆU GIẢ; CHƯA ĐƯỢC PHÁT HÀNH ĐỂ XỬ LÝ HỒ SƠ THẬT.'
+ Write-Warning 'Kho đã mã hóa; bản PILOT còn chờ nghiệm thu toàn bộ quy trình và ký nhà phát hành.'
 }
 catch {
  $buildFailure=$_

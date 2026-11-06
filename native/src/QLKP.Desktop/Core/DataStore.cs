@@ -143,6 +143,7 @@ namespace QLKP.Desktop.Core {
   }
   public static void SetupOwner(string username,string password,string areaCode,string areaName) {
    if(String.IsNullOrWhiteSpace(username)||String.IsNullOrWhiteSpace(areaCode)||String.IsNullOrWhiteSpace(areaName))throw new InvalidOperationException("Cần tên đăng nhập, mã khu phố và tên khu phố.");
+   if(username.Trim().Length>128||areaCode.Trim().Length>64||areaName.Trim().Length>200)throw new InvalidOperationException("Tên tài khoản tối đa 128 ký tự; mã khu phố 64 ký tự; tên khu phố 200 ký tự.");
    var secret=NewPassword(password);
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     if(Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM accounts"))!=0)throw new InvalidOperationException("ADMIN gốc đã được tạo; không thể khởi tạo lại.");
