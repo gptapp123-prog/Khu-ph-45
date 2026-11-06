@@ -31,7 +31,7 @@ namespace QLKP.Desktop.Core {
   static string Id() { return Guid.NewGuid().ToString("N"); }
   static SQLiteParameter P(string n, object v) { return new SQLiteParameter(n,v ?? DBNull.Value); }
   public static SQLiteConnection Open() {
-   var c = new SQLiteConnection("Data Source="+DatabasePath+";Version=3;Pooling=False;FailIfMissing=False;"); c.Open();
+   var c = VaultStorage.OpenCurrent();
    using(var cmd = new SQLiteCommand("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",c)) cmd.ExecuteNonQuery();
    return c;
   }
@@ -43,6 +43,7 @@ namespace QLKP.Desktop.Core {
   }
   public static void Initialize() {
    Directory.CreateDirectory(DataFolder);
+   VaultStorage.EnsureCurrent();
    string schema=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"schema.sql");
    if(!File.Exists(schema)) throw new FileNotFoundException("Thiếu schema.sql; chưa tạo CSDL.",schema);
    string sql=File.ReadAllText(schema,Encoding.UTF8);

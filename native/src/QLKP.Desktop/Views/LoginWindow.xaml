@@ -8,25 +8,26 @@
   </StackPanel></Border>
   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel Margin="32,26">
-    <TextBlock Text="ĐĂNG NHẬP HỆ THỐNG" FontSize="25" FontWeight="Bold" Foreground="#102D59" TextWrapping="Wrap"/>
-    <TextBlock Text="Tài khoản" FontWeight="SemiBold" Margin="4,18,4,4"/><TextBox x:Name="LoginName" Height="39" ToolTip="Nhập tên tài khoản được cấp"/>
+    <TextBlock x:Name="ModeTitle" Text="ĐĂNG NHẬP HỆ THỐNG" FontSize="25" FontWeight="Bold" Foreground="#102D59" TextWrapping="Wrap"/>
+    <TextBlock x:Name="ModeHint" TextWrapping="Wrap" Margin="4,8"/>
+    <TextBlock Text="Tài khoản" FontWeight="SemiBold" Margin="4,12,4,4"/><TextBox x:Name="LoginName" Height="39" MaxLength="128" ToolTip="Nhập tên tài khoản được cấp"/>
     <TextBlock Text="Mật khẩu" FontWeight="SemiBold"/>
     <Grid><PasswordBox x:Name="LoginPassword" Height="39" KeyDown="LoginPassword_KeyDown"/>
      <TextBox x:Name="VisibleLoginPassword" Height="39" Visibility="Collapsed" KeyDown="LoginPassword_KeyDown" ToolTip="Mật khẩu đang hiển thị"/>
     </Grid>
     <CheckBox x:Name="RevealPassword" Content="Hiển thị mật khẩu" Checked="RevealPassword_Changed" Unchecked="RevealPassword_Changed" Margin="5,8"/>
-    <Button x:Name="LoginButton" Content="Đăng nhập" Height="42" Click="Login_Click"/>
-    <Border x:Name="OwnerSetup" BorderBrush="#C7D7EB" BorderThickness="1" CornerRadius="7" Padding="12" Margin="4,20,4,0" Background="White">
+    <Border x:Name="OwnerSetup" BorderBrush="#C7D7EB" BorderThickness="1" CornerRadius="7" Padding="12" Margin="4,8,4,0" Background="White">
      <StackPanel>
-      <TextBlock Text="KHỞI TẠO QUẢN TRỊ HỆ THỐNG" Foreground="#102D59" FontSize="17" FontWeight="Bold" TextWrapping="Wrap"/>
-      <TextBlock Text="Chỉ tạo lần đầu. Sử dụng tài khoản và mật khẩu ở trên." Foreground="#785223" TextWrapping="Wrap"/>
-      <TextBlock Text="Mã khu phố"/><TextBox x:Name="AreaCode"/>
-      <TextBlock Text="Tên khu phố"/><TextBox x:Name="AreaName"/>
-      <Button Content="Khởi tạo tài khoản quản trị hệ thống" Click="Setup_Click" MinHeight="42"/>
+      <TextBlock Text="Mật khẩu có ít nhất 12 ký tự." Foreground="#102D59" TextWrapping="Wrap"/>
+      <TextBlock Text="Nhập lại mật khẩu"/><PasswordBox x:Name="ConfirmPassword" Height="36" KeyDown="LoginPassword_KeyDown"/>
+      <TextBlock Text="Mã khu phố"/><TextBox x:Name="AreaCode" MaxLength="64" KeyDown="LoginPassword_KeyDown"/>
+      <TextBlock Text="Tên khu phố"/><TextBox x:Name="AreaName" MaxLength="200" KeyDown="LoginPassword_KeyDown"/>
      </StackPanel>
     </Border>
+    <TextBlock x:Name="Message" Foreground="#B51E31" TextWrapping="Wrap" Margin="4,10" AutomationProperties.LiveSetting="Assertive"/>
+    <Button x:Name="SetupButton" Content="Khởi tạo tài khoản quản trị hệ thống" Click="Setup_Click" MinHeight="42"/>
+    <Button x:Name="LoginButton" Content="Đăng nhập" Height="42" Click="Login_Click"/>
     <Button Content="Kiểm tra kho dữ liệu" Click="Diagnostics_Click" MinHeight="38" Margin="4,12,4,4"/>
-    <TextBlock x:Name="Message" Foreground="#B51E31" TextWrapping="Wrap" Margin="4,10"/>
     <Border Background="#FFF3DE" BorderBrush="#E7C887" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,12">
      <TextBlock Text="Bản thử nghiệm: kho dữ liệu chưa mã hóa. Chỉ sử dụng dữ liệu giả; không nhập CCCD hoặc hồ sơ thật." FontSize="12" TextWrapping="Wrap" Foreground="#8B4418"/>
     </Border>

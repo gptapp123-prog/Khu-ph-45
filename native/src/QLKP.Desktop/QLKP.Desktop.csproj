@@ -22,13 +22,15 @@
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
     <PackageReference Include="System.Data.SQLite" Version="2.0.4" />
-    <PackageReference Include="SourceGear.sqlite3" Version="3.53.4" GeneratePathProperty="true" />
+    <PackageReference Include="SQLite3MC.PCLRaw.lib" Version="2.6.1" GeneratePathProperty="true" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
     <Content Include="..\..\database\schema.sql" Link="schema.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyQlkpNativeSqliteX64" AfterTargets="Build">
-    <Error Condition="!Exists('$(PkgSourceGear_sqlite3)\runtimes\win-x64\native\e_sqlite3.dll')" Text="Missing official SQLite native x64 runtime asset." />
-    <Copy SourceFiles="$(PkgSourceGear_sqlite3)\runtimes\win-x64\native\e_sqlite3.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <ItemGroup><QlkpMcRuntime Include="$(PkgSQLite3MC_PCLRaw_lib)\runtimes\win-x64\native\*sqlite*.dll" /></ItemGroup>
+    <Error Condition="'@(QlkpMcRuntime->Count())' != '1'" Text="Expected one pinned SQLite3MC x64 native runtime." />
+    <Copy SourceFiles="@(QlkpMcRuntime)" DestinationFiles="@(QlkpMcRuntime->'$(TargetDir)e_sqlite3.dll')" SkipUnchangedFiles="true" />
   </Target>
 </Project>
