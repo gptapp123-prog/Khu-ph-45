@@ -2,14 +2,15 @@
  <DockPanel Margin="12"><ScrollViewer DockPanel.Dock="Top" MaxHeight="350" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
   <TextBlock Text="I01 · TÀI KHOẢN VÀ CẤP QUYỀN" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
   <TextBlock x:Name="Instruction" Foreground="#506682" TextWrapping="Wrap"/>
-  <Border BorderBrush="#D9E2F0" BorderThickness="1" Padding="12"><StackPanel>
+  <Border x:Name="CreateSection" BorderBrush="#D9E2F0" BorderThickness="1" Padding="12"><StackPanel>
    <WrapPanel><TextBlock Text="Tên đăng nhập" VerticalAlignment="Center"/><TextBox x:Name="Username" Width="200"/><TextBlock Text="Mật khẩu mới" VerticalAlignment="Center"/><PasswordBox x:Name="Password" Width="220"/></WrapPanel>
+   <CheckBox x:Name="CustomizeRights" Content="Giới hạn quyền riêng cho tài khoản này" Checked="Customize_Changed" Unchecked="Customize_Changed" Margin="8"/>
    <WrapPanel x:Name="UserRights"><CheckBox x:Name="ReadHousehold" Content="Xem hộ" Margin="9"/><CheckBox x:Name="CreateHousehold" Content="Thêm hộ" Margin="9"/><CheckBox x:Name="ReadPeople" Content="Xem nhân khẩu" Margin="9"/><CheckBox x:Name="CreatePeople" Content="Thêm nhân khẩu" Margin="9"/><CheckBox x:Name="UpdatePeople" Content="Cập nhật hồ sơ nhân khẩu" Margin="9"/><CheckBox x:Name="ReadChanges" Content="Xem biến động" Margin="9"/><CheckBox x:Name="CreateChanges" Content="Chuyển hộ" Margin="9"/><CheckBox x:Name="ReadQuality" Content="I08: Kiểm tra dữ liệu (chỉ đọc)" Margin="9"/></WrapPanel>
    <StackPanel x:Name="AdditionalRightsSection">
     <TextBlock Text="Quyền nghiệp vụ bổ sung (trong phạm vi được ủy quyền)" FontWeight="Bold" Margin="6"/>
     <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto"><WrapPanel x:Name="AdditionalRights"/></ScrollViewer>
    </StackPanel>
-   <Button x:Name="CreateButton" Content="Tạo tài khoản theo quyền được ủy quyền" HorizontalAlignment="Left" Click="Create_Click"/>
+   <Button x:Name="CreateButton" Content="Tạo tài khoản" HorizontalAlignment="Left" Click="Create_Click"/>
    <TextBlock x:Name="AccountsFeedback" TextWrapping="Wrap" Foreground="#9E4A14" Margin="4,7,4,0"/>
   </StackPanel></Border>
  </StackPanel></ScrollViewer>

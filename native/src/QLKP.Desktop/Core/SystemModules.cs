@@ -26,15 +26,15 @@ namespace QLKP.Desktop.Core {
     throw new InvalidOperationException("Mã danh mục gồm 2–32 ký tự A-Z, 0-9 hoặc dấu gạch dưới.");
    return code;
   }
-  private static string CatalogScope(Session s) { return s.Role=="ROOT_ADMIN"?"*":s.AreaId; }
-  public static RecordPage<CatalogEntry> ListCatalog(Session s,string term,int pageIndex,int pageSize=50) {
+  private static string CatalogScope(Session s,bool workArea=false) { return s.Role=="ROOT_ADMIN"&&!workArea?"*":s.AreaId; }
+  public static RecordPage<CatalogEntry> ListCatalog(Session s,string term,int pageIndex,int pageSize=50,bool workArea=false) {
    if(pageIndex<0 || pageSize<1 || pageSize>100)throw new ArgumentOutOfRangeException("pageIndex");
    using(var c=Open()) {
     Require(c,null,s,"I07","read",s==null?null:s.AreaId);
-    var scope=s.AreaId??"";
+    var scope=CatalogScope(s,workArea)??"";
     var search=NormalizeSearch(term??"").Replace("%","\\%").Replace("_","\\_");
     // Escape wildcards in the user's search term. Names are catalog metadata only, not citizen records.
-    var where="(scope_area='*' OR scope_area=@scope) AND (UPPER(category_code) LIKE @term ESCAPE '\\' OR UPPER(item_code) LIKE @term ESCAPE '\\' OR search_label LIKE @term ESCAPE '\\')";
+    var where="(scope_area=@scope OR (scope_area='*' AND @scope<>'*' AND NOT EXISTS(SELECT 1 FROM shared_catalog_items local WHERE local.scope_area=@scope AND local.category_code=shared_catalog_items.category_code AND local.item_code=shared_catalog_items.item_code))) AND (UPPER(category_code) LIKE @term ESCAPE '\\' OR UPPER(item_code) LIKE @term ESCAPE '\\' OR search_label LIKE @term ESCAPE '\\')";
     var match="%"+search+"%";
     var result=new RecordPage<CatalogEntry>{PageIndex=pageIndex,PageSize=pageSize};
     result.TotalCount=Convert.ToInt32(Scalar(c,null,"SELECT COUNT(*) FROM shared_catalog_items WHERE "+where,
@@ -50,18 +50,23 @@ namespace QLKP.Desktop.Core {
     return result;
    }
   }
-  public static string SaveCatalog(Session s,CatalogEntry row) {
+  public static string SaveCatalog(Session s,CatalogEntry row,bool workArea=false) {
    if(row==null)throw new ArgumentNullException("row");
    string category=CatalogCode(row.Category),code=CatalogCode(row.Code);
    string label=(row.Label??"").Trim(),details=(row.Details??"").Trim();
    if(label.Length<1||label.Length>150||details.Length>500)
     throw new InvalidOperationException("Nhãn danh mục phải từ 1–150 ký tự; mô tả tối đa 500 ký tự.");
    if(s==null)throw new UnauthorizedAccessException("Chưa đăng nhập.");
-   string scope=CatalogScope(s);
+   string scope=CatalogScope(s,workArea);
    if(String.IsNullOrEmpty(scope))throw new UnauthorizedAccessException("Tài khoản không có địa bàn quản lý.");
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     Require(c,tx,s,"I07","manage",s.AreaId);
     string id=row.Id;
+    if(!String.IsNullOrWhiteSpace(id)) {
+     string existingScope=Convert.ToString(Scalar(c,tx,"SELECT scope_area FROM shared_catalog_items WHERE id=@id",P("@id",id)));
+     if(existingScope=="*"&&scope!="*")id=null;
+     else if(existingScope!=scope)throw new UnauthorizedAccessException("Danh mục thuộc khu phố khác.");
+    }
     if(String.IsNullOrWhiteSpace(id)) {
      id=Id();
      Exec(c,tx,@"INSERT INTO shared_catalog_items

@@ -14,10 +14,11 @@ namespace QLKP.Desktop.Views {
    catch(Exception e){Accounts.ItemsSource=null;Info.Text="Không thể tải danh sách: "+e.GetType().Name;} }
   void Reload_Click(object sender,RoutedEventArgs e){Reload();}
   void Accounts_SelectionChanged(object sender,SelectionChangedEventArgs e) {
-   var row=Selected; SelectedAccount.Text=row==null?"Chưa chọn tài khoản":row.Username+" · "+DisplayLabels.Role(row.Role)+" · "+row.Status;
+   var row=Selected;SaveRights.IsEnabled=row!=null&&row.Id!=session.Id&&(session.Role=="ROOT_ADMIN"?row.Role=="KP_ADMIN":row.Role=="ASSIGNED_USER");BlockAccount.IsEnabled=UnblockAccount.IsEnabled=row!=null&&row.Role=="ASSIGNED_USER"&&session.Role=="KP_ADMIN"; SelectedAccount.Text=row==null?"Chưa chọn tài khoản":row.Username+" · "+DisplayLabels.Role(row.Role)+" · "+row.Status;
    RightB01Read.IsChecked=false;RightB01Create.IsChecked=false;RightB02Read.IsChecked=false;RightB02Create.IsChecked=false;RightB02Update.IsChecked=false;RightB03Read.IsChecked=false;RightB03Create.IsChecked=false;RightI08Read.IsChecked=false;
    foreach(CheckBox cb in AdditionalRights.Children)cb.IsChecked=false;
    if(row==null)return;
+   if(row.Id==session.Id||row.Role=="ROOT_ADMIN"||(session.Role!="ROOT_ADMIN"&&row.Role!="ASSIGNED_USER")){Info.Text="Tài khoản quản trị được bảo vệ; không thay đổi từ thao tác này.";return;}
    try {
     var rights=new HashSet<string>(DataStore.GetAccountRights(session,row.Id));
     RightB01Read.IsChecked=rights.Contains("B01:read");RightB01Create.IsChecked=rights.Contains("B01:create");

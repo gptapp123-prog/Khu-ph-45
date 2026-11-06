@@ -89,9 +89,9 @@ namespace QLKP.Desktop.Core {
    if(panel==null||panel is NoticeView)throw new InvalidDataException("Feature navigation failed: "+code);
    return panel;
   }
-  static void ExerciseModule(Session actor,ModuleRecordsView panel,ModuleDefinition spec) {
+  static void ExerciseModule(Session actor,ModuleRecordsView panel,ModuleDefinition spec,string prefix="UI-") {
    Click(Control<Button>(panel,"NewButton"));
-   Control<TextBox>(panel,"RecordCode").Text="UI-"+spec.Code;
+   Control<TextBox>(panel,"RecordCode").Text=prefix+spec.Code;
    Control<TextBox>(panel,"RecordTitle").Text="[MẪU] Kiểm thử cửa sổ "+spec.Code;
    var typed=Control<StackPanel>(panel,"TypedFields");
    for(int i=0;i<spec.Fields.Length;i++) {
@@ -104,7 +104,7 @@ namespace QLKP.Desktop.Core {
      new[]{"number","nonnegative","percentage"}.Contains(field.Type)?"1":"[MẪU]";
    }
    Click(Control<Button>(panel,"SaveButton"),true);
-   var rows=DataStore.GetModulePage(actor,spec.Code,"UI-"+spec.Code,0).Items;
+   var rows=DataStore.GetModulePage(actor,spec.Code,prefix+spec.Code,0).Items;
    if(rows.Count!=1||rows[0].Version!=1)throw new InvalidDataException("UI create/read failed: "+spec.Code);
    string id=rows[0].Id;
    Control<TextBox>(panel,"RecordTitle").Text="[MẪU] Đã cập nhật "+spec.Code;
@@ -151,9 +151,9 @@ namespace QLKP.Desktop.Core {
      Control<TextBox>(accounts,"Username").Text="ui_admin";Control<PasswordBox>(accounts,"Password").Password=adminSecret;
      Click(Control<Button>(accounts,"CreateButton"));
      var admin=DataStore.Login("ui_admin",adminSecret);if(admin==null||admin.Role!="KP_ADMIN")throw new InvalidDataException("Account UI create failed.");
-     var rights=DataStore.GetAccountRights(root,admin.Id);rights.AddRange(ModuleCatalog.AdditionalRights());DataStore.SetAccountRights(root,admin.Id,rights);
+     if(FeatureCatalog.All.Any(f=>!DataStore.Can(admin,f.Code,"read")))throw new InvalidDataException("New KP admin does not see all features by default.");
      var visited=new HashSet<string>();
-     foreach(var code in new[]{"I01","I02","I03","I04","I07","I09"}) {run.BeginStep("UI_NAV_"+code);Navigate(rootWindow,code);visited.Add(code);}
+     foreach(var code in FeatureCatalog.All.Select(x=>x.Code)) {run.BeginStep("UI_NAV_"+code);Navigate(rootWindow,code);visited.Add(code);}
      Snapshot(rootWindow,evidence,"root-system");rootWindow.Close();
      run.BeginStep("UI_ADMIN_LOGIN");var main=Login("ui_admin",adminSecret);admin=DataStore.Login("ui_admin",adminSecret);
      run.BeginStep("UI_DATA_MERGE_BUTTON");
@@ -173,13 +173,21 @@ namespace QLKP.Desktop.Core {
       finally{if(window!=null)window.Close();}
      };
      mergeTimer.Start();try{Click(Control<Button>(quality,"MergeButton"));}finally{mergeTimer.Stop();}if(mergeError!=null)throw new InvalidDataException("Merge dialog UI failed.",mergeError);
-     foreach(var feature in FeatureCatalog.All.Where(x=>x.Code!="I04")) {
+     foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
       if(new[]{"B01","A02","C01","H03"}.Contains(feature.Code))Snapshot(main,evidence,feature.Code);
      }
      if(visited.Count!=56)throw new InvalidDataException("Not all 56 routes opened.");
      Console.WriteLine("UI_NAVIGATION_PASS 56");Console.WriteLine("UI_MODULE_WRITE_PASS "+ModuleCatalog.Editable.Length);
+     run.BeginStep("UI_CREATE_DEFAULT_ORDINARY_ACCOUNT");var accountPanel=Navigate(main,"I01");
+     string ordinarySecret="T-"+Guid.NewGuid().ToString("N")+"!";
+     Control<TextBox>(accountPanel,"Username").Text="ui_ordinary";Control<PasswordBox>(accountPanel,"Password").Password=ordinarySecret;
+     Click(Control<Button>(accountPanel,"CreateButton"));main.Close();
+     var ordinary=DataStore.Login("ui_ordinary",ordinarySecret);main=Login("ui_ordinary",ordinarySecret);
+     foreach(var feature in FeatureCatalog.All){run.BeginStep("UI_ORDINARY_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_ORDINARY_WRITE_"+feature.Code);ExerciseModule(ordinary,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code),"USER-");}}
+     var protectedAccounts=Navigate(main,"I01");if(Control<Border>(protectedAccounts,"CreateSection").Visibility!=Visibility.Collapsed)throw new InvalidDataException("Ordinary account can create administrator accounts.");
+     Snapshot(main,evidence,"ordinary-protected-accounts");Navigate(main,"I07");Snapshot(main,evidence,"ordinary-catalog");
      run.BeginStep("UI_LOGOUT_BUTTON");Click(Control<Button>(main,"LogoutButton"));
      if(Application.Current.Windows.OfType<MainWindow>().Any())throw new InvalidDataException("Logout left a main window open.");
      var returned=Application.Current.Windows.OfType<LoginWindow>().SingleOrDefault();

@@ -2,7 +2,7 @@
  <DockPanel Margin="14">
   <StackPanel DockPanel.Dock="Top">
    <TextBlock Text="I02 · VAI TRÒ, PHẠM VI VÀ QUYỀN TÀI KHOẢN" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
-   <TextBlock Text="Chọn đúng ID tài khoản → kiểm tra trần ủy quyền → áp quyền → hủy phiên cũ. ADMIN gốc không mặc nhiên xem dữ liệu công dân." TextWrapping="Wrap" Foreground="#526781"/>
+   <TextBlock Text="Tài khoản có sẵn quyền nghiệp vụ. Chỉ đặt giới hạn riêng khi cần. Tài khoản quản trị được bảo vệ khỏi khóa hoặc thay thế." TextWrapping="Wrap" Foreground="#526781"/>
    <WrapPanel Margin="0,10"><Button Content="Tải danh sách tài khoản" Click="Reload_Click"/><TextBlock x:Name="Info" Foreground="#A44312" VerticalAlignment="Center" TextWrapping="Wrap"/></WrapPanel>
   </StackPanel>
   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="360"/></Grid.ColumnDefinitions>

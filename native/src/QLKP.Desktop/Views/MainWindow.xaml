@@ -13,6 +13,12 @@
     </StackPanel>
    </Grid>
   </Border>
+  <Border DockPanel.Dock="Top" Background="White" BorderBrush="#D5E0ED" BorderThickness="0,0,0,1" Padding="8,4">
+   <StackPanel>
+    <WrapPanel><TextBlock x:Name="WorkspaceState" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="650"/><Button x:Name="IntakeButton" Content="Nhập dữ liệu" Click="Intake_Click"/><Button x:Name="MergeWorkspaceButton" Content="Hợp nhất kho" Click="MergeWorkspace_Click"/></WrapPanel>
+    <WrapPanel x:Name="ScopePanel" Visibility="Collapsed"><TextBlock Text="Khu phố đang làm việc" VerticalAlignment="Center"/><ComboBox x:Name="AreaSelector" DisplayMemberPath="Display" SelectedValuePath="Id" SelectionChanged="Area_Changed" MinWidth="270"/></WrapPanel>
+   </StackPanel>
+  </Border>
   <Border DockPanel.Dock="Bottom" Background="#E8EFF8" Padding="8,5">
    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <TextBlock Text="Kho dữ liệu mã hóa · Làm việc cục bộ" Foreground="#964318" TextWrapping="Wrap" VerticalAlignment="Center"/>

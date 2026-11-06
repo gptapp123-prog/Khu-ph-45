@@ -8,7 +8,10 @@ namespace QLKP.Desktop.Views {
  public partial class BackupView : UserControl {
   readonly Session admin;
   string restoreFile;
-  public BackupView(Session s){InitializeComponent();admin=s;DataStore.RequireRootMaintenance(s);}
+  public BackupView(Session s){InitializeComponent();admin=s;
+   if(!DataStore.Can(s,"I04","read"))throw new UnauthorizedAccessException();
+   if(s.Role!="ROOT_ADMIN"){BackupActions.Visibility=RestoreActions.Visibility=Visibility.Collapsed;Result.Text="Kho đang được mã hóa. Quản trị hệ thống tạo bản sao và khôi phục toàn bộ kho vì bản sao có chứa tài khoản quản trị. Để đưa hồ sơ vào kho hiện tại, sử dụng Hợp nhất dữ liệu tại I08; tài khoản và quyền đang có được giữ nguyên.";}
+  }
   void Backup_Click(object sender,RoutedEventArgs e) {
    if(BackupPass.Password!=BackupPassAgain.Password){Result.Text="Hai mật khẩu không trùng nhau.";return;}
    var dialog=new SaveFileDialog{Title="Chọn nơi lưu bản sao mã hóa",Filter="QLKP encrypted backup (*.qlkpbak)|*.qlkpbak",DefaultExt=".qlkpbak",AddExtension=true,

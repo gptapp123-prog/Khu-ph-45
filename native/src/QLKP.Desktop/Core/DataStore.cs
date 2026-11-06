@@ -94,6 +94,7 @@ namespace QLKP.Desktop.Core {
      }
     } finally {if(rebuild)Exec(c,null,"PRAGMA foreign_keys=ON");}
    }
+   UpgradeBusinessDefaults();
   }
   // Migration for existing V1–V3 databases. All schema updates and search-key backfill
   // occur inside the same SQLite transaction, so a failure never leaves half a migration.
@@ -150,6 +151,7 @@ namespace QLKP.Desktop.Core {
     string a=Id(),u=Id();
     Exec(c,tx,"INSERT INTO areas(id,code,name,created_utc) VALUES(@i,@c,@n,@t)",P("@i",a),P("@c",areaCode.Trim()),P("@n",areaName.Trim()),P("@t",Now));
     Exec(c,tx,"INSERT INTO accounts(id,username,hash_b64,salt_b64,role,area_id,created_utc) VALUES(@i,@u,@h,@s,'ROOT_ADMIN',NULL,@t)",P("@i",u),P("@u",username.Trim()),P("@h",secret.Item1),P("@s",secret.Item2),P("@t",Now));
+    EnsureReferenceRows(c,tx,u,"*");
     Audit(c,tx,u,"FIRST_OWNER_SETUP","account",u);
     tx.Commit();
    }
@@ -187,6 +189,7 @@ namespace QLKP.Desktop.Core {
     Exec(c,tx,"DELETE FROM login_throttle WHERE account_id=@id",P("@id",id));
     Audit(c,tx,id,"LOGIN_SUCCESS","account",id);
     tx.Commit();
+    if(role=="ROOT_ADMIN")area=Convert.ToString(Scalar(c,null,"SELECT id FROM areas ORDER BY created_utc,id LIMIT 1"));
     return new Session {Id=id,Username=user,Role=role,AreaId=area,PolicyVersion=version,ExpiresUtc=DateTime.UtcNow.AddHours(8)};
    }
   }
@@ -201,11 +204,18 @@ namespace QLKP.Desktop.Core {
     using(var r=identity.ExecuteReader()) {
      if(!r.Read())return false;
      string realRole=r.GetString(0),realArea=r.IsDBNull(1)?null:r.GetString(1);
-     if(realRole!=s.Role||realArea!=s.AreaId||r.GetInt64(2)!=s.PolicyVersion)return false;
+     if(realRole!=s.Role||(realRole!="ROOT_ADMIN"&&realArea!=s.AreaId)||r.GetInt64(2)!=s.PolicyVersion)return false;
     }
    }
-   if(s.Role=="ROOT_ADMIN")return ((feature=="I01"||feature=="I02"||feature=="I04"||feature=="I07")&&action=="manage") || ((feature=="I03"||feature=="I07"||feature=="I09")&&action=="read") || (feature=="I09"&&(action=="test"||action=="export"));
+   if(s.Role=="ROOT_ADMIN") {
+    if(((feature=="I01"||feature=="I02"||feature=="I04"||feature=="I07")&&action=="manage")||((feature=="I03"||feature=="I07"||feature=="I09")&&action=="read")||(feature=="I09"&&(action=="test"||action=="export")))return true;
+    if(String.IsNullOrEmpty(areaId)||areaId!=s.AreaId||Convert.ToInt32(Scalar(c,tx,"SELECT count(*) FROM areas WHERE id=@a",P("@a",areaId)))!=1)return false;
+    return (action=="read"&&new[]{"I01","I02","I04"}.Contains(feature))||BusinessDefaultRights().Contains(feature+":"+action);
+   }
+   if(feature=="I04"&&action=="manage")return false;
+   if((feature=="I01"||feature=="I02")&&action=="manage"&&s.Role!="KP_ADMIN")return false;
    if(String.IsNullOrEmpty(areaId)||areaId!=s.AreaId)return false;
+   if(action=="read"&&new[]{"I01","I02","I04"}.Contains(feature))return true;
    return Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM permissions WHERE account_id=@u AND feature=@f AND action=@x AND area_id=@a",P("@u",s.Id),P("@f",feature),P("@x",action),P("@a",areaId)))>0;
   }
   static void Require(SQLiteConnection c,SQLiteTransaction tx,Session s,string feature,string action,string areaId) {
@@ -246,33 +256,23 @@ namespace QLKP.Desktop.Core {
    Audit(c,tx,actorId,"CREATE_ACCOUNT","account",userId);
   }
   static void Grant(SQLiteConnection c,SQLiteTransaction tx,string target,string feature,string action,string areaId,string actorId) {
-   Exec(c,tx,"INSERT INTO permissions(account_id,feature,action,area_id,granted_by) VALUES(@u,@f,@x,@a,@g)",P("@u",target),P("@f",feature),P("@x",action),P("@a",areaId),P("@g",actorId));
+   Exec(c,tx,"INSERT OR IGNORE INTO permissions(account_id,feature,action,area_id,granted_by) VALUES(@u,@f,@x,@a,@g)",P("@u",target),P("@f",feature),P("@x",action),P("@a",areaId),P("@g",actorId));
   }
   public static void CreateAccount(Session actor,string username,string password,IList<string> requestedRights) {
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     Require(c,tx,actor,"I01","manage",actor.AreaId);
     string target, area;
     if(actor.Role=="ROOT_ADMIN") {
-     area=Convert.ToString(Scalar(c,tx,"SELECT id FROM areas ORDER BY created_utc LIMIT 1"));
+     area=actor.AreaId;
      if(String.IsNullOrEmpty(area))throw new InvalidOperationException("Chưa có khu phố.");
      InsertAccount(c,tx,username,password,"KP_ADMIN",area,actor.Id,out target);
-     foreach(string f in new[]{"B01","B02","B03"})foreach(string a in new[]{"read","create"}) {
-      Grant(c,tx,target,f,a,area,actor.Id);
-      Exec(c,tx,"INSERT INTO delegation_ceiling(admin_id,feature,action,area_id) VALUES(@u,@f,@x,@a)",P("@u",target),P("@f",f),P("@x",a),P("@a",area));
-     }
-     Grant(c,tx,target,"B02","update",area,actor.Id);
-     Exec(c,tx,"INSERT INTO delegation_ceiling(admin_id,feature,action,area_id) VALUES(@u,'B02','update',@a)",P("@u",target),P("@a",area));
-     // Least privilege: newly added A/B04-B07 modules are NOT granted automatically.
-     // ROOT_ADMIN explicitly sets the delegation ceiling via I02 before KP_ADMIN can assign them.
+     GrantBusinessDefaults(c,tx,target,area,actor.Id,true);
      Grant(c,tx,target,"I01","manage",area,actor.Id);
      Grant(c,tx,target,"I02","manage",area,actor.Id);
-     Grant(c,tx,target,"I03","read",area,actor.Id);
-     Grant(c,tx,target,"I08","read",area,actor.Id);
-     Exec(c,tx,"INSERT INTO delegation_ceiling(admin_id,feature,action,area_id) VALUES(@u,'I08','read',@a)",P("@u",target),P("@a",area));
     } else if(actor.Role=="KP_ADMIN") {
      area=actor.AreaId;
      var valid = new HashSet<string>(new[]{"B01:read","B01:create","B02:read","B02:create","B02:update","B03:read","B03:create","I08:read"});
-     var unique=new HashSet<string>(requestedRights??new List<string>());
+     var unique=new HashSet<string>(requestedRights==null||requestedRights.Count==0?BusinessDefaultRights():requestedRights);
      foreach(var perm in ModuleCatalog.AdditionalRights())valid.Add(perm);
      foreach(var perm in unique) {
       if(!valid.Contains(perm))throw new UnauthorizedAccessException("Quyền không hợp lệ: "+perm);
@@ -313,7 +313,7 @@ namespace QLKP.Desktop.Core {
    using(var c=Open()) {
     CheckTarget(c,null,actor,targetId);
     var rights=new List<string>();
-    using(var cmd=new SQLiteCommand("SELECT feature,action FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09') ORDER BY feature,action",c)) {
+    using(var cmd=new SQLiteCommand("SELECT feature,action FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09') ORDER BY feature,action",c)) {
      cmd.Parameters.Add(P("@id",targetId));
      using(var r=cmd.ExecuteReader())while(r.Read())rights.Add(r.GetString(0)+":"+r.GetString(1));
     }
@@ -334,9 +334,9 @@ namespace QLKP.Desktop.Core {
      }
     }
     // Only editable B01/B02 rights are replaced. Management rights are kept separate.
-    Exec(c,tx,"DELETE FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
+    Exec(c,tx,"DELETE FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
     if(actor.Role=="ROOT_ADMIN")
-     Exec(c,tx,"DELETE FROM delegation_ceiling WHERE admin_id=@id AND feature IN ('B01','B02','B03','I08','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
+     Exec(c,tx,"DELETE FROM delegation_ceiling WHERE admin_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
     foreach(string right in wanted) {
      var pair=right.Split(':');
      Grant(c,tx,targetId,pair[0],pair[1],area,actor.Id);
@@ -348,13 +348,13 @@ namespace QLKP.Desktop.Core {
      // Lowering a delegated ceiling revokes downstream grants that no longer fit it.
      var affected=new List<string>();
      using(var cmd=new SQLiteCommand(@"SELECT DISTINCT p.account_id FROM permissions p
-       WHERE p.granted_by=@admin AND p.feature IN ('B01','B02','B03','I08','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
+       WHERE p.granted_by=@admin AND p.feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
        AND NOT EXISTS (SELECT 1 FROM delegation_ceiling d WHERE d.admin_id=@admin
          AND d.area_id=p.area_id AND d.feature=p.feature AND d.action=p.action)",c,tx)) {
       cmd.Parameters.Add(P("@admin",targetId));
       using(var r=cmd.ExecuteReader())while(r.Read())affected.Add(r.GetString(0));
      }
-     Exec(c,tx,@"DELETE FROM permissions WHERE granted_by=@admin AND feature IN ('B01','B02','B03','I08','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
+     Exec(c,tx,@"DELETE FROM permissions WHERE granted_by=@admin AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
        AND NOT EXISTS (SELECT 1 FROM delegation_ceiling d WHERE d.admin_id=@admin
          AND d.area_id=permissions.area_id AND d.feature=permissions.feature AND d.action=permissions.action)",P("@admin",targetId));
      foreach(var userId in affected)
@@ -368,6 +368,7 @@ namespace QLKP.Desktop.Core {
   public static void SetAccountStatus(Session actor,string targetId,bool enabled) {
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     CheckTarget(c,tx,actor,targetId);
+    if(Convert.ToString(Scalar(c,tx,"SELECT role FROM accounts WHERE id=@id",P("@id",targetId)))!="ASSIGNED_USER")throw new UnauthorizedAccessException("Tài khoản quản trị được bảo vệ; không khóa hoặc thay thế bằng thao tác thông thường.");
     Exec(c,tx,"UPDATE accounts SET active=@active,policy_version=policy_version+1 WHERE id=@id",
       P("@active",enabled?1:0),P("@id",targetId));
     Audit(c,tx,actor.Id,enabled?"ENABLE_ACCOUNT":"DISABLE_ACCOUNT","account",targetId);
@@ -393,8 +394,8 @@ namespace QLKP.Desktop.Core {
   public static List<AccountRow> ListAccounts(Session actor) {
    using(var c=Open()) {
     if(!HasPermission(c,null,actor,"I01","manage",actor==null?null:actor.AreaId))
-     Require(c,null,actor,"I02","manage",actor==null?null:actor.AreaId);
-    string sql=actor.Role=="ROOT_ADMIN"?"SELECT id,username,role,COALESCE(area_id,''),active FROM accounts WHERE role='KP_ADMIN' ORDER BY username":"SELECT id,username,role,COALESCE(area_id,''),active FROM accounts WHERE role='ASSIGNED_USER' AND area_id=@a ORDER BY username";
+     Require(c,null,actor,"I01","read",actor==null?null:actor.AreaId);
+    string sql=actor.Role=="ROOT_ADMIN"?"SELECT id,username,role,COALESCE(area_id,''),active FROM accounts ORDER BY role,username":"SELECT id,username,role,COALESCE(area_id,''),active FROM accounts WHERE role='ROOT_ADMIN' OR area_id=@a ORDER BY role,username";
     using(var cmd=new SQLiteCommand(sql,c)) {
      if(actor.Role!="ROOT_ADMIN")cmd.Parameters.Add(P("@a",actor.AreaId));
      var list=new List<AccountRow>();using(var r=cmd.ExecuteReader())while(r.Read())list.Add(new AccountRow{Id=r.GetString(0),Username=r.GetString(1),Role=r.GetString(2),AreaId=r.GetString(3),Status=r.GetInt32(4)==1?"Hoạt động":"Bị khóa"});

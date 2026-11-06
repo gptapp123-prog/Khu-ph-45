@@ -35,7 +35,7 @@ namespace QLKP.Desktop.Core {
   internal static void RunMergeRegression(TestRunRecorder run,Session root,Session admin,Session limited) {
    string path=CreateMergeFixture(admin,"MAIN");string policy=CurrentFingerprint("accounts","permissions","delegation_ceiling");
    run.BeginStep("MERGE_PERMISSION_AND_SCOPE_DENIED");
-   foreach(var actor in new[]{root,limited}){bool denied=false;try{using(var plan=PreviewMerge(actor,path,"")){} }catch(UnauthorizedAccessException){denied=true;}if(!denied)throw new InvalidDataException("Unapproved merger accepted.");}
+   foreach(var actor in new[]{new Session{Id=root.Id,Role=root.Role,AreaId=root.AreaId,PolicyVersion=root.PolicyVersion,ExpiresUtc=DateTime.UtcNow.AddMinutes(-1)},limited}){bool denied=false;try{using(var plan=PreviewMerge(actor,path,"")){} }catch(UnauthorizedAccessException){denied=true;}if(!denied)throw new InvalidDataException("Unapproved merger accepted.");}
    string wrong=CreateMergeFixture(admin,"OTHER","OTHER-AREA");bool rejected=false;try{using(var plan=PreviewMerge(admin,wrong,"")){} }catch(InvalidOperationException){rejected=true;}if(!rejected)throw new InvalidDataException("Cross-area source accepted.");
    run.BeginStep("MERGE_PREVIEW_DOES_NOT_CHANGE_CURRENT_DATA");
    string before=CurrentFingerprint();

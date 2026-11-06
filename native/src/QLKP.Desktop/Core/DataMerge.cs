@@ -24,7 +24,7 @@ namespace QLKP.Desktop.Core {
   static string MergeStage(string prefix){string dir=Path.Combine(DataFolder,"maintenance");Directory.CreateDirectory(dir);return Path.Combine(dir,prefix+"-"+Guid.NewGuid().ToString("N")+".qlkpvault");}
   static void RequireMerge(SQLiteConnection c,SQLiteTransaction tx,Session s) {
    Require(c,tx,s,"I08","read",s==null?null:s.AreaId);Require(c,tx,s,"I08","merge",s.AreaId);
-   if(s.Role!="KP_ADMIN")throw new UnauthorizedAccessException("Hợp nhất chỉ dành cho quản trị khu phố đã được cấp quyền.");
+   if(!new[]{"ROOT_ADMIN","KP_ADMIN","ASSIGNED_USER"}.Contains(s.Role))throw new UnauthorizedAccessException("Tài khoản không hợp lệ.");
   }
   static List<Dictionary<string,object>> MergeRows(SQLiteConnection c,string table,string where="",SQLiteTransaction tx=null,params SQLiteParameter[] parameters) {
    var rows=new List<Dictionary<string,object>>();using(var cmd=new SQLiteCommand("SELECT * FROM "+VaultStorage.Quote(table)+(where.Length>0?" WHERE "+where:""),c,tx)) {

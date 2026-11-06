@@ -411,3 +411,6 @@ CREATE TABLE IF NOT EXISTS data_merge_items (
  PRIMARY KEY(run_id,source_table,source_id)
 );
 CREATE INDEX IF NOT EXISTS ix_data_merge_origin ON data_merge_items(source_table,source_id);
+
+-- One-time default business policy migration; no password or identity is stored here.
+CREATE TABLE IF NOT EXISTS system_policy_migrations (code TEXT PRIMARY KEY, applied_utc TEXT NOT NULL);

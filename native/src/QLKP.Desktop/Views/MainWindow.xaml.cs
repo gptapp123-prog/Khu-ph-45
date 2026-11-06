@@ -8,7 +8,7 @@ namespace QLKP.Desktop.Views {
  public partial class MainWindow : Window {
   readonly Session session;
   readonly List<Feature> authorized;
-  readonly List<string> visibleGroups;
+  readonly List<string> visibleGroups;bool scopeReady;
   public MainWindow(Session s){
    InitializeComponent();WindowLayout.FitInitialSize(this);session=s;
    authorized=FeatureCatalog.All.Where(f =>
@@ -17,10 +17,10 @@ namespace QLKP.Desktop.Views {
     (f.Code=="B01" && DataStore.Can(s,"B01","read")) ||
     (f.Code=="B02" && DataStore.Can(s,"B02","read")) ||
     (f.Code=="B03" && DataStore.Can(s,"B03","read")) ||
-    (f.Code=="I01" && DataStore.Can(s,"I01","manage")) ||
-    (f.Code=="I02" && DataStore.Can(s,"I02","manage")) ||
+    (f.Code=="I01" && DataStore.Can(s,"I01","read")) ||
+    (f.Code=="I02" && DataStore.Can(s,"I02","read")) ||
     (f.Code=="I03" && DataStore.Can(s,"I03","read")) ||
-    (f.Code=="I04" && DataStore.Can(s,"I04","manage")) ||
+    (f.Code=="I04" && DataStore.Can(s,"I04","read")) ||
     (f.Code=="I08" && DataStore.Can(s,"I08","read")) ||
     (f.Code=="I05" && DataStore.Can(s,"I05","read")) ||
     (f.Code=="I06" && DataStore.Can(s,"I06","read")) ||
@@ -30,17 +30,25 @@ namespace QLKP.Desktop.Views {
    visibleGroups=FeatureCatalog.GroupNames.Where(g=>authorized.Any(f=>f.Code[0]==g[0])).ToList();
    CurrentUser.Text=s.Username+" · "+DisplayLabels.Role(s.Role)+" · "+DataStore.AreaName(s);
    AccountLabel.Text=CurrentUser.Text;
-   bool accountAccess=DataStore.Can(s,"I01","manage");
+   bool accountAccess=DataStore.Can(s,"I01","read");
    AccountButton.Visibility=accountAccess?Visibility.Visible:Visibility.Collapsed;
    CurrentUser.Visibility=accountAccess?Visibility.Collapsed:Visibility.Visible;
    Status.Text="Phiên bản "+System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
    if(s.Role!="ASSIGNED_USER")Status.ToolTip=DataStore.DatabasePath;
+   IntakeButton.Visibility=DataStore.Can(s,"B01","create")?Visibility.Visible:Visibility.Collapsed;
+   MergeWorkspaceButton.Visibility=DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;
+   if(s.Role=="ROOT_ADMIN"){AreaSelector.ItemsSource=DataStore.ListWorkAreas(s);AreaSelector.SelectedValue=s.AreaId;ScopePanel.Visibility=Visibility.Visible;}
+   scopeReady=true;RefreshWorkspace();
    Groups.ItemsSource=visibleGroups;
    if(visibleGroups.Count>0)Groups.SelectedIndex=0;
    else FeatureContent.Content=new NoticeView("Tài khoản chưa được cấp quyền sử dụng chức năng. Liên hệ quản trị khu phố.");
   }
+  void RefreshWorkspace(){try{WorkspaceState.Text=DataStore.GetWorkspaceSummary(session).Display;}catch(Exception ex){StartupDiagnostics.WriteException("WORKSPACE_SUMMARY_FAIL",ex);WorkspaceState.Text="Chưa đọc được trạng thái kho. Xem nhật ký tại I09.";}}
+  void Intake_Click(object sender,RoutedEventArgs e){try{new DataIntakeWindow(session){Owner=this}.ShowDialog();RefreshWorkspace();}catch(Exception ex){StartupDiagnostics.WriteException("INTAKE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được nhập dữ liệu.";}}
+  void MergeWorkspace_Click(object sender,RoutedEventArgs e){try{new DataMergeWindow(session){Owner=this}.ShowDialog();RefreshWorkspace();}catch(Exception ex){StartupDiagnostics.WriteException("MERGE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được hợp nhất dữ liệu.";}}
+  void Area_Changed(object sender,SelectionChangedEventArgs e){if(!scopeReady||AreaSelector.SelectedValue==null||Convert.ToString(AreaSelector.SelectedValue)==session.AreaId)return;try{var next=new MainWindow(DataStore.SwitchWorkArea(session,Convert.ToString(AreaSelector.SelectedValue)));Application.Current.MainWindow=next;next.Show();Close();}catch(Exception ex){StartupDiagnostics.WriteException("AREA_SWITCH_FAIL",ex);WorkspaceState.Text="Không chuyển được khu phố làm việc.";}}
   void Account_Click(object sender,RoutedEventArgs e){
-   if(!DataStore.Can(session,"I01","manage")){FeatureContent.Content=new NoticeView("Phiên không có quyền quản trị tài khoản.");return;}
+   if(!DataStore.Can(session,"I01","read")){FeatureContent.Content=new NoticeView("Phiên không có quyền quản trị tài khoản.");return;}
    Groups.SelectedItem=visibleGroups.First(g=>g[0]=='I');
    Features.SelectedItem=authorized.First(f=>f.Code=="I01");
   }
@@ -88,10 +96,10 @@ namespace QLKP.Desktop.Views {
    else if(f.Code=="B01")FeatureContent.Content=DataStore.Can(session,"B01","read")?new HouseholdView(session,NavigateToPerson):(UserControl)new NoticeView("Không được phép xem hồ sơ hộ.");
    else if(f.Code=="B02")FeatureContent.Content=DataStore.Can(session,"B02","read")?new PeopleView(session,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem nhân khẩu.");
    else if(f.Code=="B03")FeatureContent.Content=DataStore.Can(session,"B03","read")?new ResidencyChangeView(session,NavigateToPerson,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem biến động.");
-   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","manage")?new AccountsView(session):(UserControl)new NoticeView("Không được phép quản trị tài khoản.");
-   else if(f.Code=="I02")FeatureContent.Content=DataStore.Can(session,"I02","manage")?new AccessControlView(session):(UserControl)new NoticeView("Không được phép quản lý quyền.");
+   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","read")?new AccountsView(session):(UserControl)new NoticeView("Không được phép quản trị tài khoản.");
+   else if(f.Code=="I02")FeatureContent.Content=DataStore.Can(session,"I02","manage")?new AccessControlView(session):(UserControl)new CurrentRightsView(session);
    else if(f.Code=="I03")FeatureContent.Content=DataStore.Can(session,"I03","read")?new AuditTrailView(session):(UserControl)new NoticeView("Không được phép xem nhật ký.");
-   else if(f.Code=="I04")FeatureContent.Content=DataStore.Can(session,"I04","manage")?new BackupView(session):(UserControl)new NoticeView("Không được phép sao lưu và khôi phục.");
+   else if(f.Code=="I04")FeatureContent.Content=DataStore.Can(session,"I04","read")?new BackupView(session):(UserControl)new NoticeView("Không được phép sao lưu và khôi phục.");
    else if(f.Code=="I08")FeatureContent.Content=DataStore.Can(session,"I08","read")?new DataQualityView(session,NavigateToHousehold,NavigateToPerson):(UserControl)new NoticeView("Không được phép kiểm tra chất lượng dữ liệu.");
    else if(f.Code=="I05")FeatureContent.Content=DataStore.Can(session,"I05","read")?new LocalQrIntakeView(session,NavigateToLinked):(UserControl)new NoticeView("Không có quyền I05:read.");
    else if(f.Code=="I06")FeatureContent.Content=DataStore.Can(session,"I06","read")?new OfflineCatalogTransferView(session):(UserControl)new NoticeView("Không có quyền I06:read.");

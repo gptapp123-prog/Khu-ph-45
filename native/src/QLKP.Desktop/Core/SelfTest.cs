@@ -45,11 +45,13 @@ namespace QLKP.Desktop.Core {
     journal.BeginStep("ACCOUNTS_AND_RIGHTS");
     DataStore.SetupOwner("test_root", ownerSecret, "KP-TEST", "Khu phố mẫu");
     var root=DataStore.Login("test_root",ownerSecret);
-    if(root==null||root.Role!="ROOT_ADMIN"||DataStore.Can(root,"B01","read"))throw new InvalidDataException("Không bảo đảm quyền ADMIN gốc.");
+    if(root==null||root.Role!="ROOT_ADMIN"||!DataStore.Can(root,"B01","read"))throw new InvalidDataException("Không bảo đảm quyền ADMIN gốc.");
     DataStore.CreateAccount(root,"test_admin",adminSecret,null);
     var admin=DataStore.Login("test_admin",adminSecret);
     if(admin==null||admin.Role!="KP_ADMIN"||!DataStore.Can(admin,"I08","read"))throw new InvalidDataException("Không tạo được ADMIN khu phố hoặc thiếu quyền I08 được cấp rõ ràng.");
-    // ROOT explicitly opts in to the new A/B privileges (not silently granted).
+    admin=DataStore.RunDefaultPolicyRegression(journal,root,admin,adminSecret);
+    var expiredRoot=new Session{Id=root.Id,Username=root.Username,Role=root.Role,AreaId=root.AreaId,PolicyVersion=root.PolicyVersion,ExpiresUtc=DateTime.UtcNow.AddMinutes(-1)};
+    // Explicit restrictions remain supported after the one-time default upgrade.
     var explicitRights=DataStore.GetAccountRights(root,admin.Id);
     explicitRights.AddRange(ModuleCatalog.AdditionalRights());
     DataStore.SetAccountRights(root,admin.Id,explicitRights);
@@ -119,7 +121,7 @@ namespace QLKP.Desktop.Core {
      "B01:read","B04:read","B04:create","B04:update","B05:read","B05:create",
      "B06:read","B06:create","B07:read","B07:create","I05:read"});
     var operatorUser=DataStore.Login("test_operations",operatorSecret);
-    if(operatorUser==null||!DataStore.Can(operatorUser,"A02","create")||DataStore.Can(root,"A02","read"))
+    if(operatorUser==null||!DataStore.Can(operatorUser,"A02","create")||!DataStore.Can(root,"A02","read"))
      throw new InvalidDataException("Không tách đúng ADMIN gốc và nghiệp vụ điều hành.");
     var qrResult=DataStore.ParseLocalQrReference(operatorUser,"QLKP1|B01|"+households[0].Id);
     if(qrResult.Item2!=households[0].Id)throw new InvalidDataException("I05 QR nội bộ không mở đúng mã hộ.");
@@ -213,7 +215,7 @@ namespace QLKP.Desktop.Core {
      "B02:read"});
     var welfare=DataStore.Login("test_welfare",welfareSecret);
     if(welfare==null || !DataStore.Can(welfare,"E01","create") || DataStore.Can(user,"E01","read") ||
-       DataStore.Can(root,"E01","read"))
+       !DataStore.Can(root,"E01","read"))
      throw new InvalidDataException("Phân quyền E01–E07 không được cấp tách biệt.");
     var support=new ModuleRecord{Code="AS-MAU-01",Title="[MẪU] Hỗ trợ cộng đồng",Status="Bản nháp",
      Fields=new System.Collections.Generic.Dictionary<string,string>{{"program_kind","Hỗ trợ sinh kế"},{"received_on","2026-01-08"}}};
@@ -246,7 +248,7 @@ namespace QLKP.Desktop.Core {
      "F06:read","F06:create","F07:read","F07:create","B04:read","C04:read"});
     var urban=DataStore.Login("test_urban",urbanSecret);
     if(urban==null || !DataStore.Can(urban,"F01","create") || DataStore.Can(user,"F01","read") ||
-       DataStore.Can(root,"F01","read"))
+       !DataStore.Can(root,"F01","read"))
      throw new InvalidDataException("F01-F07 bị cấp quyền ngoài trần ủy quyền.");
     var notice=new ModuleRecord{Code="F01-MAU-01",Title="[MẪU] phối hợp an toàn",Status="Ghi nhận nội bộ",
      RelatedFeature="B04",RelatedId=addressId,
@@ -284,7 +286,7 @@ namespace QLKP.Desktop.Core {
       "B04:read","C05:read","A02:read","A02:create"});
     var community=DataStore.Login("test_community",communitySecret);
     if(community==null || !DataStore.Can(community,"G01","create") || DataStore.Can(user,"G01","read") ||
-       DataStore.Can(root,"G01","read"))throw new InvalidDataException("Quyền nhóm G vượt trần ủy quyền.");
+       !DataStore.Can(root,"G01","read"))throw new InvalidDataException("Quyền nhóm G vượt trần ủy quyền.");
     var feedback=new ModuleRecord{Code="G01-MAU-01",Title="[MẪU] phản ánh cộng đồng không định danh",
       Status="Tiếp nhận nội bộ",RelatedFeature="B04",RelatedId=addressId,
       Fields=new System.Collections.Generic.Dictionary<string,string>{{"issue_kind","Môi trường"},
@@ -415,7 +417,7 @@ namespace QLKP.Desktop.Core {
       "H01:read","H02:read","H03:read","H04:read","H05:read","H05:export",
       "A02:read","B01:read","B02:read"});
     var reporter=DataStore.Login("test_reporter",reportSecret);
-    if(reporter==null || !DataStore.Can(reporter,"H05","export") || DataStore.Can(root,"H01","read"))
+    if(reporter==null || !DataStore.Can(reporter,"H05","export") || !DataStore.Can(root,"H01","read"))
      throw new InvalidDataException("Quyền báo cáo riêng không đúng.");
     var date=DateTime.UtcNow.Date;
     var beginning=new DateTime(date.Year,date.Month,1).ToString("yyyy-MM-dd");
@@ -438,7 +440,7 @@ namespace QLKP.Desktop.Core {
     if(!csv.Contains("A02")||csv.Contains(taskId)||csv.Contains("Rà soát Đường"))
      throw new InvalidDataException("H05 không tạo CSV tổng hợp an toàn.");
     DataStore.LogReportExport(reporter);
-    OperationalSelfTest.Run(admin,root,journal);
+    OperationalSelfTest.Run(admin,expiredRoot,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);
     if(DataStore.CreateTaskFromIncoming(clerk,incomingId)!=incomingTask||DataStore.GetModuleRecord(clerk,"A02",incomingTask).RelatedId!=incomingId)
@@ -461,7 +463,7 @@ namespace QLKP.Desktop.Core {
     bool staleProfile=false,deniedProfile=false;
     try{DataStore.UpdatePersonProfile(user,profile.Id,profile.Version,"Sai","2000-01-01","Nam");}
     catch(InvalidOperationException){staleProfile=true;}
-    try{DataStore.UpdatePersonProfile(root,profile.Id,editedProfile.Version,"Sai","2000-01-01","Nam");}
+    try{DataStore.UpdatePersonProfile(expiredRoot,profile.Id,editedProfile.Version,"Sai","2000-01-01","Nam");}
     catch(UnauthorizedAccessException){deniedProfile=true;}
     if(!staleProfile||!deniedProfile)throw new InvalidDataException("B02: chưa chặn cập nhật sai quyền hoặc phiên bản cũ.");
     Console.WriteLine("REPOSITORY_PASS B02 profile/update/stale/deny");
@@ -555,7 +557,7 @@ namespace QLKP.Desktop.Core {
     if(!unauthorizedExport || File.Exists(Path.Combine(sandbox,"denied.qlkpsync")))
      throw new InvalidDataException("I06 cho tài khoản thiếu quyền xuất gói.");
     var oldCatalog=DataStore.ListCatalog(root,"NHA_TRO",0,50).Items[0];oldCatalog.Active=false;DataStore.SaveCatalog(root,oldCatalog);
-    if(DataStore.EnsureReferenceCatalog(root)!=13||DataStore.EnsureReferenceCatalog(root)!=0)
+    if(DataStore.EnsureReferenceCatalog(root)!=0||DataStore.EnsureReferenceCatalog(root)!=0)
      throw new InvalidDataException("I07: nạp danh mục chuẩn không nguyên tử hoặc không idempotent.");
     foreach(var entry in OfflineCatalogTransfer.ReferenceEntries())
      if(!OfflineCatalogTransfer.IsReferenceEntry(entry.Category,entry.Code,entry.Label))throw new InvalidDataException("I06: mã chuẩn không khớp nhãn.");

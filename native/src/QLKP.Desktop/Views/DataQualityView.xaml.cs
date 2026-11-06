@@ -8,7 +8,7 @@ namespace QLKP.Desktop.Views {
   int page;
   public DataQualityView(Session s,Action<string> household,Action<string> person) {
    InitializeComponent();session=s;openHousehold=household;openPerson=person;
-   OpenRecord.IsEnabled=false;MergeButton.Visibility=s.Role=="KP_ADMIN"&&DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;Reload();
+   OpenRecord.IsEnabled=false;MergeButton.Visibility=DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;Reload();
   }
   void Reload(){try {
    var result=DataStore.GetDataQualityPage(session,page);page=result.PageIndex;

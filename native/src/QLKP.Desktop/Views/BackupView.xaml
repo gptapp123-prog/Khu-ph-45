@@ -7,7 +7,7 @@
    <TextBlock Text="I04 · SAO LƯU VÀ KHÔI PHỤC KHO DỮ LIỆU" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
    <TextBlock Margin="0,10,0,18" TextWrapping="Wrap" Foreground="#AB4316" FontWeight="SemiBold"
      Text="Kho đang dùng và bản sao đều được mã hóa. Tệp .qlkpbak có thể phục hồi trên máy khác bằng mật khẩu sao lưu. Bản .qlkpvault chỉ dùng với khóa Windows hiện tại. Giữ mật khẩu sao lưu ở nơi an toàn."/>
-   <Border BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8">
+   <Border x:Name="BackupActions" BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8">
     <StackPanel>
      <TextBlock Text="BẢN SAO LƯU MỚI" FontWeight="Bold" FontSize="17" Foreground="#16487F"/>
      <TextBlock Margin="0,8,0,0" Text="Mật khẩu sao lưu (tối thiểu 14 ký tự)"/>
@@ -17,7 +17,7 @@
      <Button Content="Tạo bản sao lưu mã hóa..." HorizontalAlignment="Left" Margin="0,14,0,0" Padding="14,7" Click="Backup_Click"/>
     </StackPanel>
    </Border>
-   <Border BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8" Margin="0,18,0,0">
+   <Border x:Name="RestoreActions" BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8" Margin="0,18,0,0">
     <StackPanel>
      <TextBlock Text="KIỂM TRA / KHÔI PHỤC" FontSize="17" FontWeight="Bold" Foreground="#16487F"/>
      <TextBlock Text="Chọn tệp đã sao lưu; trước khi thay thế phải xác minh mật khẩu, chữ ký xác thực và tính toàn vẹn SQLite." TextWrapping="Wrap" Margin="0,8,0,8"/>
