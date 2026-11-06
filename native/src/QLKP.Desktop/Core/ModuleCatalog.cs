@@ -176,7 +176,7 @@ namespace QLKP.Desktop.Core {
   public static bool IsEditable(string code) {return Editable.Any(x=>x.Code==code);}
   public static List<string> AdditionalRights() {
    var rights=new List<string>{"B01:update","A01:read","A05:read","H01:read","H02:read","H03:read","H04:read","H05:read","H05:export","I05:read","I06:read","I06:export","I07:read","I07:manage","I09:read"};
-   rights.Add("I09:test");rights.Add("I09:export");
+   rights.Add("I09:test");rights.Add("I09:export");rights.Add("I08:merge");
    foreach(var m in Editable) foreach(var action in new[]{"read","create","update"}) rights.Add(m.Code+":"+action);
    return rights;
   }

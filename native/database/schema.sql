@@ -396,3 +396,17 @@ CREATE TRIGGER IF NOT EXISTS shared_catalog_restrict_delete BEFORE DELETE ON sha
 CREATE TRIGGER IF NOT EXISTS shared_catalog_scope_guard BEFORE INSERT ON shared_catalog_items
  WHEN NEW.scope_area!='*' AND NOT EXISTS(SELECT 1 FROM areas WHERE id=NEW.scope_area)
  BEGIN SELECT RAISE(ABORT,'CATALOG_UNKNOWN_AREA'); END;
+
+-- Local merge provenance. Original actor IDs are retained as source identifiers only;
+-- imported records never grant permissions or replace application accounts.
+CREATE TABLE IF NOT EXISTS data_merge_runs (
+ id TEXT PRIMARY KEY, area_id TEXT NOT NULL REFERENCES areas(id),
+ actor_id TEXT NOT NULL REFERENCES accounts(id), source_sha256 TEXT NOT NULL,
+ row_count INTEGER NOT NULL CHECK(row_count>=0), applied_utc TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS data_merge_items (
+ run_id TEXT NOT NULL REFERENCES data_merge_runs(id), source_table TEXT NOT NULL,
+ source_id TEXT NOT NULL, source_actor_id TEXT NOT NULL DEFAULT '',
+ source_created_by TEXT NOT NULL DEFAULT '', source_updated_by TEXT NOT NULL DEFAULT '',
+ PRIMARY KEY(run_id,source_table,source_id)
+);

@@ -485,6 +485,8 @@ namespace QLKP.Desktop.Core {
     string recoveryPassword="Recovery!"+Guid.NewGuid().ToString("N")+"_2026";
     if(!DataStore.Can(root,"I04","manage") || DataStore.Can(admin,"I04","manage"))
      throw new InvalidDataException("Quyền bảo trì kho không bị giới hạn ADMIN gốc.");
+    VaultRegression.Run(journal,root);
+    journal.BeginStep("BACKUP_AFTER_VAULT_REGRESSIONS");
     EncryptedBackup.Create(root,backup,recoveryPassword);
     EncryptedBackup.Validate(root,backup,recoveryPassword);
     bool rejected=false;

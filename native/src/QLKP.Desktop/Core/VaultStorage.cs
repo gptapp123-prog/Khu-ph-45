@@ -51,13 +51,13 @@ namespace QLKP.Desktop.Core {
   }
   static void Execute(SQLiteConnection c,string sql){using(var cmd=new SQLiteCommand(sql,c))cmd.ExecuteNonQuery();}
   static void SelectCipher(SQLiteConnection c) {
-   using(var cmd=new SQLiteCommand("SELECT sqlite3mc_version()",c))if(Convert.ToString(cmd.ExecuteScalar())!="SQLite3 Multiple Ciphers 2.6.1")throw new CryptographicException("Không đúng thư viện mã hóa kho.");
    Execute(c,"PRAGMA cipher='sqlcipher';PRAGMA hmac_use=1;PRAGMA hmac_algorithm=2;PRAGMA plaintext_header_size=0;");
   }
   internal static SQLiteConnection OpenEncrypted(string path,byte[] key,bool readOnly=false,bool create=false) {
    var c=Connect(path,readOnly,create);
    try {
     SelectCipher(c);Execute(c,"PRAGMA key=\"x'"+Hex(key)+"'\";");
+    using(var cmd=new SQLiteCommand("SELECT sqlite3mc_version()",c))if(Convert.ToString(cmd.ExecuteScalar())!="SQLite3 Multiple Ciphers 2.6.1")throw new CryptographicException("Không đúng thư viện mã hóa kho.");
     using(var cmd=new SQLiteCommand("SELECT count(*) FROM sqlite_master",c))cmd.ExecuteScalar();
     Execute(c,"PRAGMA trusted_schema=OFF;PRAGMA temp_store=MEMORY;PRAGMA busy_timeout=5000;");
     return c;
@@ -133,7 +133,7 @@ namespace QLKP.Desktop.Core {
   }
   internal static string Snapshot(string path,byte[] key) {
    if(File.Exists(path))throw new IOException("Tệp snapshot đã tồn tại.");
-   using(var source=OpenCurrent())using(var target=OpenEncrypted(path,key,false,true)){CopyTrusted(source,target);return Fingerprint(source);}
+   var sourceKey=CurrentKey();try{using(var source=OpenEncrypted(DataStore.DatabasePath,sourceKey,true))using(var target=OpenEncrypted(path,key,false,true)){CopyTrusted(source,target);return Fingerprint(source);}}finally{Array.Clear(sourceKey,0,sourceKey.Length);}
   }
   public static void EnsureCurrent() {
    lock(Gate) {

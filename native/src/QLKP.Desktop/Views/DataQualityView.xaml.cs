@@ -8,7 +8,7 @@ namespace QLKP.Desktop.Views {
   int page;
   public DataQualityView(Session s,Action<string> household,Action<string> person) {
    InitializeComponent();session=s;openHousehold=household;openPerson=person;
-   OpenRecord.IsEnabled=false;Reload();
+   OpenRecord.IsEnabled=false;MergeButton.Visibility=s.Role=="KP_ADMIN"&&DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;Reload();
   }
   void Reload(){try {
    var result=DataStore.GetDataQualityPage(session,page);page=result.PageIndex;
@@ -17,6 +17,7 @@ namespace QLKP.Desktop.Views {
    Status.Text="Trang "+(result.TotalPages==0?0:page+1)+"/"+result.TotalPages+" · "+result.TotalCount+" cảnh báo trong phạm vi quyền.";
   }catch(Exception ex){Issues.ItemsSource=null;Previous.IsEnabled=false;Next.IsEnabled=false;Status.Text="Không thể kiểm tra: "+ex.GetType().Name;}}
   void Reload_Click(object sender,RoutedEventArgs e){page=0;Reload();}
+  void Merge_Click(object sender,RoutedEventArgs e){new DataMergeWindow(session){Owner=Window.GetWindow(this)}.ShowDialog();Reload();}
   void Previous_Click(object sender,RoutedEventArgs e){if(page>0){page--;Reload();}}
   void Next_Click(object sender,RoutedEventArgs e){if(Next.IsEnabled){page++;Reload();}}
   void Issues_SelectionChanged(object sender,SelectionChangedEventArgs e) {
