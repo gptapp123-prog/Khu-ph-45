@@ -1,0 +1,33 @@
+<UserControl x:Class="QLKP.Desktop.Views.PeopleView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="14"><StackPanel DockPanel.Dock="Top"><TextBlock Text="B02 · NHÂN KHẨU" Foreground="#102D59" FontSize="23" FontWeight="Bold"/><TextBlock Text="Tra cứu có dấu/không dấu · Phân trang · Mở đúng ID · Xem lịch sử chuyển hộ theo quyền." Foreground="#65738C"/>
+ <WrapPanel><TextBlock Text="Tìm họ tên / mã hộ" VerticalAlignment="Center"/><TextBox x:Name="Search" Width="290" TextChanged="Search_TextChanged"/>
+ <TextBlock Text="Nhóm cư trú" VerticalAlignment="Center" Margin="8,0,0,0"/>
+ <ComboBox x:Name="ResidencyFilter" Width="145" SelectedIndex="0" SelectionChanged="ResidencyFilter_SelectionChanged">
+  <ComboBoxItem Content="Tất cả" Tag=""/><ComboBoxItem Content="Thường trú" Tag="thuong_tru"/>
+  <ComboBoxItem Content="Tạm trú" Tag="tam_tru"/><ComboBoxItem Content="Lưu trú" Tag="luu_tru"/>
+  <ComboBoxItem Content="Tạm vắng" Tag="tam_vang"/><ComboBoxItem Content="Chưa đối chiếu" Tag="chua_xac_minh"/>
+ </ComboBox>
+ <Button x:Name="PreviousPage" Content="◀ Trước" Click="PreviousPage_Click"/>
+ <Button x:Name="NextPage" Content="Sau ▶" Click="NextPage_Click"/>
+ <TextBlock x:Name="PageStatus" VerticalAlignment="Center" Foreground="#526781" Text="Đang tải..."/></WrapPanel></StackPanel>
+ <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="64*"/><ColumnDefinition Width="36*"/></Grid.ColumnDefinitions>
+  <DataGrid x:Name="People" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" SelectionChanged="People_SelectionChanged">
+   <DataGrid.Columns><DataGridTextColumn Header="Họ tên" Binding="{Binding FullName}" Width="*"/><DataGridTextColumn Header="Mã hộ" Binding="{Binding HouseholdCode}" Width="92"/><DataGridTextColumn Header="Quan hệ" Binding="{Binding Relationship}" Width="100"/><DataGridTextColumn Header="Ngày sinh" Binding="{Binding BirthDateDisplay}" Width="100"/>
+   <DataGridTextColumn Header="Nhóm cư trú" Binding="{Binding ResidencyGroup}" Width="155"/>
+   <DataGridTextColumn Header="Nhóm tuổi" Binding="{Binding AgeGroup}" Width="94"/></DataGrid.Columns>
+  </DataGrid>
+  <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="16"><TextBlock Text="HỒ SƠ CÁ NHÂN" FontSize="18" Foreground="#102D59" FontWeight="Bold"/><TextBlock x:Name="Detail" TextWrapping="Wrap" FontSize="15"/><Button x:Name="OpenHousehold" Content="Mở hồ sơ hộ liên quan" Click="OpenHousehold_Click"/>
+   <Button x:Name="EditPerson" Content="Cập nhật hồ sơ đã chọn" Click="EditPerson_Click" Visibility="Collapsed"/>
+   <TextBlock Text="Liên kết hộ dùng khóa định danh và kiểm tra quyền riêng; không tự mở hồ sơ chỉ vì trùng tên." TextWrapping="Wrap" Foreground="#60728A"/>
+   <TextBlock Text="LỊCH SỬ BIẾN ĐỘNG (B03)" FontWeight="Bold" Foreground="#102D59" Margin="4,16,4,4"/>
+   <DataGrid x:Name="PersonHistory" Height="176" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single">
+    <DataGrid.Columns><DataGridTextColumn Header="Ngày UTC" Binding="{Binding TimestampDisplay}" Width="190"/>
+     <DataGridTextColumn Header="Từ hộ" Binding="{Binding FromCode}" Width="78"/>
+     <DataGridTextColumn Header="Đến hộ" Binding="{Binding ToCode}" Width="78"/>
+     <DataGridTextColumn Header="Lý do" Binding="{Binding Reason}" Width="*"/>
+    </DataGrid.Columns>
+   </DataGrid>
+   <Button x:Name="OpenHistoryHousehold" Content="Mở hộ đích của biến động được chọn" Click="OpenHistoryHousehold_Click"/>
+   <TextBlock x:Name="HistoryNotice" Text="Lịch sử chỉ hiển thị khi được cấp quyền B03." TextWrapping="Wrap" Foreground="#60728A"/></StackPanel></ScrollViewer>
+ </Grid></DockPanel>
+</UserControl>

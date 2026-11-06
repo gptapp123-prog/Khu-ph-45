@@ -1,0 +1,66 @@
+<UserControl x:Class="QLKP.Desktop.Views.HouseholdView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="275"/></Grid.RowDefinitions>
+  <StackPanel Grid.Row="0"><TextBlock Text="B01 · HỘ GIA ĐÌNH" FontSize="23" FontWeight="Bold" Foreground="#102D59"/><TextBlock Text="Tra cứu có dấu/không dấu → phân trang → chọn đúng ID → thành viên chỉ xem khi có quyền B02" Foreground="#526781"/></StackPanel>
+  <WrapPanel Grid.Row="1">
+   <TextBlock Text="Tìm mã hộ / chủ hộ / địa chỉ" VerticalAlignment="Center"/>
+   <TextBox x:Name="Search" Width="280" TextChanged="Search_TextChanged"/>
+   <TextBlock Text="Loại nơi ở" VerticalAlignment="Center" Margin="8,0,0,0"/>
+   <ComboBox x:Name="HousingFilter" Width="138" SelectedIndex="0" SelectionChanged="HousingFilter_SelectionChanged">
+    <ComboBoxItem Content="Tất cả" Tag=""/><ComboBoxItem Content="Nhà riêng" Tag="nha_rieng"/>
+    <ComboBoxItem Content="Nhà cấp 4" Tag="nha_cap4"/><ComboBoxItem Content="Căn hộ" Tag="can_ho"/>
+    <ComboBoxItem Content="Phòng trọ" Tag="phong_tro"/><ComboBoxItem Content="Nhà thuê" Tag="nha_thue"/>
+    <ComboBoxItem Content="Nhà tập thể" Tag="nha_tap_the"/><ComboBoxItem Content="Ở cùng thân nhân" Tag="o_cung_than_nhan"/>
+    <ComboBoxItem Content="Chưa xác minh" Tag="chua_xac_minh"/>
+   </ComboBox>
+   <Button Content="Tải lại" Click="Reload_Click"/><Button Content="Thu thập · Nhập nhanh · Gộp trường" Click="OpenDataIntake_Click" Margin="6,0" ToolTip="Nạp CSV/TSV, dán Excel, bổ sung đúng ID; không gộp hai người tự động"/>
+   <Button x:Name="PreviousPage" Content="◀ Trước" Click="PreviousPage_Click"/>
+   <Button x:Name="NextPage" Content="Sau ▶" Click="NextPage_Click"/>
+   <TextBlock x:Name="PageStatus" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="#526781" Text="Đang tải..."/>
+  </WrapPanel>
+  <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="52*"/><ColumnDefinition Width="48*"/></Grid.ColumnDefinitions>
+   <DataGrid x:Name="Households" Grid.Column="0" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" SelectionChanged="Households_SelectionChanged">
+    <DataGrid.Columns>
+     <DataGridTextColumn Header="Mã hộ" Binding="{Binding Code}" Width="90"/>
+     <DataGridTextColumn Header="Chủ hộ" Binding="{Binding Head}" Width="150"/>
+     <DataGridTextColumn Header="Địa chỉ" Binding="{Binding Address}" Width="*"/>
+     <DataGridTextColumn Header="TV" Binding="{Binding MemberCount}" Width="48"/>
+     <DataGridTextColumn Header="Loại nơi ở" Binding="{Binding HousingType}" Width="115"/>
+     <DataGridTextColumn Header="Quy mô" Binding="{Binding SizeGroup}" Width="94"/>
+    </DataGrid.Columns>
+   </DataGrid>
+   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="12,0,0,0">
+    <TextBlock Text="HỒ SƠ HỘ ĐƯỢC CHỌN" FontWeight="Bold" FontSize="16" Foreground="#102D59"/>
+    <TextBlock x:Name="SelectedDetail" Text="Chọn một hộ từ danh sách." TextWrapping="Wrap"/>
+    <Button x:Name="EditHousehold" Content="Cập nhật địa chỉ hộ" Click="EditHousehold_Click" Visibility="Collapsed" IsEnabled="False" HorizontalAlignment="Left"/>
+    <TextBlock Text="Thành viên (liên kết ID thật)" FontWeight="SemiBold" Margin="6,12,0,4"/>
+    <DataGrid x:Name="Members" Height="125" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single">
+     <DataGrid.Columns><DataGridTextColumn Header="Họ tên" Binding="{Binding FullName}" Width="*"/><DataGridTextColumn Header="Quan hệ" Binding="{Binding Relationship}" Width="100"/></DataGrid.Columns>
+    </DataGrid>
+    <TextBlock x:Name="MembersNotice" TextWrapping="Wrap" Foreground="#A54A13"/>
+    <Button x:Name="OpenPerson" Content="Mở hồ sơ nhân khẩu đã chọn" HorizontalAlignment="Left" Click="OpenPerson_Click"/>
+    <TextBlock Text="Bổ sung thành viên vào hộ đang chọn" FontWeight="SemiBold"/>
+    <WrapPanel><TextBox x:Name="MemberName" Width="160" ToolTip="Họ và tên"/><ComboBox x:Name="Relationship" Width="120" Margin="4" SelectedIndex="0"><ComboBoxItem Content="Con"/><ComboBoxItem Content="Vợ/Chồng"/><ComboBoxItem Content="Cha/Mẹ"/><ComboBoxItem Content="Khác"/></ComboBox><Button x:Name="AddMemberButton" Content="Thêm thành viên" Click="AddMember_Click"/></WrapPanel>
+   </StackPanel></ScrollViewer>
+  </Grid>
+  <Border Grid.Row="3" BorderThickness="1,1,0,0" BorderBrush="#D7E4F1" Padding="7"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <StackPanel Grid.Column="0" Grid.Row="0">
+     <TextBlock Text="NHẬP NHANH HỘ (1 DÒNG)" FontWeight="Bold" Foreground="#102D59"/>
+     <WrapPanel><TextBox x:Name="NewCode" Width="120" ToolTip="Mã hộ"/><TextBox x:Name="NewAddress" Width="190" ToolTip="Địa chỉ"/><TextBox x:Name="NewHead" Width="160" ToolTip="Chủ hộ"/><Button x:Name="AddHouseholdButton" Content="Lưu hộ" Click="AddHousehold_Click"/></WrapPanel>
+     <TextBlock Text="Mã hộ / địa chỉ / chủ hộ được xác nhận bằng mã hồ sơ, không tự gộp theo tên." TextWrapping="Wrap" Foreground="#697A90"/>
+    </StackPanel>
+    <StackPanel Grid.Column="1" Grid.Row="0">
+     <TextBlock Text="DÁN BẢNG NHIỀU DÒNG (TAB hoặc ;)" FontWeight="Bold" Foreground="#102D59"/>
+     <TextBox x:Name="BatchText" Height="67" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Text="" ToolTip="Mã hộ TAB Địa chỉ TAB Chủ hộ; mỗi dòng một hộ"/>
+     <WrapPanel><Button x:Name="CheckButton" Content="Kiểm tra lô" Click="CheckBatch_Click"/><Button x:Name="ImportButton" Content="Ghi cả lô" Click="ImportBatch_Click" IsEnabled="False"/><TextBlock x:Name="BatchStatus" VerticalAlignment="Center"/></WrapPanel>
+    </StackPanel>
+    <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
+     <TextBlock Text="B02 · NHẬP NHANH NHÂN KHẨU VÀO ĐÚNG HỘ ĐÃ CHỌN (TAB hoặc ;)" FontWeight="Bold" Foreground="#102D59"/>
+     <TextBlock Text="Họ tên    Ngày sinh (yyyy-MM-dd hoặc để trống)    Giới tính    Quan hệ; mỗi dòng một người. Không tự gộp theo tên." Foreground="#60728A"/>
+     <TextBox x:Name="MembersBatchText" Height="56" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="MembersBatchText_TextChanged" ToolTip="Chọn hộ phía trên; dán 4 cột: Họ tên / Ngày sinh / Giới tính / Quan hệ"/>
+     <WrapPanel><Button x:Name="CheckMembersBatchButton" Content="Kiểm tra nhân khẩu" Click="CheckMembersBatch_Click"/><Button x:Name="ImportMembersButton" Content="Ghi cả lô vào hộ" Click="ImportMembersBatch_Click" IsEnabled="False"/><TextBlock x:Name="MemberBatchStatus" VerticalAlignment="Center" TextWrapping="Wrap"/></WrapPanel>
+    </StackPanel>
+   </Grid></ScrollViewer>
+  </Border>
+ </Grid>
+</UserControl>

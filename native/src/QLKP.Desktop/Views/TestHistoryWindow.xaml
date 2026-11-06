@@ -1,0 +1,21 @@
+<Window x:Class="QLKP.Desktop.Views.TestHistoryWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Lịch sử kiểm thử" Icon="pack://application:,,,/Assets/qlkp.ico" Width="1120" Height="760" MinWidth="760" MinHeight="520" WindowStartupLocation="CenterOwner" Background="#F4F7FC">
+ <Grid Margin="16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="3*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel><TextBlock Text="LỊCH SỬ KIỂM THỬ" FontSize="24" FontWeight="Bold" Foreground="#102D59"/>
+   <TextBlock Text="Đối chiếu lớp kiểm thử và nguồn hồ sơ; kết quả nguồn/SQL không thay cho kiểm thử UI hoặc thiết bị." TextWrapping="Wrap" Foreground="#526781"/>
+  </StackPanel>
+  <WrapPanel Grid.Row="1" Margin="0,8"><Button Content="Tải lại" Click="Refresh_Click"/><Button x:Name="Previous" Content="◀ Trước" Click="Previous_Click"/><TextBlock x:Name="PageInfo" VerticalAlignment="Center"/><Button x:Name="Next" Content="Sau ▶" Click="Next_Click"/>
+   <Button x:Name="RunButton" Content="Kiểm tra kho và lưu phiên" Click="Run_Click"/><Button x:Name="ImportButton" Content="Nhập hồ sơ JSON" Click="Import_Click"/>
+   <Button x:Name="ExportJson" Content="Xuất JSON" Click="ExportJson_Click" IsEnabled="False"/><Button x:Name="ExportHtml" Content="Xuất báo cáo HTML" Click="ExportHtml_Click" IsEnabled="False"/>
+  </WrapPanel>
+  <DataGrid Grid.Row="2" x:Name="Runs" SelectionChanged="Runs_SelectionChanged" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+   <DataGrid.Columns><DataGridTextColumn Header="Bắt đầu UTC" Binding="{Binding StartedDisplay}" Width="180"/><DataGridTextColumn Header="Loại phiên" Binding="{Binding Kind}" Width="150"/><DataGridTextColumn Header="Lớp" Binding="{Binding LayerDisplay}" Width="115"/><DataGridTextColumn Header="Kết quả" Binding="{Binding StatusDisplay}" Width="145"/><DataGridTextColumn Header="Tổng bước/ca" Binding="{Binding Total}" Width="100"/><DataGridTextColumn Header="Đạt" Binding="{Binding Passed}" Width="65"/><DataGridTextColumn Header="Lỗi" Binding="{Binding Failed}" Width="65"/><DataGridTextColumn Header="Bỏ qua" Binding="{Binding Skipped}" Width="80"/><DataGridTextColumn Header="Phiên bản" Binding="{Binding SourceVersion}" Width="*"/></DataGrid.Columns>
+  </DataGrid>
+  <Grid Grid.Row="3"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <TextBlock x:Name="SelectedInfo" Text="Chọn phiên để xem các bước đã ghi." TextWrapping="Wrap" Foreground="#102D59" Margin="4,10"/>
+   <DataGrid Grid.Row="1" x:Name="Steps" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"><DataGrid.Columns>
+    <DataGridTextColumn Header="Bước / ca kiểm thử" Binding="{Binding Code}" Width="*"/><DataGridTextColumn Header="Kết quả" Binding="{Binding StatusDisplay}" Width="120"/><DataGridTextColumn Header="Thời gian (ms)" Binding="{Binding DurationMs}" Width="120"/><DataGridTextColumn Header="Loại lỗi" Binding="{Binding ErrorType}" Width="180"/>
+   </DataGrid.Columns></DataGrid>
+  </Grid>
+  <DockPanel Grid.Row="4"><Button DockPanel.Dock="Right" Content="Đóng" Click="Close_Click"/><TextBlock x:Name="Message" TextWrapping="Wrap" Foreground="#964318" VerticalAlignment="Center"/></DockPanel>
+ </Grid>
+</Window>

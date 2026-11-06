@@ -1,0 +1,56 @@
+<Application x:Class="QLKP.Desktop.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Application.Resources>
+  <SolidColorBrush x:Key="Navy" Color="#102D59"/>
+  <SolidColorBrush x:Key="Blue" Color="#1263D6"/>
+  <SolidColorBrush x:Key="Pale" Color="#F4F7FC"/>
+  <Style TargetType="Window">
+   <Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/>
+   <Setter Property="UseLayoutRounding" Value="True"/><Setter Property="SnapsToDevicePixels" Value="True"/>
+   <Setter Property="Icon" Value="pack://application:,,,/Assets/qlkp.ico"/>
+  </Style>
+  <Style TargetType="Button">
+   <Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/>
+   <Setter Property="MinHeight" Value="34"/><Setter Property="Background" Value="#1263D6"/>
+   <Setter Property="Foreground" Value="White"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+    </Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.88"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#D8AD44"/></Trigger>
+     <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.72"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="#E4EAF2"/><Setter Property="Foreground" Value="#5D6B7E"/><Setter Property="Cursor" Value="Arrow"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="TextBox"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="7"/><Setter Property="MinHeight" Value="32"/><Setter Property="BorderBrush" Value="#B8C9DD"/><Setter Property="SelectionBrush" Value="#B6D3FA"/></Style>
+  <Style TargetType="PasswordBox"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="7"/><Setter Property="MinHeight" Value="32"/><Setter Property="BorderBrush" Value="#B8C9DD"/></Style>
+  <Style TargetType="ComboBox"><Setter Property="Margin" Value="4"/><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="5,3"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style TargetType="TextBlock"><Setter Property="Margin" Value="4"/></Style>
+  <Style TargetType="DataGrid">
+   <Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/>
+   <Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HorizontalGridLinesBrush" Value="#E7EDF5"/>
+   <Setter Property="SelectionMode" Value="Single"/><Setter Property="Margin" Value="5"/>
+   <Setter Property="RowHeight" Value="36"/><Setter Property="ColumnHeaderHeight" Value="40"/>
+   <Setter Property="HeadersVisibility" Value="Column"/><Setter Property="Background" Value="White"/>
+   <Setter Property="AlternatingRowBackground" Value="#F5F8FD"/><Setter Property="BorderBrush" Value="#D5E0ED"/>
+   <Setter Property="EnableRowVirtualization" Value="True"/><Setter Property="EnableColumnVirtualization" Value="True"/>
+   <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/><Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+  </Style>
+  <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#E8F0FA"/><Setter Property="Foreground" Value="#102D59"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="9,5"/><Setter Property="BorderBrush" Value="#D5E0ED"/><Setter Property="BorderThickness" Value="0,0,1,1"/></Style>
+  <Style TargetType="DataGridCell"><Setter Property="Padding" Value="7,4"/><Setter Property="BorderThickness" Value="0"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style x:Key="NavigationItem" TargetType="ListBoxItem">
+   <Setter Property="Margin" Value="6,3"/><Setter Property="Padding" Value="8,10"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+    <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#244B7E"/><Setter Property="Foreground" Value="White"/></Trigger>
+     <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#1263D6"/><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="#D8AD44"/><Setter TargetName="ItemBorder" Property="BorderThickness" Value="1"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+ </Application.Resources>
+</Application>

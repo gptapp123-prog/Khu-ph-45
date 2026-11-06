@@ -1,0 +1,37 @@
+<UserControl x:Class="QLKP.Desktop.Views.BackupView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Background="White">
+ <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <StackPanel Margin="22" MaxWidth="780" HorizontalAlignment="Left">
+   <TextBlock Text="I04 · SAO LƯU VÀ KHÔI PHỤC KHO DỮ LIỆU" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
+   <TextBlock Margin="0,10,0,18" TextWrapping="Wrap" Foreground="#AB4316" FontWeight="SemiBold"
+     Text="BẢN THỬ NGHIỆM: Tệp sao lưu .qlkpbak được mã hóa, nhưng cơ sở dữ liệu đang sử dụng chưa mã hóa. Chỉ nhập dữ liệu giả. Mất mật khẩu phục hồi sẽ không thể mở bản sao."/>
+   <Border BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8">
+    <StackPanel>
+     <TextBlock Text="BẢN SAO LƯU MỚI" FontWeight="Bold" FontSize="17" Foreground="#16487F"/>
+     <TextBlock Margin="0,8,0,0" Text="Mật khẩu sao lưu (tối thiểu 14 ký tự)"/>
+     <PasswordBox x:Name="BackupPass" Width="390" HorizontalAlignment="Left"/>
+     <TextBlock Margin="0,8,0,0" Text="Xác nhận mật khẩu"/>
+     <PasswordBox x:Name="BackupPassAgain" Width="390" HorizontalAlignment="Left"/>
+     <Button Content="Tạo bản sao lưu mã hóa..." HorizontalAlignment="Left" Margin="0,14,0,0" Padding="14,7" Click="Backup_Click"/>
+    </StackPanel>
+   </Border>
+   <Border BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8" Margin="0,18,0,0">
+    <StackPanel>
+     <TextBlock Text="KIỂM TRA / KHÔI PHỤC" FontSize="17" FontWeight="Bold" Foreground="#16487F"/>
+     <TextBlock Text="Chọn tệp đã sao lưu; trước khi thay thế phải xác minh mật khẩu, chữ ký xác thực và tính toàn vẹn SQLite." TextWrapping="Wrap" Margin="0,8,0,8"/>
+     <Button Content="Chọn tệp .qlkpbak..." Click="ChooseRestore_Click" HorizontalAlignment="Left" Padding="12,6"/>
+     <TextBlock x:Name="RestoreFileName" Text="Chưa chọn tệp" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/>
+     <TextBlock Text="Mật khẩu mở bản sao" Margin="0,12,0,0"/>
+     <PasswordBox x:Name="RestorePass" Width="390" HorizontalAlignment="Left"/>
+     <WrapPanel Margin="0,12,0,0">
+      <Button Content="Kiểm tra bản sao" Click="Validate_Click" Padding="12,6" Margin="0,0,10,0"/>
+      <Button Content="Khôi phục và đăng xuất" Click="Restore_Click" Padding="12,6" Background="#AD401C" Foreground="White"/>
+     </WrapPanel>
+    </StackPanel>
+   </Border>
+   <TextBlock x:Name="Result" Margin="0,18,0,0" TextWrapping="Wrap" Foreground="#16487F"/>
+  </StackPanel>
+ </ScrollViewer>
+</UserControl>

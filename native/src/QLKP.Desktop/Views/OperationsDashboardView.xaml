@@ -1,0 +1,17 @@
+<UserControl x:Class="QLKP.Desktop.Views.OperationsDashboardView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="14">
+  <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+   <TextBlock Text="A01 · BÀN ĐIỀU HÀNH KHU PHỐ" FontSize="24" Foreground="#123663" FontWeight="Bold"/>
+   <TextBlock Text="Số liệu tính trực tiếp từ hồ sơ được phép xem; không tự tổng hợp dữ liệu của phân hệ không có quyền." TextWrapping="Wrap" Foreground="#61758B"/>
+   <Button Content="Cập nhật số liệu" Click="Refresh_Click" HorizontalAlignment="Left" Padding="13,6" Margin="0,10,0,0"/>
+   <TextBlock x:Name="Message" Foreground="#A34716" Margin="0,5"/>
+  </StackPanel>
+  <DataGrid x:Name="Summary" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+   <DataGrid.Columns><DataGridTextColumn Header="Mã" Binding="{Binding Feature}" Width="90"/>
+    <DataGridTextColumn Header="Nhóm hồ sơ" Binding="{Binding Label}" Width="*"/>
+    <DataGridTextColumn Header="Tổng hồ sơ" Binding="{Binding Count}" Width="150"/>
+    <DataGridTextColumn Header="Chưa kết thúc nội bộ" Binding="{Binding Open}" Width="200"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </DockPanel>
+</UserControl>

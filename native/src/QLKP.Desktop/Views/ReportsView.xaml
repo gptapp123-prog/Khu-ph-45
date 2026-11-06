@@ -1,0 +1,44 @@
+<UserControl x:Class="QLKP.Desktop.Views.ReportsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="12">
+  <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+   <TextBlock x:Name="Heading" FontSize="23" FontWeight="Bold" Foreground="#123563" Text="Báo cáo và thống kê"/>
+   <TextBlock Text="Dữ liệu truy vấn trực tiếp theo phạm vi quyền. Không phải báo cáo đã ký, duyệt hoặc gửi." Foreground="#785223" Margin="0,4,0,8"/>
+   <WrapPanel>
+    <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"/>
+    <TextBox x:Name="FromDate" Width="116" ToolTip="Ngày đầu kỳ: dd-MM-yyyy" Margin="0,0,12,0"/>
+    <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0"/>
+    <TextBox x:Name="ToDate" Width="116" ToolTip="Ngày cuối kỳ: dd-MM-yyyy" Margin="0,0,12,0"/>
+    <TextBlock Text="Phân hệ" VerticalAlignment="Center" Margin="0,0,6,0"/>
+    <ComboBox x:Name="Source" Width="190" Margin="0,0,12,0"/>
+    <TextBlock Text="Trạng thái" VerticalAlignment="Center" Margin="0,0,6,0"/>
+    <TextBox x:Name="StatusFilter" Width="145" Margin="0,0,10,0"/>
+    <Button Content="Lấy số liệu" Padding="10,6" Click="Refresh_Click"/>
+    <Button x:Name="ExportButton" Content="Xuất CSV tổng hợp" Padding="10,6" Margin="8,0,0,0" Click="Export_Click"/>
+   </WrapPanel>
+  </StackPanel>
+  <Border DockPanel.Dock="Bottom" BorderBrush="#C5D6EC" BorderThickness="0,1,0,0" Padding="2,8">
+   <DockPanel>
+    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+     <Button x:Name="Previous" Content="Trước" Width="76" Margin="0,0,6,0" Click="Previous_Click"/>
+     <Button x:Name="Next" Content="Sau" Width="76" Click="Next_Click"/>
+    </StackPanel>
+    <TextBlock x:Name="PageInfo" VerticalAlignment="Center" Foreground="#123563"/>
+   </DockPanel>
+  </Border>
+  <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <DataGrid Grid.Row="0" x:Name="Results" IsReadOnly="True" AutoGenerateColumns="False" SelectionMode="Single" CanUserAddRows="False" Margin="0,0,0,8" MouseDoubleClick="OpenRecord_DoubleClick">
+    <DataGrid.Columns>
+     <DataGridTextColumn Header="Phân hệ" Width="180" Binding="{Binding DisplayFeature}"/>
+     <DataGridTextColumn Header="Mã" Width="125" Binding="{Binding Code}"/>
+     <DataGridTextColumn Header="Tên hồ sơ" Width="*" Binding="{Binding Title}"/>
+     <DataGridTextColumn Header="Trạng thái" Width="180" Binding="{Binding Status}"/>
+     <DataGridTextColumn Header="Số hồ sơ" Width="100" Binding="{Binding CountDisplay}"/>
+     <DataGridTextColumn Header="Ngày / hạn" Width="110" Binding="{Binding DateDisplay}"/>
+     <DataGridTextColumn Header="Hạn xử lý" Width="110" Binding="{Binding DueState}"/>
+    </DataGrid.Columns>
+   </DataGrid>
+   <TextBlock Grid.Row="1" x:Name="Notice" Foreground="#A24118" TextWrapping="Wrap" Margin="0,6,0,6"/>
+  </Grid>
+ </DockPanel>
+</UserControl>

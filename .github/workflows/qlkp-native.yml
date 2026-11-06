@@ -1,0 +1,109 @@
+name: QLKP native Windows and Android installers
+
+on:
+  push:
+    branches: [qlkp-native-build-20261106]
+    paths: ["native/**", ".github/workflows/qlkp-native.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: native
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Prepare installer compiler
+        run: |
+          $ErrorActionPreference='Stop'
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          }
+      - name: Compile WPF, run isolated self-test, create setup
+        run: ./build-on-windows.ps1 -Installer -SmokeTest
+      - name: Install, test installed application and uninstall
+        run: ./test-windows-install.ps1
+      - name: Collect test history
+        if: always()
+        run: |
+          $history=Join-Path $env:LOCALAPPDATA 'QLKP-V2-PILOT\test-runs'
+          if(Test-Path $history){Copy-Item $history 'build-logs\test-runs' -Recurse -Force}
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: QLKP-native-Windows-PILOT-unsigned
+          path: |
+            native/dist/QLKP-PILOT-SETUP-X64-UNSIGNED.exe
+            native/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-native-Windows-build-evidence
+          path: native/build-logs/
+          if-no-files-found: warn
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Prepare Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Compile, unit test and lint native Android
+        run: gradle -p native/android-companion clean testDebugUnitTest lintDebug assembleDebug assembleRelease --no-daemon --stacktrace
+      - name: Verify APK metadata and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native/dist/android native/build-logs/android
+          apk=native/android-companion/app/build/outputs/apk/debug/app-debug.apk
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/aapt" dump badging "$apk" > native/build-logs/android/apk-metadata.txt
+          grep -q "name='vn.qlkp.companion' versionCode='19' versionName='0.19.0-PILOT'" native/build-logs/android/apk-metadata.txt
+          "$tools/apksigner" verify --verbose --print-certs "$apk" > native/build-logs/android/apk-signature.txt
+          "$tools/zipalign" -c 4 "$apk"
+          cp "$apk" native/dist/android/QLKP-Mobile-0.19.0-PILOT-debug.apk
+          (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          sdkmanager 'emulator' 'system-images;android-30;google_apis;x86_64'
+          echo no | avdmanager create avd -n qlkp_smoke -k 'system-images;android-30;google_apis;x86_64' --force
+      - name: Launch APK and inspect native screen on Android emulator
+        run: python3 native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: QLKP-native-Android-PILOT-debug
+          path: native/dist/android/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-native-Android-build-evidence
+          path: |
+            native/build-logs/android/
+            native/android-companion/app/build/reports/
+            native/android-companion/app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14

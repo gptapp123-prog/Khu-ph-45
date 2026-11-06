@@ -1,0 +1,20 @@
+<UserControl x:Class="QLKP.Desktop.Views.AuditTrailView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="14">
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock Text="I03 · NHẬT KÝ VÀ TRUY VẾT" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
+   <TextBlock Text="Nhật ký phân trang theo phạm vi được cấp. Không hiện mật khẩu, CCCD hoặc nội dung hồ sơ." Foreground="#526781" TextWrapping="Wrap"/>
+   <Button Content="Nạp lại nhật ký" HorizontalAlignment="Left" Click="Refresh_Click"/>
+   <TextBlock x:Name="Info" Foreground="#A44312"/>
+   <WrapPanel><Button x:Name="Previous" Content="◀ Trước" Click="Previous_Click"/><Button x:Name="Next" Content="Sau ▶" Click="Next_Click"/></WrapPanel>
+  </StackPanel>
+  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="AuditEvents">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Thời điểm UTC" Binding="{Binding TimestampDisplay}" Width="200"/>
+    <DataGridTextColumn Header="Tài khoản" Binding="{Binding Actor}" Width="160"/>
+    <DataGridTextColumn Header="Sự kiện" Binding="{Binding EventCode}" Width="240"/>
+    <DataGridTextColumn Header="Loại đối tượng" Binding="{Binding EntityType}" Width="160"/>
+    <DataGridTextColumn Header="Kết quả" Binding="{Binding Result}" Width="*"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </DockPanel>
+</UserControl>

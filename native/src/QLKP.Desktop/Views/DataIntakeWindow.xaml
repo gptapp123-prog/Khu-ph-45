@@ -1,0 +1,65 @@
+<Window x:Class="QLKP.Desktop.Views.DataIntakeWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Icon="pack://application:,,,/Assets/qlkp.ico" Title="Thu thập · Nhập nhanh · Đối chiếu dữ liệu" WindowStartupLocation="CenterOwner"
+ Width="1130" Height="790" MinWidth="880" MinHeight="650" Background="#F5F8FC">
+ <ScrollViewer x:Name="IntakeViewport" Padding="16" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid MinHeight="620" Height="{Binding ViewportHeight, ElementName=IntakeViewport}"><Grid.RowDefinitions>
+  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="165"/>
+  <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+ </Grid.RowDefinitions>
+ <StackPanel Grid.Row="0" Margin="0,0,0,12">
+  <TextBlock Text="THU THẬP · NHẬP NHANH · ĐỐI CHIẾU" FontSize="24" FontWeight="Bold" Foreground="#133660"/>
+  <TextBlock Text="Dữ liệu nháp ở bộ nhớ → đối chiếu theo ID/mã hộ → kiểm tra quyền → xác nhận → ghi nguyên lô. Không tự gộp hai người trùng tên." TextWrapping="Wrap" Foreground="#51647A"/>
+  <TextBlock Text="Kho dữ liệu chưa mã hóa. Chỉ sử dụng dữ liệu giả." Foreground="#A54A13" FontWeight="Bold" TextWrapping="Wrap"/>
+ </StackPanel>
+ <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+  <TextBlock Text="Nghiệp vụ" VerticalAlignment="Center" Margin="0,0,7,0"/>
+  <ComboBox x:Name="IntakeMode" Width="275" SelectionChanged="InputChanged" SelectedIndex="0">
+   <ComboBoxItem Tag="CREATE_HOUSEHOLD" Content="B01 · Tạo hộ + chủ hộ"/>
+   <ComboBoxItem Tag="ADD_MEMBER" Content="B02 · Thêm người vào mã hộ"/>
+   <ComboBoxItem Tag="ENRICH_PERSON" Content="B02 · Bổ sung trường trống theo ID"/>
+  </ComboBox>
+  <TextBlock Text="Nguồn" Margin="16,0,7,0" VerticalAlignment="Center"/>
+  <ComboBox x:Name="SourceKind" Width="170" SelectionChanged="InputChanged" SelectedIndex="0">
+   <ComboBoxItem Tag="MANUAL" Content="Nhập tay"/>
+   <ComboBoxItem Tag="CSV_UTF8" Content="CSV/TSV UTF-8"/>
+   <ComboBoxItem Tag="XLSX_LOCAL" Content="Excel XLSX tại máy"/>
+   <ComboBoxItem Tag="CLIPBOARD" Content="Dán bảng Excel"/>
+   <ComboBoxItem Tag="OCR_DRAFT" Content="Văn bản OCR đã có"/>
+   <ComboBoxItem Tag="QR_DRAFT" Content="Nội dung QR đã có"/>
+  </ComboBox>
+  <TextBlock Text="Nhãn nguồn" Margin="16,0,7,0" VerticalAlignment="Center"/>
+  <TextBox x:Name="SourceLabel" Text="nhap_tay" Width="150" TextChanged="InputChanged"/>
+ </WrapPanel>
+ <GroupBox Grid.Row="2" Header="Nguồn nhập (có thể dán bảng nhiều dòng từ Excel)" Padding="7">
+  <DockPanel>
+   <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+    <Button Content="Đọc CSV/TSV/XLSX" Click="ReadCsv_Click" Margin="0,0,8,0" Padding="12,5"/>
+    <Button Content="Dán từ Clipboard" Click="PasteClipboard_Click" Margin="0,0,8,0" Padding="12,5"/>
+    <Button Content="Chèn tiêu đề cột" Click="Template_Click" Padding="12,5"/>
+    <TextBlock Text="Tối đa 5.000 bản ghi/lô · Dữ liệu có dấu được giữ nguyên" Foreground="#506982" Margin="16,0,0,0" VerticalAlignment="Center"/>
+   </WrapPanel>
+   <TextBox x:Name="Payload" FontFamily="Consolas" FontSize="13" AcceptsTab="True" AcceptsReturn="True"
+    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="InputChanged" TextWrapping="NoWrap"/>
+  </DockPanel>
+ </GroupBox>
+ <WrapPanel Grid.Row="3" Margin="0,10,0,10">
+  <Button Content="1. Xem trước và kiểm tra" Click="Preview_Click" Padding="14,7"/>
+  <TextBlock x:Name="ResultStatus" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#134D89" TextWrapping="Wrap"/>
+ </WrapPanel>
+ <GroupBox Grid.Row="4" Header="KẾT QUẢ ĐỐI CHIẾU THEO ID/MÃ HỘ · Xem tối đa 100 dòng đầu" Padding="6">
+  <DataGrid x:Name="PreviewRows" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Dòng nguồn" Binding="{Binding LineNumber}" Width="95"/>
+    <DataGridTextColumn Header="ID hoặc mã hộ đích" Binding="{Binding TargetKey}" Width="240"/>
+    <DataGridTextColumn Header="Thao tác" Binding="{Binding Operation}" Width="250"/>
+    <DataGridTextColumn Header="Kết quả kiểm tra" Binding="{Binding Notice}" Width="*"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </GroupBox>
+ <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+  <CheckBox x:Name="AcknowledgeCandidates" Content="Đã tự đối chiếu từng trường hợp nghi trùng" Margin="0,0,18,0" VerticalAlignment="Center"/>
+  <Button x:Name="CommitButton" IsEnabled="False" Content="2. Xác nhận và ghi nguyên lô" Click="Commit_Click" Padding="16,8" Background="#155A9C" Foreground="White"/>
+ </StackPanel>
+ </Grid></ScrollViewer>
+</Window>

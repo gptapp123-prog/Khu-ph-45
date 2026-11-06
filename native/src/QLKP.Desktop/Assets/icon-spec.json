@@ -1,0 +1,48 @@
+{
+  "design": "Khiên xanh đậm viền vàng, xích vàng quấn nửa dưới, nhà trắng ở giữa, không chữ, nền trong suốt.",
+  "palette": [
+    "#102D59",
+    "#D8AD44",
+    "#FFFFFF"
+  ],
+  "source": "Generated raster artwork; original alpha retained. ICO/density export only, no creative redraw.",
+  "windows_sizes": [
+    [
+      16,
+      16
+    ],
+    [
+      20,
+      20
+    ],
+    [
+      24,
+      24
+    ],
+    [
+      32,
+      32
+    ],
+    [
+      40,
+      40
+    ],
+    [
+      48,
+      48
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ]
+  ],
+  "android_density_count": 5
+}

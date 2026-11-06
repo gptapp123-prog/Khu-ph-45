@@ -1,0 +1,9 @@
+<UserControl x:Class="QLKP.Desktop.Views.LocalQrIntakeView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#F8FBFF">
+ <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="18"><TextBlock Text="I05 · Tiếp nhận nội dung OCR/QR" FontSize="23" FontWeight="Bold" Foreground="#102D59"/><TextBlock Text="Mở văn bản đã trích hoặc liên kết hồ sơ QR nội bộ. Chưa hỗ trợ nhận dạng ảnh/camera." TextWrapping="Wrap" Foreground="#A33E12" Margin="0,8,0,14"/>
+  <TextBlock Text="Văn bản OCR đã nhận (chỉ xem trước, không ghi kho)" FontWeight="Bold"/><TextBox x:Name="OcrText" AcceptsReturn="True" TextWrapping="Wrap" Height="220" VerticalScrollBarVisibility="Auto" Margin="0,7,0,10"/>
+  <Button Content="Mở tệp văn bản UTF-8 (.txt) để xem trước" Click="TextFile_Click" HorizontalAlignment="Left" Padding="12,6"/>
+  <TextBlock Text="QR nội bộ chuẩn: QLKP1|B01|&lt;32 ký tự ID&gt; hoặc QLKP1|B02|&lt;32 ký tự ID&gt;" Margin="0,18,0,8"/><TextBox x:Name="QrPayload"/>
+  <Button Content="Kiểm tra quyền và mở đúng hồ sơ QR" Click="Qr_Click" HorizontalAlignment="Left" Padding="14,7" Margin="0,9,0,0"/>
+  <TextBlock x:Name="ResultMessage" TextWrapping="Wrap" Margin="0,12,0,0"/>
+ </StackPanel></ScrollViewer>
+</UserControl>

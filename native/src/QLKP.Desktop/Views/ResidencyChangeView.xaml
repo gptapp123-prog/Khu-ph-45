@@ -1,0 +1,55 @@
+<UserControl x:Class="QLKP.Desktop.Views.ResidencyChangeView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <Grid Margin="14">
+  <Grid.RowDefinitions>
+   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+  </Grid.RowDefinitions>
+  <StackPanel Grid.Row="0">
+   <TextBlock Text="B03 · BIẾN ĐỘNG DÂN CƯ" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
+   <TextBlock Text="Chuyển nhân khẩu giữa các hộ trong cùng khu phố, lưu đầy đủ lịch sử và mã liên kết. Không thay chủ hộ qua màn hình này." Foreground="#526781" TextWrapping="Wrap"/>
+  </StackPanel>
+  <Border Grid.Row="1" Margin="0,10,0,6" Padding="12" BorderThickness="1" BorderBrush="#D8E5F2" Background="#F6FAFF">
+   <StackPanel>
+    <TextBlock Text="LẬP GHI NHẬN CHUYỂN HỘ" FontWeight="Bold" Foreground="#102D59" FontSize="16"/>
+    <WrapPanel Margin="0,8,0,0">
+     <StackPanel><TextBlock Text="Tìm hộ chuyển đi"/><TextBox x:Name="FromFilter" Width="230" ToolTip="Tìm theo mã hộ, chủ hộ, địa chỉ" TextChanged="FromFilter_TextChanged"/><ComboBox x:Name="FromHousehold" Width="230" DisplayMemberPath="Code" SelectionChanged="FromHousehold_SelectionChanged"/><WrapPanel><Button x:Name="FromPrevious" Content="◀" Click="FromPrevious_Click"/><TextBlock x:Name="FromPageInfo" VerticalAlignment="Center"/><Button x:Name="FromNext" Content="▶" Click="FromNext_Click"/></WrapPanel></StackPanel>
+     <StackPanel><TextBlock Text="Tìm hộ chuyển đến"/><TextBox x:Name="ToFilter" Width="230" ToolTip="Tìm theo mã hộ, chủ hộ, địa chỉ" TextChanged="ToFilter_TextChanged"/><ComboBox x:Name="ToHousehold" Width="230" DisplayMemberPath="Code" SelectionChanged="TransferInput_Changed"/><WrapPanel><Button x:Name="ToPrevious" Content="◀" Click="ToPrevious_Click"/><TextBlock x:Name="ToPageInfo" VerticalAlignment="Center"/><Button x:Name="ToNext" Content="▶" Click="ToNext_Click"/></WrapPanel></StackPanel>
+     <StackPanel><TextBlock Text="Quan hệ trong hộ đích"/><ComboBox x:Name="NewRelationship" Width="170" SelectedIndex="0" SelectionChanged="TransferInput_Changed">
+      <ComboBoxItem Content="Con"/><ComboBoxItem Content="Vợ/Chồng"/><ComboBoxItem Content="Cha/Mẹ"/><ComboBoxItem Content="Cháu"/><ComboBoxItem Content="Người thân"/><ComboBoxItem Content="Khác"/>
+     </ComboBox></StackPanel>
+    </WrapPanel>
+    <TextBlock Text="Chọn đúng nhân khẩu trong hộ nguồn (người cùng tên phải đối chiếu mã hồ sơ và ngày sinh)" Foreground="#526781"/>
+    <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="CurrentMembers" Height="105" SelectionChanged="CurrentMembers_SelectionChanged">
+     <DataGrid.Columns><DataGridTextColumn Header="Họ tên" Binding="{Binding FullName}" Width="*"/>
+      <DataGridTextColumn Header="Quan hệ" Binding="{Binding Relationship}" Width="100"/>
+      <DataGridTextColumn Header="Ngày sinh" Binding="{Binding BirthDateDisplay}" Width="115"/>
+      <DataGridTextColumn Header="Mã hồ sơ ID" Binding="{Binding Id}" Width="210"/>
+     </DataGrid.Columns>
+    </DataGrid>
+    <WrapPanel Margin="0,6,0,0"><TextBlock Text="Lý do biến động" VerticalAlignment="Center"/><TextBox x:Name="Reason" Width="360" MaxLength="300" TextChanged="TransferInput_Changed"/>
+      <Button x:Name="CheckTransferButton" Content="Kiểm tra thông tin" Click="CheckTransfer_Click"/>
+      <Button x:Name="SaveTransferButton" Content="Xác nhận chuyển hộ" Click="SaveTransfer_Click" IsEnabled="False"/>
+    </WrapPanel>
+    <TextBlock x:Name="TransferMessage" Foreground="#A54A13" TextWrapping="Wrap"/>
+   </StackPanel>
+  </Border>
+  <WrapPanel Grid.Row="2" Margin="0,7,0,4">
+   <TextBlock Text="LỊCH SỬ BIẾN ĐỘNG ĐÃ GHI" FontSize="16" FontWeight="Bold" Foreground="#102D59"/>
+   <TextBox x:Name="HistorySearch" Width="220" ToolTip="Tìm nhân khẩu, mã hộ hoặc lý do" TextChanged="HistorySearch_TextChanged"/><Button Content="Tải lại" Click="Reload_Click"/><Button x:Name="HistoryPrevious" Content="◀ Trước" Click="HistoryPrevious_Click"/><TextBlock x:Name="HistoryPageInfo" VerticalAlignment="Center"/><Button x:Name="HistoryNext" Content="Sau ▶" Click="HistoryNext_Click"/>
+   <Button x:Name="OpenPersonButton" Content="Mở hồ sơ nhân khẩu" Click="OpenPerson_Click"/>
+   <Button x:Name="OpenDestinationButton" Content="Mở hộ chuyển đến" Click="OpenDestination_Click"/>
+   <Button x:Name="OpenSourceButton" Content="Mở hộ chuyển đi" Click="OpenSource_Click"/>
+  </WrapPanel>
+  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="History" Grid.Row="3">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Thời điểm UTC" Binding="{Binding TimestampDisplay}" Width="190"/>
+    <DataGridTextColumn Header="Nhân khẩu" Binding="{Binding PersonName}" Width="190"/>
+    <DataGridTextColumn Header="Từ hộ" Binding="{Binding FromCode}" Width="95"/>
+    <DataGridTextColumn Header="Đến hộ" Binding="{Binding ToCode}" Width="95"/>
+    <DataGridTextColumn Header="Quan hệ mới" Binding="{Binding Relationship}" Width="115"/>
+    <DataGridTextColumn Header="Lý do" Binding="{Binding Reason}" Width="*"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </Grid>
+</UserControl>

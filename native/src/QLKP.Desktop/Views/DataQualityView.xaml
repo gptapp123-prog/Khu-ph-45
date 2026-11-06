@@ -1,0 +1,24 @@
+<UserControl x:Class="QLKP.Desktop.Views.DataQualityView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="14">
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock Text="I08 · CHẤT LƯỢNG DỮ LIỆU" Foreground="#102D59" FontWeight="Bold" FontSize="23"/>
+   <TextBlock Text="Kiểm tra hộ thiếu chủ hộ, người chưa gắn hộ và tên tương tự. Đây là cảnh báo cần xác minh, không phải kết luận trùng hồ sơ." TextWrapping="Wrap" Foreground="#526781"/>
+   <WrapPanel Margin="0,8,0,8"><Button Content="Kiểm tra lại" Click="Reload_Click"/>
+    <Button x:Name="OpenRecord" Content="Mở đúng hồ sơ được chọn" Click="OpenRecord_Click"/>
+    <TextBlock x:Name="Status" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#A44312"/>
+   </WrapPanel>
+   <WrapPanel><Button x:Name="Previous" Content="◀ Trước" Click="Previous_Click"/><Button x:Name="Next" Content="Sau ▶" Click="Next_Click"/></WrapPanel>
+  </StackPanel>
+  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="Issues" SelectionChanged="Issues_SelectionChanged">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Mức độ" Binding="{Binding Severity}" Width="100"/>
+    <DataGridTextColumn Header="Loại" Binding="{Binding Kind}" Width="95"/>
+    <DataGridTextColumn Header="Hồ sơ cần đối chiếu" Binding="{Binding Subject}" Width="210"/>
+    <DataGridTextColumn Header="Vấn đề kiểm tra" Binding="{Binding Finding}" Width="*"/>
+    <DataGridTextColumn Header="Mã hồ sơ ID" Binding="{Binding TargetId}" Width="225"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </DockPanel>
+</UserControl>
