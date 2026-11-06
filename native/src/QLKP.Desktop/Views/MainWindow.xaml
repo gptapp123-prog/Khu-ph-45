@@ -4,7 +4,13 @@
    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <Image Source="pack://application:,,,/Assets/qlkp-icon.png" Width="42" Height="42" Margin="0,0,12,0" RenderOptions.BitmapScalingMode="HighQuality"/>
     <TextBlock Grid.Column="1" Text="QUẢN LÝ KHU PHỐ" Foreground="White" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
-    <TextBlock Grid.Column="2" x:Name="CurrentUser" Foreground="#E2ECFC" FontSize="13" TextAlignment="Right" VerticalAlignment="Center" MaxWidth="420" TextWrapping="Wrap"/>
+    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+     <TextBlock x:Name="CurrentUser" Foreground="#E2ECFC" FontSize="13" TextAlignment="Right" VerticalAlignment="Center" MaxWidth="320" TextWrapping="Wrap"/>
+     <Button x:Name="AccountButton" Click="Account_Click" Background="#102D59" BorderBrush="#577299" ToolTip="Quản trị tài khoản" Padding="8,5">
+      <TextBlock x:Name="AccountLabel" Foreground="#E2ECFC" FontSize="13" MaxWidth="320" TextWrapping="Wrap"/>
+     </Button>
+     <Button x:Name="LogoutButton" Content="Đăng xuất" Click="Logout_Click" Margin="8,0,0,0" Padding="10,5"/>
+    </StackPanel>
    </Grid>
   </Border>
   <Border DockPanel.Dock="Bottom" Background="#E8EFF8" Padding="8,5">

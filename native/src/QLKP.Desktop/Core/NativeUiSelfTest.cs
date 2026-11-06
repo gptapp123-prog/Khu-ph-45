@@ -126,6 +126,8 @@ namespace QLKP.Desktop.Core {
      if(DataStore.IsFirstRun())throw new InvalidDataException("Setup button did not create owner.");
      setup.Close();run.BeginStep("UI_ROOT_LOGIN");var rootWindow=Login("ui_root",rootSecret);
      var root=DataStore.Login("ui_root",rootSecret);
+     run.BeginStep("UI_ACCOUNT_HEADER_BUTTON");Click(Control<Button>(rootWindow,"AccountButton"));
+     if(!(Control<ContentControl>(rootWindow,"FeatureContent").Content is AccountsView))throw new InvalidDataException("Account header route failed.");
      run.BeginStep("UI_CREATE_ADMIN");var accounts=Navigate(rootWindow,"I01");
      Control<TextBox>(accounts,"Username").Text="ui_admin";Control<PasswordBox>(accounts,"Password").Password=adminSecret;
      Click(Control<Button>(accounts,"CreateButton"));
@@ -142,7 +144,11 @@ namespace QLKP.Desktop.Core {
      }
      if(visited.Count!=56)throw new InvalidDataException("Not all 56 routes opened.");
      Console.WriteLine("UI_NAVIGATION_PASS 56");Console.WriteLine("UI_MODULE_WRITE_PASS "+ModuleCatalog.Editable.Length);
-     run.BeginStep("UI_CLOSE_AND_CLEANUP");main.Close();Drain();
+     run.BeginStep("UI_LOGOUT_BUTTON");Click(Control<Button>(main,"LogoutButton"));
+     if(Application.Current.Windows.OfType<MainWindow>().Any())throw new InvalidDataException("Logout left a main window open.");
+     var returned=Application.Current.Windows.OfType<LoginWindow>().SingleOrDefault();
+     if(returned==null)throw new InvalidDataException("Logout did not return to login.");
+     returned.Close();run.BeginStep("UI_CLOSE_AND_CLEANUP");Drain();
      DataStore.EndIsolatedSelfTest(sandbox);sandbox=null;run.Complete("PASS");Console.WriteLine("UI_SMOKE_PASS");
     } catch(Exception ex){run.Complete("FAIL",ex.GetType().Name);throw;}
     finally {

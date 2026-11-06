@@ -25,11 +25,12 @@ class MainActivity : Activity() {
   }
   val title=TextView(this).apply {text="QUẢN LÝ KHU PHỐ";textSize=23f;setTextColor(Color.rgb(16,45,89))}
   val about=TextView(this).apply {
-   text="Trình đọc danh mục ngoại tuyến\nKHÔNG đồng bộ LAN/hai chiều; không lưu dữ liệu công dân, mật khẩu hoặc nội dung danh mục trên điện thoại."
+   text="Nhập mật khẩu gói, sau đó chọn tệp .qlkpsync đã nhận từ máy tính."
    textSize=15f
   }
-  phrase=EditText(this).apply {hint="Mật khẩu giải mã gói (≥14 ký tự)";inputType=129;imeOptions=EditorInfo.IME_ACTION_DONE;isSaveEnabled=false}
+  phrase=EditText(this).apply {id=R.id.package_password;hint="Mật khẩu giải mã gói (≥14 ký tự)";inputType=129;imeOptions=EditorInfo.IME_ACTION_DONE;isSaveEnabled=false}
   val pick=Button(this).apply {
+   id=R.id.import_catalog;isAllCaps=false
    text="Chọn gói .qlkpsync từ máy tính"
    setOnClickListener {
     val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -38,7 +39,7 @@ class MainActivity : Activity() {
     startActivityForResult(intent,requestCatalog)
    }
   }
-  status=TextView(this).apply {text="Chưa chọn dữ liệu ngoại tuyến.";textSize=15f;setTextColor(Color.DKGRAY)}
+  status=TextView(this).apply {id=R.id.catalog_status;text="Chưa chọn dữ liệu ngoại tuyến.";textSize=15f;setTextColor(Color.DKGRAY)}
   wrap.addView(title);wrap.addView(about);wrap.addView(phrase);wrap.addView(pick);wrap.addView(status)
   setContentView(ScrollView(this).apply { isFillViewport=true;addView(wrap) })
  }

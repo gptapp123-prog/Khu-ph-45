@@ -34,11 +34,11 @@ def launch():
     screen=snapshot('main-screen')
     texts=[node.attrib.get('text','') for node in screen.iter()]
     if 'QUẢN LÝ KHU PHỐ' not in texts:raise RuntimeError('Native title not visible')
-    button=next((n for n in screen.iter() if n.attrib.get('text','')=='Chọn gói .qlkpsync từ máy tính'),None)
-    if button is None or button.attrib.get('enabled')!='true':raise RuntimeError('File picker button unavailable')
+    button=next((n for n in screen.iter() if n.attrib.get('resource-id','')==APP+':id/import_catalog'),None)
+    if button is None or button.attrib.get('enabled')!='true' or button.attrib.get('clickable')!='true':raise RuntimeError('File picker button unavailable')
 def chooser():
     screen=ET.parse(OUT/'main-screen.xml').getroot()
-    node=next(n for n in screen.iter() if n.attrib.get('text','')=='Chọn gói .qlkpsync từ máy tính')
+    node=next(n for n in screen.iter() if n.attrib.get('resource-id','')==APP+':id/import_catalog')
     x1,y1,x2,y2=map(int,re.findall(r'\d+',node.attrib['bounds']))
     call('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
     ui=snapshot('file-chooser')

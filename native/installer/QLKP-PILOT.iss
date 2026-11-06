@@ -42,6 +42,6 @@ begin
   if not Result then
     MsgBox('Cần .NET Framework 4.8. Hãy cài từ trang chính thức của Microsoft rồi chạy lại bộ cài. Không xóa dữ liệu cũ.', mbCriticalError, MB_OK);
 end;
-; Tệp dữ liệu nằm ngoài thư mục chương trình (%LOCALAPPDATA%).
-; Uninstall deliberately never deletes any user database or document store.
-; PILOT only: no encryption, signing, field-level auth, full backup/restore or native OS E2E.
+// Tệp dữ liệu nằm ngoài thư mục chương trình (%LOCALAPPDATA%).
+// Uninstall deliberately never deletes any user database or document store.
+// Main database remains unencrypted. Publisher signing and full acceptance are pending.

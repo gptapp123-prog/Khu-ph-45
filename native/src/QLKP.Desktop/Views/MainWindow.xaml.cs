@@ -29,11 +29,25 @@ namespace QLKP.Desktop.Views {
    ).ToList();
    visibleGroups=FeatureCatalog.GroupNames.Where(g=>authorized.Any(f=>f.Code[0]==g[0])).ToList();
    CurrentUser.Text=s.Username+" · "+DisplayLabels.Role(s.Role)+" · "+DataStore.AreaName(s);
+   AccountLabel.Text=CurrentUser.Text;
+   bool accountAccess=DataStore.Can(s,"I01","manage");
+   AccountButton.Visibility=accountAccess?Visibility.Visible:Visibility.Collapsed;
+   CurrentUser.Visibility=accountAccess?Visibility.Collapsed:Visibility.Visible;
    Status.Text="Phiên bản "+System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
    if(s.Role!="ASSIGNED_USER")Status.ToolTip=DataStore.DatabasePath;
    Groups.ItemsSource=visibleGroups;
    if(visibleGroups.Count>0)Groups.SelectedIndex=0;
    else FeatureContent.Content=new NoticeView("Tài khoản chưa được cấp quyền sử dụng chức năng. Liên hệ quản trị khu phố.");
+  }
+  void Account_Click(object sender,RoutedEventArgs e){
+   if(!DataStore.Can(session,"I01","manage")){FeatureContent.Content=new NoticeView("Phiên không có quyền quản trị tài khoản.");return;}
+   Groups.SelectedItem=visibleGroups.First(g=>g[0]=='I');
+   Features.SelectedItem=authorized.First(f=>f.Code=="I01");
+  }
+  void Logout_Click(object sender,RoutedEventArgs e){
+   session.ExpiresUtc=DateTime.UtcNow;
+   FeatureContent.Content=null;
+   var login=new LoginWindow();Application.Current.MainWindow=login;login.Show();Close();
   }
   void Groups_SelectionChanged(object sender,SelectionChangedEventArgs e){
    if(Features==null || Groups.SelectedIndex<0)return;
