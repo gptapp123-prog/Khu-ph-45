@@ -10,6 +10,7 @@
     <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto"><WrapPanel x:Name="AdditionalRights"/></ScrollViewer>
    </StackPanel>
    <Button x:Name="CreateButton" Content="Tạo tài khoản theo quyền được ủy quyền" HorizontalAlignment="Left" Click="Create_Click"/>
+   <TextBlock x:Name="AccountsFeedback" TextWrapping="Wrap" Foreground="#9E4A14" Margin="4,7,4,0"/>
   </StackPanel></Border>
  </StackPanel></ScrollViewer>
  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="Accounts" Margin="7,14,7,7">

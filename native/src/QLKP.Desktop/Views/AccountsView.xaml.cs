@@ -15,7 +15,7 @@ namespace QLKP.Desktop.Views {
    }
    Reload();
   }
-  void Reload(){try{Accounts.ItemsSource=DataStore.ListAccounts(session);}catch(Exception ex){Accounts.ItemsSource=null;MessageBox.Show(ex.Message);}}
+  void Reload(){try{Accounts.ItemsSource=DataStore.ListAccounts(session);}catch(Exception ex){Accounts.ItemsSource=null;AccountsFeedback.Text="Không tải được danh sách tài khoản: "+ex.Message;}}
   void Create_Click(object sender,RoutedEventArgs e){
    try {
     var rights=new List<string>();
@@ -25,8 +25,8 @@ namespace QLKP.Desktop.Views {
     if(ReadChanges.IsChecked==true)rights.Add("B03:read");if(CreateChanges.IsChecked==true)rights.Add("B03:create");if(ReadQuality.IsChecked==true)rights.Add("I08:read");
     foreach(CheckBox cb in AdditionalRights.Children)if(cb.IsChecked==true)rights.Add(Convert.ToString(cb.Tag));
     DataStore.CreateAccount(session,Username.Text,Password.Password,rights);
-    Username.Clear();Password.Clear();Reload();MessageBox.Show("Đã tạo tài khoản. Cấp quyền được kiểm tra tại tầng dữ liệu.");
-   }catch(Exception ex){MessageBox.Show("Không thể cấp tài khoản: "+ex.Message);}
+    Username.Clear();Password.Clear();Reload();AccountsFeedback.Text="Đã tạo tài khoản theo quyền được cấp.";
+   }catch(Exception ex){AccountsFeedback.Text="Không thể cấp tài khoản: "+ex.Message;}
   }
  }
 }
