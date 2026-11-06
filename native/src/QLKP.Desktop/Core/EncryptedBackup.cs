@@ -70,22 +70,27 @@ namespace QLKP.Desktop.Core {
   }
   // Creates an encrypted snapshot under the current machine key, regardless of backup generation.
   internal static string Materialize(string path,string phrase) {
-   string stage=Stage("restore");byte[] targetKey=VaultStorage.CurrentKey(),oldKey=null;
+   string stage=Stage("restore"),input=null;byte[] targetKey=VaultStorage.CurrentKey(),oldKey=null;
    try {
+    if(String.Equals(Path.GetExtension(path),".qlkpvault",StringComparison.OrdinalIgnoreCase)) {
+     VaultStorage.GuardFile(path);if(!File.Exists(path)||new FileInfo(path).Length>MaxSnapshotBytes||VaultStorage.IsPlainSqlite(path))throw new InvalidDataException("Bản phục hồi cục bộ không hợp lệ.");
+     using(var source=VaultStorage.OpenEncrypted(path,targetKey,true))using(var target=VaultStorage.OpenEncrypted(stage,targetKey,false,true)){CheckSnapshot(source);VaultStorage.CopyTrusted(source,target);}
+    } else
     using(var p=ReadEnvelope(path,phrase)) {
      if(p.Legacy) {
       using(var memory=new SqliteMemoryImage(p.Data))using(var target=VaultStorage.OpenEncrypted(stage,targetKey,false,true)){CheckSnapshot(memory.Connection);VaultStorage.CopyTrusted(memory.Connection,target);}
      } else {
       if(p.Data.Length<48)throw new InvalidDataException("Thiếu dữ liệu snapshot.");oldKey=p.Data.Take(32).ToArray();
-      using(var f=new FileStream(stage,FileMode.CreateNew,FileAccess.Write,FileShare.None)){f.Write(p.Data,32,p.Data.Length-32);f.Flush(true);}
-      using(var old=VaultStorage.OpenEncrypted(stage,oldKey)){CheckSnapshot(old);using(var q=new SQLiteCommand("PRAGMA rekey=\"x'"+VaultStorage.Hex(targetKey)+"'\";",old))q.ExecuteNonQuery();}
+      input=Stage("restore-source");
+      using(var f=new FileStream(input,FileMode.CreateNew,FileAccess.Write,FileShare.None)){f.Write(p.Data,32,p.Data.Length-32);f.Flush(true);}
+      using(var old=VaultStorage.OpenEncrypted(input,oldKey,true))using(var target=VaultStorage.OpenEncrypted(stage,targetKey,false,true)){CheckSnapshot(old);VaultStorage.CopyTrusted(old,target);}
      }
     }
     if(VaultStorage.IsPlainSqlite(stage))throw new CryptographicException("Không tạo được snapshot mã hóa.");
     using(var c=VaultStorage.OpenEncrypted(stage,targetKey))CheckSnapshot(c);
     return stage;
    }catch{if(File.Exists(stage))File.Delete(stage);throw;}
-   finally{Array.Clear(targetKey,0,targetKey.Length);if(oldKey!=null)Array.Clear(oldKey,0,oldKey.Length);}
+   finally{Array.Clear(targetKey,0,targetKey.Length);if(oldKey!=null)Array.Clear(oldKey,0,oldKey.Length);if(input!=null&&File.Exists(input))File.Delete(input);}
   }
   public static void Validate(Session admin,string path,string phrase) {DataStore.RequireRootMaintenance(admin);string stage=Materialize(path,phrase);File.Delete(stage);}
   public static void Restore(Session admin,string path,string phrase) {
