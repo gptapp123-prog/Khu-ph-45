@@ -91,7 +91,7 @@ try {
  if($LASTEXITCODE -ne 0) {throw 'WPF compile lỗi. Không tạo bộ cài.'}
  Start-QlkpStage $run 'DEPENDENCIES'
  $exe=Join-Path $out 'QLKP.Desktop.exe'
- foreach($file in @('QLKP.Desktop.exe','QLKP.Desktop.exe.config','System.Data.SQLite.dll','BouncyCastle.Cryptography.dll','schema.sql')) {
+ foreach($file in @('QLKP.Desktop.exe','QLKP.Desktop.exe.config','System.Data.SQLite.dll','e_sqlite3.dll','BouncyCastle.Cryptography.dll','schema.sql')) {
   if(-not(Test-Path (Join-Path $out $file))) {
    if($file -eq 'QLKP.Desktop.exe.config') {continue}
    throw "Thiếu phụ thuộc của app sau build: $file. Không tạo bộ cài."
@@ -109,12 +109,18 @@ try {
   $check=$null
   try {
    $env:QLKP_TEST_PARENT_ID=$run.report.session_id
-  $check=Start-Process -FilePath $exe -WorkingDirectory $out -ArgumentList '--self-test' -RedirectStandardOutput $selfTestOut -RedirectStandardError $selfTestErr -PassThru
+   $info=New-Object System.Diagnostics.ProcessStartInfo
+   $info.FileName=$exe;$info.WorkingDirectory=$out;$info.Arguments='--self-test';$info.UseShellExecute=$false
+   $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+   $check=New-Object System.Diagnostics.Process;$check.StartInfo=$info
+   [void]$check.Start();$stdout=$check.StandardOutput.ReadToEndAsync();$stderr=$check.StandardError.ReadToEndAsync()
    if (-not $check.WaitForExit(120000)) {
     Stop-Process -Id $check.Id -Force -ErrorAction SilentlyContinue
     throw 'Self-test WPF vượt 120 giây, dừng đóng gói để điều tra lỗi.'
    }
-   $check.Refresh()
+   $check.WaitForExit()
+   [IO.File]::WriteAllText($selfTestOut,$stdout.Result,[Text.Encoding]::UTF8)
+   [IO.File]::WriteAllText($selfTestErr,$stderr.Result,[Text.Encoding]::UTF8)
    if($check.ExitCode -ne 0) {throw "Self-test trên kho tạm thất bại (exit=$($check.ExitCode)). Dừng phát hành."}
   } finally { if($null -ne $check){$check.Dispose()};[Environment]::SetEnvironmentVariable('QLKP_TEST_PARENT_ID',$priorParent,'Process') }
  } else {Skip-QlkpStage $run 'WINDOWS_SELF_TEST'}
@@ -126,9 +132,16 @@ try {
   try {
    $env:QLKP_UI_EVIDENCE=Join-Path $logDir ("ui-"+$stamp)
    $env:QLKP_TEST_PARENT_ID=$run.report.session_id
-   $uiCheck=Start-Process -FilePath $exe -WorkingDirectory $out -ArgumentList '--ui-smoke-test' -RedirectStandardOutput (Join-Path $logDir "ui-smoke-$stamp.stdout.log") -RedirectStandardError (Join-Path $logDir "ui-smoke-$stamp.stderr.log") -PassThru
+   $uiInfo=New-Object System.Diagnostics.ProcessStartInfo
+   $uiInfo.FileName=$exe;$uiInfo.WorkingDirectory=$out;$uiInfo.Arguments='--ui-smoke-test';$uiInfo.UseShellExecute=$false
+   $uiInfo.RedirectStandardOutput=$true;$uiInfo.RedirectStandardError=$true
+   $uiCheck=New-Object System.Diagnostics.Process;$uiCheck.StartInfo=$uiInfo
+   [void]$uiCheck.Start();$uiOut=$uiCheck.StandardOutput.ReadToEndAsync();$uiErr=$uiCheck.StandardError.ReadToEndAsync()
    if(-not $uiCheck.WaitForExit(240000)){Stop-Process -Id $uiCheck.Id -Force -ErrorAction SilentlyContinue;throw 'WPF UI smoke exceeded 240 seconds'}
-   $uiCheck.Refresh();if($uiCheck.ExitCode -ne 0){throw 'WPF UI smoke failed. No installer will be created.'}
+   $uiCheck.WaitForExit()
+   [IO.File]::WriteAllText((Join-Path $logDir "ui-smoke-$stamp.stdout.log"),$uiOut.Result,[Text.Encoding]::UTF8)
+   [IO.File]::WriteAllText((Join-Path $logDir "ui-smoke-$stamp.stderr.log"),$uiErr.Result,[Text.Encoding]::UTF8)
+   if($uiCheck.ExitCode -ne 0){throw 'WPF UI smoke failed. No installer will be created.'}
   } finally {
    if($null -ne $uiCheck){$uiCheck.Dispose()}
    [Environment]::SetEnvironmentVariable('QLKP_UI_EVIDENCE',$priorUiEvidence,'Process')

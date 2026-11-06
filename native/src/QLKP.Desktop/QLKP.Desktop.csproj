@@ -23,7 +23,12 @@
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Runtime.Serialization" />
     <PackageReference Include="System.Data.SQLite" Version="2.0.4" />
+    <PackageReference Include="SourceGear.sqlite3" Version="3.53.4" GeneratePathProperty="true" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
     <Content Include="..\..\database\schema.sql" Link="schema.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="CopyQlkpNativeSqliteX64" AfterTargets="Build">
+    <Error Condition="!Exists('$(PkgSourceGear_sqlite3)\runtimes\win-x64\native\e_sqlite3.dll')" Text="Missing official SQLite native x64 runtime asset." />
+    <Copy SourceFiles="$(PkgSourceGear_sqlite3)\runtimes\win-x64\native\e_sqlite3.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

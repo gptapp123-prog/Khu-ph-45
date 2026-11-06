@@ -12,6 +12,7 @@ namespace QLKP.Desktop.Core {
    string root=AppDomain.CurrentDomain.BaseDirectory;
    if(!File.Exists(Path.Combine(root,"schema.sql")))throw new FileNotFoundException("schema.sql");
    if(!File.Exists(Path.Combine(root,"System.Data.SQLite.dll")))throw new FileNotFoundException("System.Data.SQLite.dll");
+   if(!File.Exists(Path.Combine(root,"e_sqlite3.dll")))throw new FileNotFoundException("e_sqlite3.dll");
    if(Environment.OSVersion.Platform!=PlatformID.Win32NT)throw new PlatformNotSupportedException("Cần Windows.");
    if(IntPtr.Size!=8)throw new PlatformNotSupportedException("Bản thử nghiệm chỉ hỗ trợ Windows x64.");
    // Version 6.1 SP1 is the compatibility target. Do not present Windows 7 as a secure OS.
