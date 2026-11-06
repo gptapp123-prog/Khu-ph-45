@@ -1,9 +1,7 @@
 name: QLKP native Windows and Android installers
 
 on:
-  push:
-    branches: [qlkp-native-build-20261106]
-    paths: ["native/**", ".github/workflows/qlkp-native.yml"]
+  workflow_dispatch:
 
 permissions:
   contents: read
