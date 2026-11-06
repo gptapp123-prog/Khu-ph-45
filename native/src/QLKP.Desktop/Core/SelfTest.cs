@@ -23,8 +23,16 @@ namespace QLKP.Desktop.Core {
      var resource=System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/"+asset));
      if(resource==null)throw new InvalidDataException("Thiếu icon đóng gói: "+asset);
      using(var image=resource.Stream) {
-      var decoder=System.Windows.Media.Imaging.BitmapDecoder.Create(image,System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+      byte[] bytes;using(var copy=new MemoryStream()){image.CopyTo(copy);bytes=copy.ToArray();}
+      using(var hash=System.Security.Cryptography.SHA256.Create()) {
+       string actual=BitConverter.ToString(hash.ComputeHash(bytes)).Replace("-","").ToLowerInvariant();
+       if(asset=="qlkp-icon.png"&&actual!="8b83e11f800b43cb39c0cd3fc473330d35bb5cc979fd8577b3b8d531512ebd96")throw new InvalidDataException("Ảnh logo đóng gói bị thiếu hoặc thay đổi.");
+      }
+      using(var complete=new MemoryStream(bytes,false)) {
+      var decoder=System.Windows.Media.Imaging.BitmapDecoder.Create(complete,System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
       if(decoder.Frames.Count<1)throw new InvalidDataException("Không giải mã được icon: "+asset);
+      var frame=decoder.Frames[decoder.Frames.Count-1];int stride=(frame.PixelWidth*frame.Format.BitsPerPixel+7)/8;frame.CopyPixels(new byte[stride*frame.PixelHeight],stride,0);
+      }
      }
     }
     journal.BeginStep("INITIALIZE_SANDBOX");

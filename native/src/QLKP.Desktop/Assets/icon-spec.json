@@ -44,5 +44,7 @@
       256
     ]
   ],
-  "android_density_count": 5
+  "android_density_count": 5,
+  "png_sha256": "8b83e11f800b43cb39c0cd3fc473330d35bb5cc979fd8577b3b8d531512ebd96",
+  "png_size_bytes": 939340
 }
