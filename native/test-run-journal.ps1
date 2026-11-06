@@ -16,7 +16,13 @@ function Save-QlkpRun($Run,[string]$EventName,$Step) {
   $bytes=$encoding.GetBytes(($Run.report | ConvertTo-Json -Depth 12))
   $stream=[System.IO.FileStream]::new($temp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
   try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
-  if(Test-Path -LiteralPath $path){[IO.File]::Replace($temp,$path,$null)}else{[IO.File]::Move($temp,$path)}
+  if(Test-Path -LiteralPath $path){
+   # Windows PowerShell 5.1 converts $null to an empty string for this overload.
+   # Use an explicit same-directory backup path and remove it after atomic replacement.
+   $backup=$temp+'.bak'
+   [IO.File]::Replace($temp,$path,$backup)
+   [IO.File]::Delete($backup)
+  }else{[IO.File]::Move($temp,$path)}
  }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Force}}
 }
 function New-QlkpTestRun([string]$Root) {
