@@ -59,6 +59,8 @@ namespace QLKP.Desktop.Core {
      var summary=new MergeSummary{Table=table};plan.Summary.Add(summary);
      foreach(var original in MergeRows(source,table,ScopedSource(table),null,P("@area",sourceArea))) {
       string feature=MergeFeature(source,table,original);Require(target,tx,actor,feature,"read",actor.AreaId);Require(target,tx,actor,feature,feature=="I07"?"manage":"create",actor.AreaId);
+      if(table=="module_relations")Require(target,tx,actor,Text(original,"target_feature"),"read",actor.AreaId);
+      if(table=="module_record_history"&&(Convert.ToInt64(original["old_version"])<1||Convert.ToInt64(original["new_version"])>Convert.ToInt64(Scalar(target,tx,"SELECT version FROM module_records WHERE id=@id",P("@id",Text(original,"record_id"))))))throw new InvalidOperationException("Lịch sử không khớp phiên bản hồ sơ; đã hủy toàn bộ lô.");
       var row=new Dictionary<string,object>(original,StringComparer.Ordinal);
       if(row.ContainsKey("area_id"))row["area_id"]=actor.AreaId;
       if(table=="shared_catalog_items")row["scope_area"]=actor.AreaId;
@@ -128,6 +130,7 @@ namespace QLKP.Desktop.Core {
    finally{Array.Clear(key,0,key.Length);if(frozen!=null&&File.Exists(frozen))File.Delete(frozen);}
   }
   public static void ApplyMerge(Session actor,MergePlan plan) {
+   if(actor==null)throw new UnauthorizedAccessException("Chưa đăng nhập.");
    if(plan==null||plan.Applied||String.IsNullOrEmpty(plan.Candidate)||plan.ActorId!=actor.Id||plan.AreaId!=actor.AreaId)throw new InvalidOperationException("Bản đối chiếu đã hết hiệu lực; kiểm tra lại nguồn.");
    using(var c=Open())RequireMerge(c,null,actor);
    var key=VaultStorage.CurrentKey();bool replaced=false;string rollback=MergeStage("before-merge");

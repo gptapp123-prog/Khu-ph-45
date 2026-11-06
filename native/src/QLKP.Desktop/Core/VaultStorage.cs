@@ -123,6 +123,7 @@ namespace QLKP.Desktop.Core {
     Action<byte[]> add=b=>{var n=BitConverter.GetBytes(b.Length);hash.TransformBlock(n,0,n.Length,n,0);hash.TransformBlock(b,0,b.Length,b,0);};
     foreach(string table in (sourceTables??Tables(c)).OrderBy(x=>x,StringComparer.Ordinal)) {
      add(Encoding.UTF8.GetBytes(table));var columns=sourceColumns==null?Columns(c,table):sourceColumns[table];
+     foreach(string column in columns)add(Encoding.UTF8.GetBytes(column));
      string names=String.Join(",",columns.Select(Quote));
      using(var cmd=new SQLiteCommand("SELECT "+names+" FROM "+Quote(table)+" ORDER BY "+names,c))using(var r=cmd.ExecuteReader())while(r.Read())for(int i=0;i<columns.Count;i++) {
       object v=r.GetValue(i);add(v==DBNull.Value?new byte[]{0}:v is byte[]?(new byte[]{1}).Concat((byte[])v).ToArray():Encoding.UTF8.GetBytes(v.GetType().FullName+":"+Convert.ToString(v,CultureInfo.InvariantCulture)));

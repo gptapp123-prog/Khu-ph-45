@@ -57,6 +57,14 @@ namespace QLKP.Desktop.Core {
     string originId=Convert.ToString(Scalar(c,null,"SELECT id FROM module_records WHERE feature='B04' AND record_code='M-MAIN-B04'"));
     var history=GetModuleHistory(admin,"B04",originId);if(history.Count!=1||!history[0].Actor.StartsWith("Tiếp nhận từ kho nguồn:",StringComparison.Ordinal))throw new InvalidDataException("Imported history attributed as a local original action.");
    }
+   run.BeginStep("MERGE_UNREADABLE_RELATION_TARGET_DENIED");
+   string restrictedSecret="T-"+Guid.NewGuid().ToString("N")+"!";CreateAccount(root,"merge_restricted_admin",restrictedSecret,null);
+   var restricted=Login("merge_restricted_admin",restrictedSecret);var allowed=GetAccountRights(root,restricted.Id);allowed.AddRange(ModuleCatalog.AdditionalRights());SetAccountRights(root,restricted.Id,allowed);restricted=Login("merge_restricted_admin",restrictedSecret);
+   string hidden=SaveModuleRecord(restricted,"D02",new ModuleRecord{Code="MERGE-HIDDEN",Title="[MẪU] Hồ sơ không được đọc",Status="Hồ sơ nội bộ",Fields=new System.Collections.Generic.Dictionary<string,string>{{"full_name","[MẪU] Nguồn riêng"}}});
+   SetAccountRights(root,restricted.Id,allowed.Where(x=>!x.StartsWith("D02:",StringComparison.Ordinal)));restricted=Login("merge_restricted_admin",restrictedSecret);
+   string deniedTarget=CreateMergeFixture(restricted,"DENIED-TARGET");using(var c=VaultStorage.OpenPlain(deniedTarget,false)){Exec(c,null,"DROP TRIGGER module_relations_guard_update;UPDATE module_relations SET target_feature='D02',target_id=@id",P("@id",hidden));}
+   before=CurrentFingerprint();rejected=false;try{using(var plan=PreviewMerge(restricted,deniedTarget,"")){} }catch(UnauthorizedAccessException){rejected=true;}
+   if(!rejected||CurrentFingerprint()!=before)throw new InvalidDataException("Merge linked a target without read permission.");
    run.BeginStep("MERGE_REPEAT_SKIPS_IDENTICAL_ROWS");
    using(var plan=PreviewMerge(admin,path,""))if(plan.Added!=0||plan.Identical!=9)throw new InvalidDataException("Repeated merge duplicates data.");
    run.BeginStep("MERGE_CONFLICT_ROLLS_BACK_ENTIRE_BATCH");

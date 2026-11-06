@@ -35,6 +35,8 @@ jobs:
       - name: Record pinned SQLite public serialization API
         if: always()
         run: |
+          New-Item -ItemType Directory -Force 'build-logs\native-runtime' | Out-Null
+          Copy-Item 'build-output\Release\x64\e_sqlite3.dll' 'build-logs\native-runtime\' -ErrorAction Stop
           $dll=Join-Path (Get-Location) 'build-output\Release\x64\System.Data.SQLite.dll'
           if(Test-Path $dll){
             $assembly=[Reflection.Assembly]::LoadFrom($dll)

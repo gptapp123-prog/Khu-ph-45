@@ -1,3 +1,4 @@
+THƯ MỤC MÃ NGUỒN — KHÔNG PHẢI SETUP.EXE. Bộ cài đã biên dịch được bàn giao riêng.
 QUẢN LÝ KHU PHỐ V0.20 P8 — WINDOWS WPF + ANDROID NATIVE
 
 Windows: khởi tạo quản trị rõ ràng ở kho rỗng; Enter thực hiện đúng bước và đăng nhập ngay khi tạo xong.
@@ -9,3 +10,5 @@ BUILD_SETUP_1_CLICK.cmd: build, self-test, UI smoke, tạo setup trên Windows.
 Không chèn dữ liệu minh họa khi khởi động. Lịch sử kiểm thử tại I09.
 Android đọc gói danh mục .qlkpsync; chưa có LAN/QR ghép hoặc đồng bộ hồ sơ hai chiều.
 Bản PILOT chưa phải nghiệm thu toàn bộ 56 quy trình hoặc chứng nhận dùng dữ liệu thật.
+
+Mẫu QA kỹ thuật tại demo/templates/*.xlsx; không tự nhập vào kho sử dụng.
