@@ -20,7 +20,7 @@
    </Grid>
   </Border>
   <Grid>
-   <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <Border Grid.Column="0" Background="#122D56"><DockPanel>
     <TextBlock DockPanel.Dock="Top" Text="NHÓM NGHIỆP VỤ" FontWeight="Bold" Foreground="#DAE7FF" Margin="14,18"/>
     <ListBox x:Name="Groups" SelectionChanged="Groups_SelectionChanged" BorderThickness="0" Background="#122D56" Foreground="White" FontSize="14" ItemContainerStyle="{StaticResource NavigationItem}" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -35,7 +35,7 @@
    </DockPanel></Border>
    <Border Grid.Column="2" Padding="10">
     <ScrollViewer x:Name="ContentViewport" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="False">
-     <ContentControl x:Name="FeatureContent" MinWidth="960" Width="{Binding ViewportWidth, ElementName=ContentViewport}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+     <ContentControl x:Name="FeatureContent" Width="{Binding ViewportWidth, ElementName=ContentViewport}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
     </ScrollViewer>
    </Border>
   </Grid>

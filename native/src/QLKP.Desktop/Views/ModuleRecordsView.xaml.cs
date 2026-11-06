@@ -51,7 +51,18 @@ namespace QLKP.Desktop.Views {
      if(textbox!=null)textbox.IsReadOnly=true;
      if(dropdown!=null)dropdown.IsEnabled=false;
     }}
-   ResetEditor();Reload();
+   ResetEditor();Reload();ApplyLayout();
+  }
+  void Layout_SizeChanged(object sender,SizeChangedEventArgs e){ApplyLayout();}
+  void ApplyLayout(){
+   if(RecordsLayout==null||ListRegion==null||DetailRegion==null)return;
+   bool compact=ActualWidth<900;
+   RecordsLayout.ColumnDefinitions[0].Width=new GridLength(compact?1:3,GridUnitType.Star);
+   RecordsLayout.ColumnDefinitions[1].Width=compact?new GridLength(0):new GridLength(2.5,GridUnitType.Star);
+   RecordsLayout.RowDefinitions[0].Height=compact?new GridLength(190):new GridLength(1,GridUnitType.Star);
+   RecordsLayout.RowDefinitions[1].Height=compact?new GridLength(1,GridUnitType.Star):new GridLength(0);
+   Grid.SetRow(DetailRegion,compact?1:0);Grid.SetColumn(DetailRegion,compact?0:1);
+   ListRegion.Margin=compact?new Thickness(0,0,0,8):new Thickness(0,0,10,0);
   }
   void ResetEditor(){activeId=null;version=0;RecordCode.Clear();RecordTitle.Clear();RecordNotes.Clear();
    RecordCode.IsReadOnly=backlog;RecordStatus.SelectedIndex=0;RelatedFeature.SelectedIndex=0;RelatedId.Clear();

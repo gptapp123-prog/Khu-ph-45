@@ -26,6 +26,11 @@ namespace QLKP.Desktop.Core {
   static void Drain() {Application.Current.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));}
   static void Click(Button button,bool confirm=false) {
    if(!button.IsEnabled)throw new InvalidDataException("Disabled button: "+button.Name);
+   button.BringIntoView();Drain();
+   var owner=Window.GetWindow(button);if(owner!=null)owner.UpdateLayout();
+   if(!button.IsVisible||button.ActualWidth<1||button.ActualHeight<1)throw new InvalidDataException("Button is not visible: "+button.Name);
+   if(owner!=null){var bounds=button.TransformToAncestor(owner).TransformBounds(new Rect(0,0,button.ActualWidth,button.ActualHeight));
+    if(bounds.Left<0||bounds.Top<0||bounds.Right>owner.ActualWidth+1||bounds.Bottom>owner.ActualHeight+1)throw new InvalidDataException("Button outside window: "+button.Name);}
    DispatcherTimer timer=null;
    if(confirm) {
     timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};

@@ -1,17 +1,18 @@
-<UserControl x:Class="QLKP.Desktop.Views.ModuleRecordsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+<UserControl x:Class="QLKP.Desktop.Views.ModuleRecordsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White" SizeChanged="Layout_SizeChanged">
  <Grid Margin="12">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <StackPanel Grid.Row="0">
-   <TextBlock x:Name="FeatureTitle" FontWeight="Bold" FontSize="24" Foreground="#123663"/>
+   <TextBlock x:Name="FeatureTitle" FontWeight="Bold" FontSize="24" Foreground="#123663" TextWrapping="Wrap"/>
    <TextBlock x:Name="Guidance" TextWrapping="Wrap" Foreground="#576985" Margin="0,3,0,8"/>
    <DockPanel Margin="0,4,0,8"><Button Content="Làm mới" Click="Refresh_Click" DockPanel.Dock="Right" Padding="12,4"/>
     <TextBlock Text="Tìm mã hoặc tiêu đề: " VerticalAlignment="Center" DockPanel.Dock="Left"/>
-    <TextBox x:Name="Search" MinWidth="230" Width="330" TextChanged="Search_Changed"/>
+    <TextBox x:Name="Search" MinWidth="100" MaxWidth="330" HorizontalAlignment="Stretch" TextChanged="Search_Changed"/>
    </DockPanel>
   </StackPanel>
-  <Grid Grid.Row="1">
+  <Grid Grid.Row="1" x:Name="RecordsLayout">
+   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="0"/></Grid.RowDefinitions>
    <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2.5*"/></Grid.ColumnDefinitions>
-   <DockPanel Grid.Column="0" Margin="0,0,10,0">
+   <DockPanel x:Name="ListRegion" Grid.Column="0" Margin="0,0,10,0">
     <WrapPanel DockPanel.Dock="Bottom" Margin="2,8">
      <Button x:Name="Previous" Content="◀ Trước" Padding="12,6" Click="Previous_Click"/>
      <TextBlock x:Name="PageInfo" VerticalAlignment="Center" Margin="12,0"/>
@@ -28,7 +29,7 @@
      </DataGrid.Columns>
     </DataGrid>
    </DockPanel>
-   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <ScrollViewer x:Name="DetailRegion" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="8,0,0,0">
      <TextBlock Text="HỒ SƠ CHI TIẾT" FontWeight="Bold" Foreground="#123663" FontSize="17"/>
      <TextBlock Text="Mã định danh (không cho sửa khi cập nhật)" Margin="0,10,0,0"/>
