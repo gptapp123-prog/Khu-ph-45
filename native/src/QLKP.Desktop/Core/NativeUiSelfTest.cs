@@ -25,7 +25,7 @@ namespace QLKP.Desktop.Core {
    return result;
   }
   static void Drain() {Application.Current.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));}
-  static void Click(Button button,bool confirm=false) {
+  static void Click(Button button,bool confirm=false,string confirmationTitle="Xác nhận dữ liệu") {
    if(!button.IsEnabled)throw new InvalidDataException("Disabled button: "+button.Name);
    button.BringIntoView();Drain();
    var owner=Window.GetWindow(button);if(owner!=null)owner.UpdateLayout();
@@ -36,7 +36,7 @@ namespace QLKP.Desktop.Core {
    if(confirm) {
     timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
     timer.Tick+=(sender,args)=> {
-     IntPtr dialog=FindWindow("#32770","Xác nhận dữ liệu");uint process;
+     IntPtr dialog=FindWindow("#32770",confirmationTitle);uint process;
      if(dialog!=IntPtr.Zero) {
       GetWindowThreadProcessId(dialog,out process);
       if(process==(uint)System.Diagnostics.Process.GetCurrentProcess().Id) {
@@ -156,6 +156,23 @@ namespace QLKP.Desktop.Core {
      foreach(var code in new[]{"I01","I02","I03","I04","I07","I09"}) {run.BeginStep("UI_NAV_"+code);Navigate(rootWindow,code);visited.Add(code);}
      Snapshot(rootWindow,evidence,"root-system");rootWindow.Close();
      run.BeginStep("UI_ADMIN_LOGIN");var main=Login("ui_admin",adminSecret);admin=DataStore.Login("ui_admin",adminSecret);
+     run.BeginStep("UI_DATA_MERGE_BUTTON");
+     string mergeSource=DataStore.CreateMergeFixture(admin,"DIALOG");var quality=Navigate(main,"I08");Exception mergeError=null;
+     var mergeTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
+     mergeTimer.Tick+=(o,args)=>{
+      var window=Application.Current.Windows.OfType<DataMergeWindow>().SingleOrDefault();if(window==null)return;mergeTimer.Stop();
+      try {
+       Control<TextBox>(window,"SourcePath").Text=mergeSource;
+       run.BeginStep("UI_DATA_MERGE_PREVIEW");Click(Control<Button>(window,"PreviewButton"));
+       if(!Control<Button>(window,"ApplyButton").IsEnabled||Control<DataGrid>(window,"Summary").Items.Count!=13)throw new InvalidDataException("Merge preview UI failed.");
+       Snapshot(window,evidence,"merge-preview");
+       run.BeginStep("UI_DATA_MERGE_CONFIRM_APPLY");Click(Control<Button>(window,"ApplyButton"),true,"Xác nhận hợp nhất");
+       if(DataStore.FindHouseholds(admin,"MERGE-DIALOG").Count!=1)throw new InvalidDataException("Merge button did not persist records.");
+       Snapshot(window,evidence,"merge-applied");
+      }catch(Exception ex){mergeError=ex;}
+      finally{if(window!=null)window.Close();}
+     };
+     mergeTimer.Start();try{Click(Control<Button>(quality,"MergeButton"));}finally{mergeTimer.Stop();}if(mergeError!=null)throw new InvalidDataException("Merge dialog UI failed.",mergeError);
      foreach(var feature in FeatureCatalog.All.Where(x=>x.Code!="I04")) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
