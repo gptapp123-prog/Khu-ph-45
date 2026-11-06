@@ -10,4 +10,6 @@ CSDL chính được mã hóa AES-256/HMAC-SHA512 bằng SQLite3MC 2.6.1; khóa 
 
 Workflow hiện chỉ chạy khi chủ dự án yêu cầu thủ công; không tự chạy khi đẩy mã, không có lịch định kỳ, theo dõi GitHub hay tự cập nhật ứng dụng. Artifact chỉ được tạo khi các bước bắt buộc thành công. Các workflow của bản ứng dụng cũ không nằm trong nhánh build này.
 
+Bằng chứng Windows cuối: https://github.com/gptapp123-prog/Khu-ph-45/actions/runs/42186768447 (commit `4638baf7c5d417a69df10762e3d38dc625b89bae`). APK release ký và khớp nguồn: https://github.com/gptapp123-prog/Khu-ph-45/actions/runs/42184999132 . Logo PNG được đóng gói đủ 939.340 byte; self-test kiểm SHA-256 để chặn ảnh bị cắt do truyền thiếu byte.
+
 Kiểm thử thực: 74 bước self-test C# trước và sau cài, 111 bước UI WPF, 4 bước cài/gỡ, 10 ca Kotlin/JVM và 5 bước trên APK release trong Android 11 API 30 giả lập đều đạt. Có 56 route được mở; 37 phân hệ thử tạo/sửa qua sự kiện nút. Đây là smoke test, chưa nghiệm thu toàn bộ 56 quy trình, Windows 7 hoặc điện thoại thật.
