@@ -10,7 +10,7 @@
    <TextBlock x:Name="Result" Foreground="#9D421B" TextWrapping="Wrap" Margin="4,6"/>
   </StackPanel>
   <DataGrid x:Name="Summary" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Margin="4,8">
-   <DataGrid.Columns><DataGridTextColumn Header="Nhóm dữ liệu" Binding="{Binding Table}" Width="*"/><DataGridTextColumn Header="Thêm mới" Binding="{Binding Added}" Width="120"/><DataGridTextColumn Header="Trùng hoàn toàn" Binding="{Binding Identical}" Width="140"/></DataGrid.Columns>
+   <DataGrid.Columns><DataGridTextColumn Header="Nhóm dữ liệu" Binding="{Binding Label}" Width="*"/><DataGridTextColumn Header="Thêm mới" Binding="{Binding Added}" Width="120"/><DataGridTextColumn Header="Trùng hoàn toàn" Binding="{Binding Identical}" Width="140"/></DataGrid.Columns>
   </DataGrid>
   <StackPanel Grid.Row="2"><TextBlock Text="Nếu có xung đột hoặc liên kết không hợp lệ, toàn bộ lô sẽ dừng. Hệ thống giữ bản phục hồi mã hóa trước khi áp dụng." TextWrapping="Wrap" Margin="4,6"/>
    <WrapPanel><Button x:Name="ApplyButton" Content="2. Áp dụng hợp nhất" IsEnabled="False" Click="Apply_Click" Padding="16,9"/><Button Content="Đóng" Click="Close_Click" Padding="16,9"/></WrapPanel>

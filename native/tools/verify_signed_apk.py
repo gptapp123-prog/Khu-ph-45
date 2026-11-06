@@ -3,7 +3,7 @@ import hashlib,json,os,re,subprocess,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 STAGING=ROOT/'release-staging'
-APK=STAGING/'QLKP-Mobile-0.19.0-PILOT.apk'
+APK=STAGING/'QLKP-Mobile-0.20.0-PILOT.apk'
 EXPECTED=json.loads((STAGING/'android-signing-receipt.json').read_text())
 OUT=ROOT/'build-logs/android-release';OUT.mkdir(parents=True,exist_ok=True)
 SDK=Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])/'build-tools/35.0.0'
@@ -14,7 +14,7 @@ signature=subprocess.run([str(SDK/'apksigner'),'verify','--verbose','--print-cer
 if 'certificate SHA-256 digest: '+EXPECTED['certificate_sha256'] not in signature:raise ValueError('Signing certificate mismatch')
 metadata=subprocess.run([str(SDK/'aapt'),'dump','badging',str(APK)],check=True,capture_output=True,text=True).stdout
 (OUT/'apk-metadata.txt').write_text(metadata)
-if "name='vn.qlkp.companion' versionCode='19' versionName='0.19.0-PILOT'" not in metadata:raise ValueError('APK identity/version mismatch')
+if "name='vn.qlkp.companion' versionCode='20' versionName='0.20.0-PILOT'" not in metadata:raise ValueError('APK identity/version mismatch')
 if 'application-debuggable' in metadata:raise ValueError('Release APK must not be debuggable')
 fresh=ROOT/'android-companion/app/build/outputs/apk/release/app-release-unsigned.apk'
 with zipfile.ZipFile(fresh) as source,zipfile.ZipFile(APK) as signed:

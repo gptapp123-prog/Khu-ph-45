@@ -26,6 +26,7 @@
     <PackageReference Include="System.Data.SQLite" Version="2.0.4" />
     <PackageReference Include="SQLite3MC.PCLRaw.lib" Version="2.6.1" GeneratePathProperty="true" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+    <Content Include="THIRD_PARTY_NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\database\schema.sql" Link="schema.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyQlkpNativeSqliteX64" AfterTargets="Build">

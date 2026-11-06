@@ -11,7 +11,7 @@ SDK=Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])
 ADB=SDK/'platform-tools/adb'
 SERIAL='emulator-5554'
 APP='vn.qlkp.companion'
-APK=Path(os.environ.get('QLKP_SMOKE_APK') or ROOT/'dist/android/QLKP-Mobile-0.19.0-PILOT-debug.apk').resolve()
+APK=Path(os.environ.get('QLKP_SMOKE_APK') or ROOT/'dist/android/QLKP-Mobile-0.20.0-PILOT-debug.apk').resolve()
 journal=Journal(OUT,kind='android_release_smoke' if os.environ.get('QLKP_SMOKE_APK') else 'android_debug_smoke',layer='device',source_hash=hashlib.sha256(APK.read_bytes()).hexdigest())
 report=journal.report;report['hash_kind']='apk_sha256'
 def save():

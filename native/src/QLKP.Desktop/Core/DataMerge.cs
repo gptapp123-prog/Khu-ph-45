@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 namespace QLKP.Desktop.Core {
  public sealed class MergeSummary {
   public string Table {get;internal set;} public int Added {get;internal set;} public int Identical {get;internal set;}
+  public string Label {get{return Table=="households"?"Hộ gia đình":Table=="people"?"Nhân khẩu":Table=="household_profiles"?"Phân loại hộ":Table=="person_profiles"?"Phân loại nhân khẩu":Table=="household_memberships"?"Thành viên trong hộ":Table=="member_import_batches"?"Lịch sử nhập nhân khẩu":Table=="residency_changes"?"Biến động cư trú":Table=="intake_batches"?"Lịch sử nhập liệu":Table=="module_records"?"Hồ sơ các phân hệ":Table=="module_field_values"?"Thông tin chi tiết hồ sơ":Table=="module_record_history"?"Lịch sử xử lý hồ sơ":Table=="module_relations"?"Liên kết giữa các hồ sơ":Table=="shared_catalog_items"?"Danh mục khu phố":"Nhóm dữ liệu";}}
  }
  public sealed class MergePlan : IDisposable {
   internal string Candidate,Before,BaseHash,CandidateHash,ActorId,AreaId,RunId;
@@ -53,7 +54,7 @@ namespace QLKP.Desktop.Core {
    using(var tx=target.BeginTransaction()) {
     RequireMerge(target,tx,actor);
     Exec(target,tx,"INSERT INTO data_merge_runs(id,area_id,actor_id,source_sha256,row_count,applied_utc) VALUES(@id,@area,@actor,@hash,0,@utc)",P("@id",plan.RunId),P("@area",actor.AreaId),P("@actor",actor.Id),P("@hash",plan.SourceHash),P("@utc",Now));
-    var modules=new List<Dictionary<string,object>>();var newModules=new HashSet<string>();
+    var modules=new List<Dictionary<string,object>>();
     foreach(string table in MergeTables) {
      var summary=new MergeSummary{Table=table};plan.Summary.Add(summary);
      foreach(var original in MergeRows(source,table,ScopedSource(table),null,P("@area",sourceArea))) {
@@ -65,7 +66,7 @@ namespace QLKP.Desktop.Core {
       var keys=MergeKey(table);string clause=String.Join(" AND ",keys.Select((k,i)=>VaultStorage.Quote(k)+"=@k"+i));
       var existing=MergeRows(target,table,clause,tx,keys.Select((k,i)=>P("@k"+i,row[k])).ToArray());
       if(existing.Count>0) {
-       if(row.Any(pair=>!ActorColumns.Contains(pair.Key)&&(!existing[0].ContainsKey(pair.Key)||!SameValue(pair.Value,existing[0][pair.Key]))))throw new InvalidOperationException("Xung đột cùng định danh trong "+table+". Đã hủy toàn bộ lô; đối chiếu hai kho trước khi thử lại.");
+       if(row.Any(pair=>!ActorColumns.Contains(pair.Key)&&(!existing[0].ContainsKey(pair.Key)||!SameValue(pair.Value,existing[0][pair.Key]))))throw new InvalidOperationException("Xung đột cùng định danh trong nhóm "+summary.Label+". Đã hủy toàn bộ lô; đối chiếu hai kho trước khi thử lại.");
        // A duplicate record must also have exactly the same typed field set.
        if(table=="module_records") {
         var a=MergeRows(source,"module_field_values","record_id=@id",null,P("@id",row["id"]));var b=MergeRows(target,"module_field_values","record_id=@id",tx,P("@id",row["id"]));
@@ -73,7 +74,7 @@ namespace QLKP.Desktop.Core {
        }
        summary.Identical++;continue;
       }
-      if(table=="module_records") {modules.Add(original);newModules.Add(Text(original,"id"));row["related_feature"]="";row["related_id"]="";}
+      if(table=="module_records") {modules.Add(original);row["related_feature"]="";row["related_id"]="";}
       MergeInsert(target,tx,table,row);summary.Added++;
       string identity=String.Join("|",keys.Select(k=>Text(original,k)));
       Exec(target,tx,"INSERT INTO data_merge_items(run_id,source_table,source_id,source_actor_id,source_created_by,source_updated_by) VALUES(@r,@t,@id,@a,@c,@u)",P("@r",plan.RunId),P("@t",table),P("@id",identity),P("@a",Text(original,"actor_id")),P("@c",Text(original,"created_by").Length>0?Text(original,"created_by"):Text(original,"changed_by")),P("@u",Text(original,"updated_by")));

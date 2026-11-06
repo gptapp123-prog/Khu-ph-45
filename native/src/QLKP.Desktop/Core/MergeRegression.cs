@@ -23,6 +23,8 @@ namespace QLKP.Desktop.Core {
       Exec(c,tx,"INSERT INTO module_records(id,area_id,feature,record_code,title,search_title,status,related_feature,related_id,created_by,updated_by,created_utc,updated_utc) VALUES(@id,@area,@f,@code,'[MẪU] Liên kết nguồn','[mau] lien ket nguon','Mới',@rf,@rid,@actor,@actor,@utc,@utc)",P("@id",f.Item1),P("@area",area),P("@f",f.Item2),P("@code","M-"+tag+"-"+f.Item2),P("@rf",f.Item4),P("@rid",f.Item3),P("@actor",sourceActor),P("@utc",Now));
       Exec(c,tx,"INSERT INTO module_field_values VALUES(@id,@key,@value)",P("@id",f.Item1),P("@key",f.Item5),P("@value",f.Item6));
      }
+     Exec(c,tx,"UPDATE module_records SET version=2 WHERE id=@id",P("@id",a));
+     Exec(c,tx,"INSERT INTO module_record_history(id,record_id,actor_id,old_version,new_version,old_status,new_status,occurred_utc) VALUES(@id,@record,@actor,1,2,'Mới','Mới',@utc)",P("@id",Id()),P("@record",a),P("@actor",sourceActor),P("@utc",Now));
      Exec(c,tx,"INSERT INTO module_relations(id,area_id,source_id,target_feature,target_id,relation_kind,created_by,created_utc) VALUES(@id,@area,@source,'B02',@p,'THAM_CHIEU',@actor,@utc)",P("@id",Id()),P("@area",area),P("@source",b),P("@p",p),P("@actor",sourceActor),P("@utc",Now));
      Exec(c,tx,"INSERT INTO shared_catalog_items(id,scope_area,category_code,item_code,item_label,changed_by,updated_utc) VALUES(@id,'*','SOURCE','ONLY','[MẪU] Danh mục toàn hệ thống nguồn',@actor,@utc)",P("@id",Id()),P("@actor",sourceActor),P("@utc",Now));
      Exec(c,tx,"PRAGMA user_version=12");tx.Commit();
@@ -38,7 +40,7 @@ namespace QLKP.Desktop.Core {
    run.BeginStep("MERGE_PREVIEW_DOES_NOT_CHANGE_CURRENT_DATA");
    string before=CurrentFingerprint();
    using(var plan=PreviewMerge(admin,path,"")) {
-    if(plan.Added!=8||plan.Identical!=0||CurrentFingerprint()!=before||FindHouseholds(admin,"MERGE-MAIN").Count!=0)throw new InvalidDataException("Preview changed data or miscounted.");
+    if(plan.Added!=9||plan.Identical!=0||CurrentFingerprint()!=before||FindHouseholds(admin,"MERGE-MAIN").Count!=0)throw new InvalidDataException("Preview changed data or miscounted.");
     run.BeginStep("MERGE_STALE_PREVIEW_REJECTED");
     AddHousehold(admin,"MERGE-CONCURRENT","[MẪU] Cập nhật đồng thời","[MẪU] Chủ hộ");
     string afterChange=CurrentFingerprint();rejected=false;try{ApplyMerge(admin,plan);}catch(InvalidOperationException){rejected=true;}
@@ -52,9 +54,11 @@ namespace QLKP.Desktop.Core {
     if(Convert.ToInt32(Scalar(c,null,"SELECT count(*) FROM accounts WHERE username='source-only-account'"))!=0||Convert.ToInt32(Scalar(c,null,"SELECT count(*) FROM shared_catalog_items WHERE category_code='SOURCE' AND item_code='ONLY'"))!=0)throw new InvalidDataException("Source identity/global scope imported.");
     if(Convert.ToInt32(Scalar(c,null,"SELECT count(*) FROM module_records WHERE record_code LIKE 'M-MAIN-%' AND area_id=@area",P("@area",admin.AreaId)))!=2)throw new InvalidDataException("Module scope or typed link missing.");
     if(Convert.ToInt32(Scalar(c,null,"SELECT count(*) FROM data_merge_items WHERE source_created_by<>'' AND source_created_by<>@actor",P("@actor",admin.Id)))<2)throw new InvalidDataException("Original actor provenance lost.");VaultStorage.Check(c);
+    string originId=Convert.ToString(Scalar(c,null,"SELECT id FROM module_records WHERE feature='B04' AND record_code='M-MAIN-B04'"));
+    var history=GetModuleHistory(admin,"B04",originId);if(history.Count!=1||!history[0].Actor.StartsWith("Tiếp nhận từ kho nguồn:",StringComparison.Ordinal))throw new InvalidDataException("Imported history attributed as a local original action.");
    }
    run.BeginStep("MERGE_REPEAT_SKIPS_IDENTICAL_ROWS");
-   using(var plan=PreviewMerge(admin,path,""))if(plan.Added!=0||plan.Identical!=8)throw new InvalidDataException("Repeated merge duplicates data.");
+   using(var plan=PreviewMerge(admin,path,""))if(plan.Added!=0||plan.Identical!=9)throw new InvalidDataException("Repeated merge duplicates data.");
    run.BeginStep("MERGE_CONFLICT_ROLLS_BACK_ENTIRE_BATCH");
    using(var c=VaultStorage.OpenPlain(path,false)){Exec(c,null,"UPDATE households SET address='[MẪU] Khác nội dung'");}
    before=CurrentFingerprint();rejected=false;try{using(var plan=PreviewMerge(admin,path,"")){} }catch(InvalidOperationException){rejected=true;}

@@ -1,0 +1,11 @@
+QUẢN LÝ KHU PHỐ V0.20 P8 — WINDOWS WPF + ANDROID NATIVE
+
+Windows: khởi tạo quản trị rõ ràng ở kho rỗng; Enter thực hiện đúng bước và đăng nhập ngay khi tạo xong.
+Kho native cũ được chuyển sang mã hóa AES-256/HMAC-SHA512, có snapshot phục hồi mã hóa.
+Hợp nhất theo mã khu phố và ID, đối chiếu trước, giữ tài khoản/quyền và chặn lô xung đột.
+Chi tiết: docs/VAULT_AND_MERGE_V0_20_P8.md.
+
+BUILD_SETUP_1_CLICK.cmd: build, self-test, UI smoke, tạo setup trên Windows.
+Không chèn dữ liệu minh họa khi khởi động. Lịch sử kiểm thử tại I09.
+Android đọc gói danh mục .qlkpsync; chưa có LAN/QR ghép hoặc đồng bộ hồ sơ hai chiều.
+Bản PILOT chưa phải nghiệm thu toàn bộ 56 quy trình hoặc chứng nhận dùng dữ liệu thật.

@@ -1,7 +1,7 @@
 <Window x:Class="QLKP.Desktop.Views.LoginWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Quản lý Khu phố · Đăng nhập" Icon="pack://application:,,,/Assets/qlkp.ico" Width="970" Height="680" MinWidth="780" MinHeight="540" WindowStartupLocation="CenterScreen" Background="#F4F7FC">
  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
   <Border Background="#102D59" Grid.Column="0"><StackPanel VerticalAlignment="Center" Margin="25">
-   <Image Source="pack://application:,,,/Assets/qlkp-icon.png" Width="152" Height="152" HorizontalAlignment="Center" Margin="0,0,0,20" RenderOptions.BitmapScalingMode="HighQuality"/>
+   <Image Width="152" Height="152" HorizontalAlignment="Center" Margin="0,0,0,20" RenderOptions.BitmapScalingMode="HighQuality"><Image.Source><BitmapImage UriSource="pack://application:,,,/Assets/qlkp-icon.png" CacheOption="OnLoad" DecodePixelWidth="304"/></Image.Source></Image>
    <TextBlock Text="QUẢN LÝ KHU PHỐ" FontSize="26" FontWeight="Bold" Foreground="White" TextAlignment="Center" TextWrapping="Wrap"/>
    <TextBlock Text="Quản lý hồ sơ · Điều hành công việc" FontSize="15" Foreground="#C4D8FF" TextAlignment="Center" TextWrapping="Wrap" Margin="4,12"/>
    <TextBlock TextWrapping="Wrap" Text="Làm việc theo tài khoản và phạm vi được phân công." Margin="12,24" FontSize="14" Foreground="#E0ECFF" TextAlignment="Center"/>

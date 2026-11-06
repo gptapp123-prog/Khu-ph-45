@@ -62,3 +62,101 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          test -x "$sdk/cmdline-tools/latest/bin/sdkmanager"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/qlkp-avd" >> "$GITHUB_ENV"
+          echo "$sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 
+      - name: Compile, unit test and lint native Android
+        run: gradle -p native/android-companion clean testDebugUnitTest lintDebug assembleDebug assembleRelease --no-daemon --stacktrace
+      - name: Verify APK metadata and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native/dist/android native/build-logs/android
+          apk=native/android-companion/app/build/outputs/apk/debug/app-debug.apk
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/aapt" dump badging "$apk" > native/build-logs/android/apk-metadata.txt
+          grep -q "name='vn.qlkp.companion' versionCode='20' versionName='0.20.0-PILOT'" native/build-logs/android/apk-metadata.txt
+          "$tools/apksigner" verify --verbose --print-certs "$apk" > native/build-logs/android/apk-signature.txt
+          "$tools/zipalign" -c 4 "$apk"
+          cp "$apk" native/dist/android/QLKP-Mobile-0.20.0-PILOT-debug.apk
+          (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Prepare unsigned release for private offline signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native/offline-signing
+          cp native/android-companion/app/build/outputs/apk/release/app-release-unsigned.apk native/offline-signing/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" native/offline-signing/
+          (cd native/offline-signing && sha256sum *.apk *.jar > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QLKP-native-Android-offline-signing-input-not-installable
+          path: native/offline-signing/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          mkdir -p "$ANDROID_AVD_HOME"
+          sdkmanager 'emulator' 'system-images;android-30;google_apis;x86_64'
+          echo no | avdmanager create avd -n qlkp_smoke -k 'system-images;android-30;google_apis;x86_64' -p "$ANDROID_AVD_HOME/qlkp_smoke.avd" --force
+      - name: Launch APK and inspect native screen on Android emulator
+        run: python3 native/tools/android_device_smoke.py
+      - name: Verify privately signed release matches compiled source
+        if: hashFiles('native/release-staging/QLKP-Mobile-0.20.0-PILOT.apk') != ''
+        run: python3 native/tools/verify_signed_apk.py
+      - name: Install and inspect the signed release on Android emulator
+        if: hashFiles('native/release-staging/QLKP-Mobile-0.20.0-PILOT.apk') != ''
+        env:
+          QLKP_SMOKE_APK: ${{ github.workspace }}/native/release-staging/QLKP-Mobile-0.20.0-PILOT.apk
+          QLKP_SMOKE_EVIDENCE: ${{ github.workspace }}/native/build-logs/android-release
+        run: python3 native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: success() && hashFiles('native/release-staging/QLKP-Mobile-0.20.0-PILOT.apk') != ''
+        with:
+          name: QLKP-native-Android-PILOT-signed-release
+          path: |
+            native/release-staging/QLKP-Mobile-0.20.0-PILOT.apk
+            native/release-staging/android-signing-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: QLKP-native-Android-PILOT-debug
+          path: native/dist/android/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-native-Android-build-evidence
+          path: |
+            native/build-logs/android/
+            native/build-logs/android-release/
+            native/android-companion/app/build/reports/
+            native/android-companion/app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+

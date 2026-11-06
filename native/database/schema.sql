@@ -410,3 +410,4 @@ CREATE TABLE IF NOT EXISTS data_merge_items (
  source_created_by TEXT NOT NULL DEFAULT '', source_updated_by TEXT NOT NULL DEFAULT '',
  PRIMARY KEY(run_id,source_table,source_id)
 );
+CREATE INDEX IF NOT EXISTS ix_data_merge_origin ON data_merge_items(source_table,source_id);

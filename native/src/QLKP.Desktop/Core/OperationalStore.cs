@@ -323,7 +323,9 @@ namespace QLKP.Desktop.Core {
    using(var c=Open()) {
     Require(c,null,s,code,"read",s==null?null:s.AreaId);
     var rows=new List<ModuleHistory>();
-    using(var cmd=new SQLiteCommand(@"SELECT h.occurred_utc,a.username,h.old_status,h.new_status,h.new_version
+    using(var cmd=new SQLiteCommand(@"SELECT h.occurred_utc,
+      CASE WHEN EXISTS(SELECT 1 FROM data_merge_items p WHERE p.source_table='module_record_history' AND p.source_id=h.id)
+      THEN 'Tiếp nhận từ kho nguồn: '||a.username ELSE a.username END,h.old_status,h.new_status,h.new_version
       FROM module_record_history h JOIN module_records m ON m.id=h.record_id JOIN accounts a ON a.id=h.actor_id
       WHERE m.id=@id AND m.feature=@f AND m.area_id=@area ORDER BY h.occurred_utc DESC,h.id DESC LIMIT 100",c)) {
      cmd.Parameters.AddRange(new[]{P("@id",id),P("@f",code),P("@area",s.AreaId)});
