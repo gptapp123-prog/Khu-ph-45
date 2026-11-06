@@ -67,22 +67,22 @@ namespace QLKP.Desktop.Views {
   void Features_SelectionChanged(object sender,SelectionChangedEventArgs e){
    if(FeatureContent==null)return;var f=Features.SelectedItem as Feature;if(f==null)return;
    try {
-   if(f.Code.Length==3 && f.Code[0]=='H')FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ReportsView(session,f.Code,NavigateToLinked):new NoticeView("Không có quyền báo cáo.");
-   else if(f.Code=="A01")FeatureContent.Content=DataStore.Can(session,"A01","read")?new OperationsDashboardView(session):new NoticeView("Không có quyền xem bàn điều hành.");
-   else if(f.Code=="A05")FeatureContent.Content=DataStore.Can(session,"A05","read")&&DataStore.Can(session,"A02","read")?new ModuleRecordsView(session,"A05",NavigateToLinked):new NoticeView("A05 cần cả quyền A05:read và A02:read.");
-   else if(ModuleCatalog.IsEditable(f.Code))FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ModuleRecordsView(session,f.Code,NavigateToLinked):new NoticeView("Không có quyền mở hồ sơ "+f.Code);
-   else if(f.Code=="B01")FeatureContent.Content=DataStore.Can(session,"B01","read")?new HouseholdView(session,NavigateToPerson):new NoticeView("Không được phép xem hồ sơ hộ.");
-   else if(f.Code=="B02")FeatureContent.Content=DataStore.Can(session,"B02","read")?new PeopleView(session,NavigateToHousehold):new NoticeView("Không được phép xem nhân khẩu.");
-   else if(f.Code=="B03")FeatureContent.Content=DataStore.Can(session,"B03","read")?new ResidencyChangeView(session,NavigateToPerson,NavigateToHousehold):new NoticeView("Không được phép xem biến động.");
-   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","manage")?new AccountsView(session):new NoticeView("Không được phép quản trị tài khoản.");
-   else if(f.Code=="I02")FeatureContent.Content=DataStore.Can(session,"I02","manage")?new AccessControlView(session):new NoticeView("Không được phép quản lý quyền.");
-   else if(f.Code=="I03")FeatureContent.Content=DataStore.Can(session,"I03","read")?new AuditTrailView(session):new NoticeView("Không được phép xem nhật ký.");
-   else if(f.Code=="I04")FeatureContent.Content=DataStore.Can(session,"I04","manage")?new BackupView(session):new NoticeView("Không được phép sao lưu và khôi phục.");
-   else if(f.Code=="I08")FeatureContent.Content=DataStore.Can(session,"I08","read")?new DataQualityView(session,NavigateToHousehold,NavigateToPerson):new NoticeView("Không được phép kiểm tra chất lượng dữ liệu.");
-   else if(f.Code=="I05")FeatureContent.Content=DataStore.Can(session,"I05","read")?new LocalQrIntakeView(session,NavigateToLinked):new NoticeView("Không có quyền I05:read.");
-   else if(f.Code=="I06")FeatureContent.Content=DataStore.Can(session,"I06","read")?new OfflineCatalogTransferView(session):new NoticeView("Không có quyền I06:read.");
-   else if(f.Code=="I07")FeatureContent.Content=DataStore.Can(session,"I07","read")?new SystemCatalogView(session):new NoticeView("Không có quyền I07:read.");
-   else if(f.Code=="I09")FeatureContent.Content=DataStore.Can(session,"I09","read")?new VersionDiagnosticsView(session):new NoticeView("Không có quyền I09:read.");
+   if(f.Code.Length==3 && f.Code[0]=='H')FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ReportsView(session,f.Code,NavigateToLinked):(UserControl)new NoticeView("Không có quyền báo cáo.");
+   else if(f.Code=="A01")FeatureContent.Content=DataStore.Can(session,"A01","read")?new OperationsDashboardView(session):(UserControl)new NoticeView("Không có quyền xem bàn điều hành.");
+   else if(f.Code=="A05")FeatureContent.Content=DataStore.Can(session,"A05","read")&&DataStore.Can(session,"A02","read")?new ModuleRecordsView(session,"A05",NavigateToLinked):(UserControl)new NoticeView("A05 cần cả quyền A05:read và A02:read.");
+   else if(ModuleCatalog.IsEditable(f.Code))FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ModuleRecordsView(session,f.Code,NavigateToLinked):(UserControl)new NoticeView("Không có quyền mở hồ sơ "+f.Code);
+   else if(f.Code=="B01")FeatureContent.Content=DataStore.Can(session,"B01","read")?new HouseholdView(session,NavigateToPerson):(UserControl)new NoticeView("Không được phép xem hồ sơ hộ.");
+   else if(f.Code=="B02")FeatureContent.Content=DataStore.Can(session,"B02","read")?new PeopleView(session,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem nhân khẩu.");
+   else if(f.Code=="B03")FeatureContent.Content=DataStore.Can(session,"B03","read")?new ResidencyChangeView(session,NavigateToPerson,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem biến động.");
+   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","manage")?new AccountsView(session):(UserControl)new NoticeView("Không được phép quản trị tài khoản.");
+   else if(f.Code=="I02")FeatureContent.Content=DataStore.Can(session,"I02","manage")?new AccessControlView(session):(UserControl)new NoticeView("Không được phép quản lý quyền.");
+   else if(f.Code=="I03")FeatureContent.Content=DataStore.Can(session,"I03","read")?new AuditTrailView(session):(UserControl)new NoticeView("Không được phép xem nhật ký.");
+   else if(f.Code=="I04")FeatureContent.Content=DataStore.Can(session,"I04","manage")?new BackupView(session):(UserControl)new NoticeView("Không được phép sao lưu và khôi phục.");
+   else if(f.Code=="I08")FeatureContent.Content=DataStore.Can(session,"I08","read")?new DataQualityView(session,NavigateToHousehold,NavigateToPerson):(UserControl)new NoticeView("Không được phép kiểm tra chất lượng dữ liệu.");
+   else if(f.Code=="I05")FeatureContent.Content=DataStore.Can(session,"I05","read")?new LocalQrIntakeView(session,NavigateToLinked):(UserControl)new NoticeView("Không có quyền I05:read.");
+   else if(f.Code=="I06")FeatureContent.Content=DataStore.Can(session,"I06","read")?new OfflineCatalogTransferView(session):(UserControl)new NoticeView("Không có quyền I06:read.");
+   else if(f.Code=="I07")FeatureContent.Content=DataStore.Can(session,"I07","read")?new SystemCatalogView(session):(UserControl)new NoticeView("Không có quyền I07:read.");
+   else if(f.Code=="I09")FeatureContent.Content=DataStore.Can(session,"I09","read")?new VersionDiagnosticsView(session):(UserControl)new NoticeView("Không có quyền I09:read.");
    }catch(Exception ex){
     StartupDiagnostics.WriteException("NAVIGATION_FAIL",ex);
     FeatureContent.Content=new NoticeView("Không mở được chức năng "+f.Code+". Kiểm tra quyền truy cập hoặc liên hệ quản trị viên.");

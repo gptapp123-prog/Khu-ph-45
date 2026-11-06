@@ -106,7 +106,7 @@ namespace QLKP.Desktop.Core {
   public void Dispose(){if(!completed)Complete("INTERRUPTED");}
  }
  public static class TestRunHistory {
-  internal static readonly string[] Layers={"source_sql","repository_runtime","build","ui_e2e","device"};
+  internal static readonly string[] Layers={"source_sql","repository_runtime","build","ui_e2e","device","install"};
   public static string Root {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"QLKP-V2-PILOT","test-runs");}}
   static DataContractJsonSerializer Serializer(Type type){return new DataContractJsonSerializer(type,new DataContractJsonSerializerSettings{MaxItemsInObjectGraph=100000});}
   internal static byte[] Serialize<T>(T value){using(var m=new MemoryStream()){Serializer(typeof(T)).WriteObject(m,value);return m.ToArray();}}

@@ -1,5 +1,7 @@
+import java.util.Properties
+
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
-val releaseInfo = java.util.Properties().apply {
+val releaseInfo = Properties().apply {
   rootProject.file("../release.properties").inputStream().use { load(it) }
 }
 android {

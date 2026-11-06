@@ -103,7 +103,7 @@ namespace QLKP.Desktop.Core {
     if(plain.Length>MaxPayload)throw new InvalidDataException("Dữ liệu xuất lớn hơn 512 KB.");
     byte[] header=new byte[40],salt=Random(16),nonce=Random(12);
     Buffer.BlockCopy(Magic,0,header,0,8);Buffer.BlockCopy(salt,0,header,8,16);Buffer.BlockCopy(nonce,0,header,24,12);
-    header[36]=(byte)(Rounds>>24);header[37]=(byte)(Rounds>>16);header[38]=(byte)(Rounds>>8);header[39]=(byte)Rounds;
+    header[36]=(byte)((Rounds>>24)&0xff);header[37]=(byte)((Rounds>>16)&0xff);header[38]=(byte)((Rounds>>8)&0xff);header[39]=(byte)(Rounds&0xff);
     using(var derivation=new Rfc2898DeriveBytes(phrase,salt,Rounds,HashAlgorithmName.SHA256))key=derivation.GetBytes(32);
     encryption=Encrypt(header,plain,key);
     string temp=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(fullPath)),".qlkpsync-"+Guid.NewGuid().ToString("N")+".tmp");

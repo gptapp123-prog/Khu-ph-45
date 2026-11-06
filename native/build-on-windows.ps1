@@ -118,6 +118,23 @@ try {
    if($check.ExitCode -ne 0) {throw "Self-test trên kho tạm thất bại (exit=$($check.ExitCode)). Dừng phát hành."}
   } finally { if($null -ne $check){$check.Dispose()};[Environment]::SetEnvironmentVariable('QLKP_TEST_PARENT_ID',$priorParent,'Process') }
  } else {Skip-QlkpStage $run 'WINDOWS_SELF_TEST'}
+ if($SmokeTest) {
+  Start-QlkpStage $run 'WINDOWS_UI_SMOKE'
+  $priorUiEvidence=[Environment]::GetEnvironmentVariable('QLKP_UI_EVIDENCE','Process')
+  $priorParent=[Environment]::GetEnvironmentVariable('QLKP_TEST_PARENT_ID','Process')
+  $uiCheck=$null
+  try {
+   $env:QLKP_UI_EVIDENCE=Join-Path $logDir 'ui'
+   $env:QLKP_TEST_PARENT_ID=$run.report.session_id
+   $uiCheck=Start-Process -FilePath $exe -WorkingDirectory $out -ArgumentList '--ui-smoke-test' -RedirectStandardOutput (Join-Path $logDir "ui-smoke-$stamp.stdout.log") -RedirectStandardError (Join-Path $logDir "ui-smoke-$stamp.stderr.log") -PassThru
+   if(-not $uiCheck.WaitForExit(240000)){Stop-Process -Id $uiCheck.Id -Force -ErrorAction SilentlyContinue;throw 'WPF UI smoke exceeded 240 seconds'}
+   $uiCheck.Refresh();if($uiCheck.ExitCode -ne 0){throw 'WPF UI smoke failed. No installer will be created.'}
+  } finally {
+   if($null -ne $uiCheck){$uiCheck.Dispose()}
+   [Environment]::SetEnvironmentVariable('QLKP_UI_EVIDENCE',$priorUiEvidence,'Process')
+   [Environment]::SetEnvironmentVariable('QLKP_TEST_PARENT_ID',$priorParent,'Process')
+  }
+ } else {Skip-QlkpStage $run 'WINDOWS_UI_SMOKE'}
  if($Installer -and -not $NoInstaller) {
   Start-QlkpStage $run 'INSTALLER'
   $iscc=Get-Command ISCC.exe -ErrorAction SilentlyContinue
