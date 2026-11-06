@@ -1,4 +1,4 @@
-# Structured build journal. No command arguments, credentials or business-record values are recorded.
+﻿# Structured build journal. No command arguments, credentials or business-record values are recorded.
 function Save-QlkpRun($Run,[string]$EventName,$Step) {
  $Run.report.last_sequence++
  $Run.report.total=$Run.report.steps.Count

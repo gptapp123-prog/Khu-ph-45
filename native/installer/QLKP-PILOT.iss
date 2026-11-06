@@ -1,4 +1,4 @@
-#define MyAppName "Quản lý Khu phố"
+﻿#define MyAppName "Quản lý Khu phố"
 #define MyAppVersion "0.19.0-PILOT"
 [Setup]
 AppId={{8E73A39E-D3C2-417E-987C-83C4D105A2CD}
