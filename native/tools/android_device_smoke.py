@@ -1,28 +1,29 @@
 """Finite APK install/launch/chooser smoke test on a dedicated emulator; no real user data."""
-import json, os, re, subprocess, time
+import hashlib, json, os, re, subprocess, time
+from run_tests_with_history import Journal
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'build-logs/android'
+OUT=Path(os.environ.get('QLKP_SMOKE_EVIDENCE') or ROOT/'build-logs/android')
 OUT.mkdir(parents=True,exist_ok=True)
 SDK=Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])
 ADB=SDK/'platform-tools/adb'
 SERIAL='emulator-5554'
 APP='vn.qlkp.companion'
-APK=ROOT/'dist/android/QLKP-Mobile-0.19.0-PILOT-debug.apk'
-report={'format':'QLKP_ANDROID_DEVICE_SMOKE_V1','layer':'device','status':'RUNNING','steps':[]}
+APK=Path(os.environ.get('QLKP_SMOKE_APK') or ROOT/'dist/android/QLKP-Mobile-0.19.0-PILOT-debug.apk').resolve()
+journal=Journal(OUT,kind='android_release_smoke' if os.environ.get('QLKP_SMOKE_APK') else 'android_debug_smoke',layer='device',source_hash=hashlib.sha256(APK.read_bytes()).hexdigest())
+report=journal.report;report['hash_kind']='apk_sha256'
 def save():
     p=OUT/'device-session.json'
     temp=p.with_suffix('.tmp');temp.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');temp.replace(p)
 def call(*args,timeout=45):
     return subprocess.run([str(ADB),'-s',SERIAL,*args],check=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=timeout).stdout
 def step(name,action):
-    row={'code':name,'status':'RUNNING'};report['steps'].append(row);save()
-    start=time.monotonic()
-    try: action();row['status']='PASS'
-    except BaseException as ex:row['status']='FAIL';row['error_type']=type(ex).__name__;raise
-    finally:row['duration_ms']=round((time.monotonic()-start)*1000);save()
+    journal.begin(name);save()
+    try: action();journal.end('PASS')
+    except BaseException as ex:journal.end('FAIL',type(ex).__name__);raise
+    finally:save()
 def snapshot(name):
     call('shell','uiautomator','dump','/sdcard/window.xml')
     call('pull','/sdcard/window.xml',str(OUT/(name+'.xml')))
@@ -41,9 +42,12 @@ def chooser():
     node=next(n for n in screen.iter() if n.attrib.get('resource-id','')==APP+':id/import_catalog')
     x1,y1,x2,y2=map(int,re.findall(r'\d+',node.attrib['bounds']))
     call('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
-    ui=snapshot('file-chooser')
-    if not any(n.attrib.get('package','').startswith('com.google.android.documentsui') or n.attrib.get('package','').startswith('com.android.documentsui') for n in ui.iter()):
-        raise RuntimeError('Android document chooser did not open')
+    deadline=time.monotonic()+20
+    while True:
+        ui=snapshot('file-chooser')
+        if any(n.attrib.get('package','').startswith('com.google.android.documentsui') or n.attrib.get('package','').startswith('com.android.documentsui') for n in ui.iter()):break
+        if time.monotonic()>=deadline:raise RuntimeError('Android document chooser did not open')
+        time.sleep(0.5)
     call('shell','input','keyevent','4')
     if not call('shell','pidof',APP).strip():raise RuntimeError('Application stopped after chooser')
 log=(OUT/'emulator.log').open('wb')
@@ -56,7 +60,12 @@ try:
         while time.monotonic()<deadline:
             if emulator.poll() is not None:raise RuntimeError('Emulator exited')
             try:
-                if call('shell','getprop','sys.boot_completed',timeout=10).strip()==b'1':return
+                if call('shell','getprop','sys.boot_completed',timeout=10).strip()==b'1':
+                    release=call('shell','getprop','ro.build.version.release').decode().strip()
+                    api=call('shell','getprop','ro.build.version.sdk').decode().strip()
+                    abi=call('shell','getprop','ro.product.cpu.abi').decode().strip()
+                    report['environment']='Android emulator '+release+' API '+api+' '+abi
+                    return
             except (subprocess.CalledProcessError,subprocess.TimeoutExpired):pass
             time.sleep(2)
         raise TimeoutError('Android boot timed out')
@@ -66,10 +75,11 @@ try:
     step('ACTIVITY_LAUNCH_AND_NATIVE_SCREEN',launch)
     step('FILE_CHOOSER_BUTTON',chooser)
     step('APK_UNINSTALL',lambda:call('uninstall',APP))
-    report['status']='PASS'
+    journal.finish('PASS')
 except BaseException:
-    report['status']='FAIL';raise
+    journal.finish('FAIL');raise
 finally:
+    if not journal.closed:journal.finish('INTERRUPTED')
     save()
     if emulator is not None:
         try: call('emu','kill',timeout=10)

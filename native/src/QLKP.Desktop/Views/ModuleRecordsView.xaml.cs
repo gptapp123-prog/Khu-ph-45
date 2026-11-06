@@ -78,6 +78,7 @@ namespace QLKP.Desktop.Views {
    if(LinkResults!=null)LinkResults.ItemsSource=null;
    if(LinkPageInfo!=null)LinkPageInfo.Text="";
    if(Relations!=null)Relations.ItemsSource=null;
+   if(DetailRegion!=null)DetailRegion.ScrollToTop();
    if(AddRelationButton!=null)AddRelationButton.IsEnabled=false;
   }
   void New_Click(object sender,RoutedEventArgs e){Records.SelectedItem=null;ResetEditor();Notice.Text="Hồ sơ mới, chưa lưu.";}
@@ -118,6 +119,7 @@ namespace QLKP.Desktop.Views {
     RelatedId.Text=value.RelatedId;
     History.ItemsSource=DataStore.GetModuleHistory(session,moduleCode,value.Id);
     Relations.ItemsSource=DataStore.GetModuleRelations(session,moduleCode,value.Id);
+    DetailRegion.ScrollToTop();
     AddRelationButton.IsEnabled=!backlog&&moduleCode!="E06"&&moduleCode!="F06"&&DataStore.Can(session,moduleCode,"update");
     SaveButton.IsEnabled=!backlog&&DataStore.Can(session,moduleCode,"update");
     Notice.Text="Đã đọc theo ID: "+activeId+" · Phiên bản "+version;

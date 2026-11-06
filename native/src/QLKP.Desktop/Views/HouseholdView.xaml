@@ -43,20 +43,25 @@
    </StackPanel></ScrollViewer>
   </Grid>
   <Border Grid.Row="3" BorderThickness="1,1,0,0" BorderBrush="#D7E4F1" Padding="7"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <StackPanel Grid.Column="0" Grid.Row="0">
+   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Grid.Row="0">
      <TextBlock Text="NHẬP NHANH HỘ (1 DÒNG)" FontWeight="Bold" Foreground="#102D59"/>
-     <WrapPanel><TextBox x:Name="NewCode" Width="120" ToolTip="Mã hộ"/><TextBox x:Name="NewAddress" Width="190" ToolTip="Địa chỉ"/><TextBox x:Name="NewHead" Width="160" ToolTip="Chủ hộ"/><Button x:Name="AddHouseholdButton" Content="Lưu hộ" Click="AddHousehold_Click"/></WrapPanel>
+     <WrapPanel>
+      <StackPanel><TextBlock Text="Mã hộ"/><TextBox x:Name="NewCode" Width="120" ToolTip="Mã hộ"/></StackPanel>
+      <StackPanel><TextBlock Text="Địa chỉ"/><TextBox x:Name="NewAddress" Width="190" ToolTip="Địa chỉ"/></StackPanel>
+      <StackPanel><TextBlock Text="Họ tên chủ hộ"/><TextBox x:Name="NewHead" Width="160" ToolTip="Chủ hộ"/></StackPanel>
+      <Button x:Name="AddHouseholdButton" Content="Lưu hộ" Click="AddHousehold_Click" VerticalAlignment="Bottom"/>
+     </WrapPanel>
      <TextBlock Text="Điền đủ mã hộ, địa chỉ và họ tên chủ hộ trước khi lưu." TextWrapping="Wrap" Foreground="#697A90"/>
     </StackPanel>
-    <StackPanel Grid.Column="1" Grid.Row="0">
+    <StackPanel Grid.Row="1">
      <TextBlock Text="DÁN BẢNG NHIỀU DÒNG (TAB hoặc ;)" FontWeight="Bold" Foreground="#102D59"/>
      <TextBox x:Name="BatchText" Height="67" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Text="" ToolTip="Mã hộ TAB Địa chỉ TAB Chủ hộ; mỗi dòng một hộ"/>
      <WrapPanel><Button x:Name="CheckButton" Content="Kiểm tra lô" Click="CheckBatch_Click"/><Button x:Name="ImportButton" Content="Ghi cả lô" Click="ImportBatch_Click" IsEnabled="False"/><TextBlock x:Name="BatchStatus" VerticalAlignment="Center"/></WrapPanel>
     </StackPanel>
-    <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
+    <StackPanel Grid.Row="2">
      <TextBlock Text="NHẬP DANH SÁCH THÀNH VIÊN VÀO HỘ ĐANG CHỌN" FontWeight="Bold" Foreground="#102D59"/>
-     <TextBlock Text="Họ tên    Ngày sinh (yyyy-MM-dd hoặc để trống)    Giới tính    Quan hệ; mỗi dòng một người. Không tự gộp theo tên." Foreground="#60728A"/>
+     <TextBlock Text="Họ tên    Ngày sinh (yyyy-MM-dd hoặc để trống)    Giới tính    Quan hệ; mỗi dòng một người." Foreground="#60728A" TextWrapping="Wrap"/>
      <TextBox x:Name="MembersBatchText" Height="56" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="MembersBatchText_TextChanged" ToolTip="Chọn hộ phía trên; dán 4 cột: Họ tên / Ngày sinh / Giới tính / Quan hệ"/>
      <WrapPanel><Button x:Name="CheckMembersBatchButton" Content="Kiểm tra nhân khẩu" Click="CheckMembersBatch_Click"/><Button x:Name="ImportMembersButton" Content="Ghi cả lô vào hộ" Click="ImportMembersBatch_Click" IsEnabled="False"/><TextBlock x:Name="MemberBatchStatus" VerticalAlignment="Center" TextWrapping="Wrap"/></WrapPanel>
     </StackPanel>

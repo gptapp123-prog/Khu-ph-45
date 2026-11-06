@@ -114,6 +114,24 @@ jobs:
           echo no | avdmanager create avd -n qlkp_smoke -k 'system-images;android-30;google_apis;x86_64' -p "$ANDROID_AVD_HOME/qlkp_smoke.avd" --force
       - name: Launch APK and inspect native screen on Android emulator
         run: python3 native/tools/android_device_smoke.py
+      - name: Verify privately signed release matches compiled source
+        if: hashFiles('native/release-staging/QLKP-Mobile-0.19.0-PILOT.apk') != ''
+        run: python3 native/tools/verify_signed_apk.py
+      - name: Install and inspect the signed release on Android emulator
+        if: hashFiles('native/release-staging/QLKP-Mobile-0.19.0-PILOT.apk') != ''
+        env:
+          QLKP_SMOKE_APK: ${{ github.workspace }}/native/release-staging/QLKP-Mobile-0.19.0-PILOT.apk
+          QLKP_SMOKE_EVIDENCE: ${{ github.workspace }}/native/build-logs/android-release
+        run: python3 native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: success() && hashFiles('native/release-staging/QLKP-Mobile-0.19.0-PILOT.apk') != ''
+        with:
+          name: QLKP-native-Android-PILOT-signed-release
+          path: |
+            native/release-staging/QLKP-Mobile-0.19.0-PILOT.apk
+            native/release-staging/android-signing-receipt.json
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -127,6 +145,7 @@ jobs:
           name: QLKP-native-Android-build-evidence
           path: |
             native/build-logs/android/
+            native/build-logs/android-release/
             native/android-companion/app/build/reports/
             native/android-companion/app/build/test-results/
           if-no-files-found: warn

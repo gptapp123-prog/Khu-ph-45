@@ -1,0 +1,10 @@
+{
+  "application_id": "vn.qlkp.companion",
+  "version_name": "0.19.0-PILOT",
+  "version_code": 19,
+  "source_commit": "cdfbca4285e25e8abfcb23ec6c8f472f5a4f5160",
+  "build_run_id": 42172753321,
+  "input_artifact_id": 13482087302,
+  "apk_sha256": "895792a9bf5b2a0fd15eb75460973d7b56095d2309ea9cc98740407dfab74763",
+  "certificate_sha256": "1ca225b088f886f2036ebfe20c341e1b7714f5bb8429ebfeda8d614aab0496d3"
+}
