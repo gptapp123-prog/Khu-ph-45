@@ -92,6 +92,20 @@ jobs:
           "$tools/zipalign" -c 4 "$apk"
           cp "$apk" native/dist/android/QLKP-Mobile-0.19.0-PILOT-debug.apk
           (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Prepare unsigned release for private offline signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native/offline-signing
+          cp native/android-companion/app/build/outputs/apk/release/app-release-unsigned.apk native/offline-signing/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" native/offline-signing/
+          (cd native/offline-signing && sha256sum *.apk *.jar > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QLKP-native-Android-offline-signing-input-not-installable
+          path: native/offline-signing/
+          if-no-files-found: error
+          retention-days: 3
       - name: Enable emulator acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
