@@ -1,0 +1,34 @@
+<UserControl x:Class="QLKP.Desktop.Views.VehicleView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <DockPanel Margin="14">
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock Text="F08 · PHƯƠNG TIỆN" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
+   <WrapPanel>
+    <Label Target="{Binding ElementName=Search}" Content="Biển số / chủ xe / hãng"/>
+    <TextBox x:Name="Search" Width="225" MaxLength="120"/>
+    <Button Content="Tìm" Click="Search_Click"/>
+    <Button x:Name="AddVehicle" Content="Thêm xe" Click="Add_Click"/>
+    <Button x:Name="EditVehicle" Content="Cập nhật xe" Click="Edit_Click"/>
+    <Button Content="Mở hồ sơ chủ xe" Click="Owner_Click"/>
+   </WrapPanel>
+   <TextBlock x:Name="Message" TextWrapping="Wrap"/>
+  </StackPanel>
+  <WrapPanel DockPanel.Dock="Bottom">
+   <Button x:Name="Previous" Content="Trang trước" Click="Previous_Click"/>
+   <Button x:Name="Next" Content="Trang sau" Click="Next_Click"/>
+   <TextBlock x:Name="PageInfo" VerticalAlignment="Center"/>
+  </WrapPanel>
+  <DataGrid x:Name="Vehicles" IsReadOnly="True" CanUserAddRows="False" AutoGenerateColumns="False" SelectionMode="Single">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Biển số" Binding="{Binding Plate}" Width="115"/>
+    <DataGridTextColumn Header="Chủ xe" Binding="{Binding OwnerName}" Width="*" MinWidth="150"/>
+    <DataGridTextColumn Header="Hãng xe" Binding="{Binding Brand}" Width="110"/>
+    <DataGridTextColumn Header="Loại xe" Binding="{Binding KindLabel}" Width="135"/>
+    <DataGridTextColumn Header="Số chỗ" Binding="{Binding Seats}" Width="85"/>
+    <DataGridTextColumn Header="Tải trọng (kg)" Binding="{Binding PayloadKg}" Width="115"/>
+    <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="135"/>
+   </DataGrid.Columns>
+  </DataGrid>
+ </DockPanel>
+</UserControl>

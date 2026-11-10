@@ -1,0 +1,39 @@
+<Window x:Class="QLKP.Desktop.Views.VehicleEditWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Hồ sơ phương tiện" Width="680" Height="650" MinWidth="460" MinHeight="430"
+ WindowStartupLocation="CenterOwner">
+ <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <StackPanel Margin="16">
+   <TextBlock Text="HỒ SƠ PHƯƠNG TIỆN" FontSize="20" FontWeight="Bold" Foreground="#102D59"/>
+   <WrapPanel>
+    <StackPanel><Label Target="{Binding ElementName=Plate}" Content="Biển số"/><TextBox x:Name="Plate" Width="152" MaxLength="28"/></StackPanel>
+    <StackPanel><Label Target="{Binding ElementName=Brand}" Content="Hãng xe"/><TextBox x:Name="Brand" Width="175" MaxLength="80"/></StackPanel>
+    <StackPanel><Label Target="{Binding ElementName=Kind}" Content="Loại xe"/>
+     <ComboBox x:Name="Kind" Width="170" SelectionChanged="Kind_Changed">
+      <ComboBoxItem Tag="motorcycle" Content="Xe máy"/>
+      <ComboBoxItem Tag="passenger" Content="Xe chở người"/>
+      <ComboBoxItem Tag="truck" Content="Xe tải"/>
+      <ComboBoxItem Tag="other" Content="Loại khác"/>
+     </ComboBox>
+    </StackPanel>
+   </WrapPanel>
+   <StackPanel x:Name="MeasurePanel" Visibility="Collapsed" HorizontalAlignment="Left">
+    <Label x:Name="MeasureLabel" Target="{Binding ElementName=Measure}"/>
+    <TextBox x:Name="Measure" Width="142" MaxLength="7"/>
+   </StackPanel>
+   <CheckBox x:Name="Active" Margin="4,8" Content="Đang theo dõi" IsChecked="True"/>
+   <TextBlock x:Name="OwnerName" Text="Chưa chọn chủ xe" FontWeight="Bold"/>
+   <WrapPanel>
+    <TextBox x:Name="OwnerSearch" Width="220" MaxLength="120" AutomationProperties.Name="Tìm chủ xe"/>
+    <Button x:Name="FindOwner" Content="Tìm nhân khẩu" Click="FindOwner_Click"/>
+    <Button x:Name="PreviousOwner" Content="Trước" Click="PreviousOwner_Click"/>
+    <Button x:Name="NextOwner" Content="Sau" Click="NextOwner_Click"/>
+   </WrapPanel>
+   <ListBox x:Name="Owners" Height="110" DisplayMemberPath="Display"/>
+   <Button x:Name="ChooseOwner" Content="Chọn làm chủ xe" Click="ChooseOwner_Click" HorizontalAlignment="Left"/>
+   <WrapPanel><Button x:Name="SaveVehicle" Content="Lưu hồ sơ xe" Click="Save_Click"/><Button Content="Đóng" IsCancel="True"/></WrapPanel>
+   <TextBlock x:Name="Message" TextWrapping="Wrap"/>
+  </StackPanel>
+ </ScrollViewer>
+</Window>

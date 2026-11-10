@@ -91,6 +91,7 @@ namespace QLKP.Desktop.Views {
    try {
    if(f.Code.Length==3 && f.Code[0]=='H')FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ReportsView(session,f.Code,NavigateToLinked):(UserControl)new NoticeView("Không có quyền báo cáo.");
    else if(f.Code=="A01")FeatureContent.Content=DataStore.Can(session,"A01","read")?new OperationsDashboardView(session):(UserControl)new NoticeView("Không có quyền xem bàn điều hành.");
+   else if(f.Code=="F08")FeatureContent.Content=DataStore.Can(session,"F08","read")&&DataStore.Can(session,"B02","read")?new VehicleView(session,NavigateToPerson):(UserControl)new NoticeView("Không có quyền xem phương tiện và chủ xe.");
    else if(f.Code=="A05")FeatureContent.Content=DataStore.Can(session,"A05","read")&&DataStore.Can(session,"A02","read")?new ModuleRecordsView(session,"A05",NavigateToLinked):(UserControl)new NoticeView("A05 cần cả quyền A05:read và A02:read.");
    else if(ModuleCatalog.IsEditable(f.Code))FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ModuleRecordsView(session,f.Code,NavigateToLinked):(UserControl)new NoticeView("Không có quyền mở hồ sơ "+f.Code);
    else if(f.Code=="B01")FeatureContent.Content=DataStore.Can(session,"B01","read")?new HouseholdView(session,NavigateToPerson):(UserControl)new NoticeView("Không được phép xem hồ sơ hộ.");

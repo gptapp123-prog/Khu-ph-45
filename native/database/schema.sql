@@ -128,6 +128,36 @@ CREATE TRIGGER IF NOT EXISTS residency_change_immutable_delete
  BEFORE DELETE ON residency_changes
  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_RESIDENCY_EVENT'); END;
 
+-- F08 vehicle register. Owner is a scoped resident, not free text.
+CREATE TABLE IF NOT EXISTS vehicles (
+ id TEXT PRIMARY KEY NOT NULL, area_id TEXT NOT NULL REFERENCES areas(id),
+ owner_id TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+ plate TEXT NOT NULL CHECK(length(plate) BETWEEN 3 AND 15 AND plate NOT GLOB '*[^A-Z0-9]*'),
+ brand TEXT NOT NULL CHECK(length(trim(brand)) BETWEEN 1 AND 80),
+ kind TEXT NOT NULL CHECK(kind IN ('motorcycle','passenger','truck','other')),
+ seats INTEGER, payload_kg INTEGER,
+ active INTEGER NOT NULL CHECK(active IN (0,1)),
+ version INTEGER NOT NULL CHECK(version>=1),
+ actor_id TEXT NOT NULL REFERENCES accounts(id), updated_utc TEXT NOT NULL,
+ CHECK((kind='passenger' AND seats IS NOT NULL AND typeof(seats)='integer' AND seats BETWEEN 1 AND 999 AND payload_kg IS NULL)
+    OR (kind='truck' AND seats IS NULL AND payload_kg IS NOT NULL AND typeof(payload_kg)='integer' AND payload_kg BETWEEN 1 AND 1000000)
+    OR (kind IN ('motorcycle','other') AND seats IS NULL AND payload_kg IS NULL)),
+ UNIQUE(area_id,plate)
+);
+CREATE INDEX IF NOT EXISTS vehicle_owner ON vehicles(owner_id);
+CREATE TRIGGER IF NOT EXISTS vehicle_owner_scope_insert
+ BEFORE INSERT ON vehicles
+ WHEN NEW.area_id IS NOT (SELECT area_id FROM people WHERE id=NEW.owner_id)
+ BEGIN SELECT RAISE(ABORT,'INVALID_VEHICLE_OWNER_SCOPE'); END;
+CREATE TRIGGER IF NOT EXISTS vehicle_owner_scope_update
+ BEFORE UPDATE OF owner_id,area_id ON vehicles
+ WHEN NEW.area_id<>OLD.area_id OR NEW.area_id IS NOT (SELECT area_id FROM people WHERE id=NEW.owner_id)
+ BEGIN SELECT RAISE(ABORT,'INVALID_VEHICLE_OWNER_SCOPE'); END;
+CREATE TRIGGER IF NOT EXISTS vehicle_owner_move_guard
+ BEFORE UPDATE OF area_id ON people
+ WHEN NEW.area_id<>OLD.area_id AND EXISTS(SELECT 1 FROM vehicles WHERE owner_id=OLD.id)
+ BEGIN SELECT RAISE(ABORT,'MOVE_PERSON_REQUIRES_VEHICLE_WORKFLOW'); END;
+
 -- CCCD data is stored in the native encrypted vault and kept outside general person rows.
 CREATE TABLE IF NOT EXISTS person_identity_numbers (
  person_id TEXT PRIMARY KEY NOT NULL REFERENCES people(id) ON DELETE RESTRICT,

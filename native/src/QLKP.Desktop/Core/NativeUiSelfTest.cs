@@ -235,13 +235,45 @@ namespace QLKP.Desktop.Core {
      var foundIdentity=Control<DataGrid>(peoplePanel,"People").SelectedItem as PersonRow;
      if(foundIdentity==null||foundIdentity.Id!=person.Id)
       throw new InvalidDataException("Identity lookup did not select the exact person.");
+     run.BeginStep("UI_F08_VEHICLE_REGISTER");
+     var vehiclePanel=Navigate(main,"F08");
+     Exception vehicleError=null;bool vehicleExercised=false;
+     var vehicleTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
+     vehicleTimer.Tick+=(sender,args)=>{
+      var window=Application.Current.Windows.OfType<VehicleEditWindow>().SingleOrDefault();
+      if(window==null)return;
+      vehicleTimer.Stop();
+      try {
+       Control<TextBox>(window,"Plate").Text="00-QA-01234";
+       Control<TextBox>(window,"Brand").Text="Hãng thử";
+       Control<ComboBox>(window,"Kind").SelectedIndex=1;
+       Control<TextBox>(window,"Measure").Text="7";
+       Control<TextBox>(window,"OwnerSearch").Text=person.FullName;
+       Click(Control<Button>(window,"FindOwner"));
+       var owners=Control<ListBox>(window,"Owners");
+       owners.SelectedItem=owners.Items.Cast<PersonRow>().Single(x=>x.Id==person.Id);
+       Click(Control<Button>(window,"ChooseOwner"));
+       Click(Control<Button>(window,"SaveVehicle"));
+       var vehicle=DataStore.GetVehicles(admin,"00QA01234",0).Items.Single();
+       if(vehicle.OwnerId!=person.Id||vehicle.Seats!=7||vehicle.PayloadKg.HasValue)
+        throw new InvalidDataException("Vehicle UI saved wrong owner or capacity.");
+       vehicleExercised=true;
+      }catch(Exception ex){vehicleError=ex;}
+      finally{if(window.IsVisible)window.Close();}
+     };
+     vehicleTimer.Start();try{Click(Control<Button>(vehiclePanel,"AddVehicle"));}finally{vehicleTimer.Stop();}
+     if(!vehicleExercised||vehicleError!=null)throw new InvalidDataException("Vehicle UI dialog failed.",vehicleError);
+     var selectedVehicle=Control<DataGrid>(vehiclePanel,"Vehicles").SelectedItem as VehicleRow;
+     if(selectedVehicle==null||selectedVehicle.Plate!="00QA01234")
+      throw new InvalidDataException("Vehicle UI did not reload the saved record.");
+     Snapshot(main,evidence,"F08-vehicles");
      foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
       if(new[]{"B01","A02","C01","H03"}.Contains(feature.Code))Snapshot(main,evidence,feature.Code);
      }
-     if(visited.Count!=56)throw new InvalidDataException("Not all 56 routes opened.");
-     Console.WriteLine("UI_NAVIGATION_PASS 56");Console.WriteLine("UI_MODULE_WRITE_PASS "+ModuleCatalog.Editable.Length);
+     if(visited.Count!=FeatureCatalog.All.Count)throw new InvalidDataException("Not all routes opened.");
+     Console.WriteLine("UI_NAVIGATION_PASS "+visited.Count);Console.WriteLine("UI_MODULE_WRITE_PASS "+ModuleCatalog.Editable.Length);
      run.BeginStep("UI_CREATE_DEFAULT_ORDINARY_ACCOUNT");var accountPanel=Navigate(main,"I01");
      string ordinarySecret="T-"+Guid.NewGuid().ToString("N")+"!";
      Control<TextBox>(accountPanel,"Username").Text="ui_ordinary";Control<PasswordBox>(accountPanel,"Password").Password=ordinarySecret;

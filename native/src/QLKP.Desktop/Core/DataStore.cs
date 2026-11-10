@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=14;
+  internal const int SchemaVersion=15;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -85,6 +85,7 @@ namespace QLKP.Desktop.Core {
       EnsureSearchColumn(c,tx,"households","search_address");
       EnsureSearchColumn(c,tx,"residency_changes","search_reason");
       BackfillSearchKeys(c,tx);
+      if(installed<15)UpgradeVehicleRights(c,tx);
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_people_search_area ON people(area_id,search_name)");
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_households_search_area ON households(area_id,search_address)");
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_residency_reason_area ON residency_changes(area_id,search_reason)");
@@ -316,7 +317,7 @@ namespace QLKP.Desktop.Core {
    using(var c=Open()) {
     CheckTarget(c,null,actor,targetId);
     var rights=new List<string>();
-    using(var cmd=new SQLiteCommand("SELECT feature,action FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09') ORDER BY feature,action",c)) {
+    using(var cmd=new SQLiteCommand("SELECT feature,action FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09') ORDER BY feature,action",c)) {
      cmd.Parameters.Add(P("@id",targetId));
      using(var r=cmd.ExecuteReader())while(r.Read())rights.Add(r.GetString(0)+":"+r.GetString(1));
     }
@@ -337,9 +338,9 @@ namespace QLKP.Desktop.Core {
      }
     }
     // Only editable B01/B02 rights are replaced. Management rights are kept separate.
-    Exec(c,tx,"DELETE FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
+    Exec(c,tx,"DELETE FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
     if(actor.Role=="ROOT_ADMIN")
-     Exec(c,tx,"DELETE FROM delegation_ceiling WHERE admin_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
+     Exec(c,tx,"DELETE FROM delegation_ceiling WHERE admin_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
     foreach(string right in wanted) {
      var pair=right.Split(':');
      Grant(c,tx,targetId,pair[0],pair[1],area,actor.Id);
@@ -351,13 +352,13 @@ namespace QLKP.Desktop.Core {
      // Lowering a delegated ceiling revokes downstream grants that no longer fit it.
      var affected=new List<string>();
      using(var cmd=new SQLiteCommand(@"SELECT DISTINCT p.account_id FROM permissions p
-       WHERE p.granted_by=@admin AND p.feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
+       WHERE p.granted_by=@admin AND p.feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
        AND NOT EXISTS (SELECT 1 FROM delegation_ceiling d WHERE d.admin_id=@admin
          AND d.area_id=p.area_id AND d.feature=p.feature AND d.action=p.action)",c,tx)) {
       cmd.Parameters.Add(P("@admin",targetId));
       using(var r=cmd.ExecuteReader())while(r.Read())affected.Add(r.GetString(0));
      }
-     Exec(c,tx,@"DELETE FROM permissions WHERE granted_by=@admin AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
+     Exec(c,tx,@"DELETE FROM permissions WHERE granted_by=@admin AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')
        AND NOT EXISTS (SELECT 1 FROM delegation_ceiling d WHERE d.admin_id=@admin
          AND d.area_id=permissions.area_id AND d.feature=permissions.feature AND d.action=permissions.action)",P("@admin",targetId));
      foreach(var userId in affected)

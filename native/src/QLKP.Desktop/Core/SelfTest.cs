@@ -476,6 +476,22 @@ namespace QLKP.Desktop.Core {
     try{DataStore.FindPersonIdByIdentity(identityTest,"000000123456");}
     catch(UnauthorizedAccessException){staleIdentityDenied=true;}
     if(!staleIdentityDenied)throw new InvalidDataException("B02: stale session retained identity lookup.");
+    journal.BeginStep("F08_VEHICLE_REGISTER");
+    string vehicleId=DataStore.SaveVehicle(admin,null,"00-TH-01234","Hãng thử","truck","1500",verified.Id,true);
+    var vehicle=DataStore.GetVehicles(admin,"00.TH.01234",0).Items.Find(x=>x.Id==vehicleId);
+    if(vehicle==null||vehicle.OwnerId!=verified.Id||vehicle.PayloadKg!=1500||vehicle.Seats.HasValue)
+     throw new InvalidDataException("F08: xe tải hoặc liên kết chủ xe sai.");
+    bool duplicateVehicle=false,deniedVehicle=false,staleVehicle=false;
+    try{DataStore.SaveVehicle(admin,null,"00TH01234","Trùng","motorcycle","",verified.Id,true);}
+    catch(InvalidOperationException){duplicateVehicle=true;}
+    try{DataStore.GetVehicles(expiredRoot,"",0);}catch(UnauthorizedAccessException){deniedVehicle=true;}
+    DataStore.SaveVehicle(admin,vehicle,vehicle.Plate,vehicle.Brand,"passenger","7",verified.Id,false);
+    try{DataStore.SaveVehicle(admin,vehicle,vehicle.Plate,vehicle.Brand,"truck","1500",verified.Id,true);}
+    catch(InvalidOperationException){staleVehicle=true;}
+    var editedVehicle=DataStore.GetVehicles(admin,"00TH01234",0).Items.Find(x=>x.Id==vehicleId);
+    if(!duplicateVehicle||!deniedVehicle||!staleVehicle||editedVehicle==null||editedVehicle.Seats!=7||
+       editedVehicle.PayloadKg.HasValue||editedVehicle.Active)
+     throw new InvalidDataException("F08: kiểm tra trùng, quyền, phiên bản hoặc chuyển loại thất bại.");
     OperationalSelfTest.Run(admin,expiredRoot,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);

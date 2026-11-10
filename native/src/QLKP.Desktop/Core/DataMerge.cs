@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace QLKP.Desktop.Core {
  public sealed class MergeSummary {
   public string Table {get;internal set;} public int Added {get;internal set;} public int Identical {get;internal set;}
-  public string Label {get{return Table=="households"?"Hộ gia đình":Table=="people"?"Nhân khẩu":Table=="household_profiles"?"Phân loại hộ":Table=="person_profiles"?"Phân loại nhân khẩu":Table=="person_identity_numbers"?"Định danh nhân khẩu":Table=="household_memberships"?"Thành viên trong hộ":Table=="member_import_batches"?"Lịch sử nhập nhân khẩu":Table=="residency_changes"?"Biến động cư trú":Table=="person_residence_periods"?"Kỳ địa chỉ cư trú":Table=="intake_batches"?"Lịch sử nhập liệu":Table=="module_records"?"Hồ sơ các phân hệ":Table=="module_field_values"?"Thông tin chi tiết hồ sơ":Table=="module_record_history"?"Lịch sử xử lý hồ sơ":Table=="module_relations"?"Liên kết giữa các hồ sơ":Table=="shared_catalog_items"?"Danh mục khu phố":"Nhóm dữ liệu";}}
+  public string Label {get{return Table=="households"?"Hộ gia đình":Table=="people"?"Nhân khẩu":Table=="household_profiles"?"Phân loại hộ":Table=="person_profiles"?"Phân loại nhân khẩu":Table=="person_identity_numbers"?"Định danh nhân khẩu":Table=="vehicles"?"Phương tiện":Table=="household_memberships"?"Thành viên trong hộ":Table=="member_import_batches"?"Lịch sử nhập nhân khẩu":Table=="residency_changes"?"Biến động cư trú":Table=="person_residence_periods"?"Kỳ địa chỉ cư trú":Table=="intake_batches"?"Lịch sử nhập liệu":Table=="module_records"?"Hồ sơ các phân hệ":Table=="module_field_values"?"Thông tin chi tiết hồ sơ":Table=="module_record_history"?"Lịch sử xử lý hồ sơ":Table=="module_relations"?"Liên kết giữa các hồ sơ":Table=="shared_catalog_items"?"Danh mục khu phố":"Nhóm dữ liệu";}}
  }
  public sealed class MergePlan : IDisposable {
   internal string Candidate,Before,BaseHash,CandidateHash,ActorId,AreaId,RunId;
@@ -19,7 +19,7 @@ namespace QLKP.Desktop.Core {
   public void Dispose(){foreach(string f in new[]{Candidate,Before})if(!String.IsNullOrEmpty(f)&&File.Exists(f))File.Delete(f);Candidate=Before=null;}
  }
  public static partial class DataStore {
-  static readonly string[] MergeTables={"households","people","person_identity_numbers","household_profiles","person_profiles","household_memberships","member_import_batches","residency_changes","person_residence_periods","intake_batches","module_records","module_field_values","module_record_history","module_relations","shared_catalog_items"};
+  static readonly string[] MergeTables={"households","people","person_identity_numbers","vehicles","household_profiles","person_profiles","household_memberships","member_import_batches","residency_changes","person_residence_periods","intake_batches","module_records","module_field_values","module_record_history","module_relations","shared_catalog_items"};
   static readonly string[] ActorColumns={"actor_id","created_by","updated_by","changed_by"};
   static string MergeStage(string prefix){string dir=Path.Combine(DataFolder,"maintenance");Directory.CreateDirectory(dir);return Path.Combine(dir,prefix+"-"+Guid.NewGuid().ToString("N")+".qlkpvault");}
   static void RequireMerge(SQLiteConnection c,SQLiteTransaction tx,Session s) {
@@ -35,7 +35,7 @@ namespace QLKP.Desktop.Core {
   static bool SameValue(object a,object b){if(a==DBNull.Value||b==DBNull.Value)return a==DBNull.Value&&b==DBNull.Value;if(a is byte[]&&b is byte[])return ((byte[])a).SequenceEqual((byte[])b);return Equals(a,b);}
   static string[] MergeKey(string table){return table=="module_field_values"?new[]{"record_id","field_key"}:table=="household_profiles"?new[]{"household_id"}:(table=="person_profiles"||table=="person_identity_numbers")?new[]{"person_id"}:table=="member_import_batches"?new[]{"idempotency_key"}:table=="intake_batches"?new[]{"request_id"}:new[]{"id"};}
   static string ScopedSource(string table) {
-   if(new[]{"households","people","person_identity_numbers","residency_changes","person_residence_periods","intake_batches","module_records","module_relations"}.Contains(table))return "area_id=@area";
+   if(new[]{"households","people","person_identity_numbers","vehicles","residency_changes","person_residence_periods","intake_batches","module_records","module_relations"}.Contains(table))return "area_id=@area";
    if(table=="shared_catalog_items")return "scope_area=@area";
    if(table=="household_profiles")return "household_id IN (SELECT id FROM households WHERE area_id=@area)";
    if(table=="person_profiles")return "person_id IN (SELECT id FROM people WHERE area_id=@area)";
@@ -43,6 +43,7 @@ namespace QLKP.Desktop.Core {
    return "record_id IN (SELECT id FROM module_records WHERE area_id=@area)";
   }
   static string MergeFeature(SQLiteConnection source,string table,Dictionary<string,object> row) {
+   if(table=="vehicles")return "F08";
    if(table=="shared_catalog_items")return "I07";if(table=="residency_changes"||table=="person_residence_periods")return "B03";
    if(table.StartsWith("module_",StringComparison.Ordinal))return table=="module_records"?Text(row,"feature"):Convert.ToString(Scalar(source,null,"SELECT feature FROM module_records WHERE id=@id",P("@id",Text(row,table=="module_relations"?"source_id":"record_id"))));
    return table=="households"||table=="household_profiles"?"B01":"B02";
@@ -57,10 +58,11 @@ namespace QLKP.Desktop.Core {
     var modules=new List<Dictionary<string,object>>();
     foreach(string table in MergeTables) {
      var summary=new MergeSummary{Table=table};plan.Summary.Add(summary);
-     if((table=="person_residence_periods"||table=="person_identity_numbers")&&Convert.ToInt32(Scalar(source,null,
+     if((table=="person_residence_periods"||table=="person_identity_numbers"||table=="vehicles")&&Convert.ToInt32(Scalar(source,null,
        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=@table",P("@table",table)))==0)continue;
      foreach(var original in MergeRows(source,table,ScopedSource(table),null,P("@area",sourceArea))) {
       string feature=MergeFeature(source,table,original);Require(target,tx,actor,feature,"read",actor.AreaId);Require(target,tx,actor,feature,feature=="I07"?"manage":"create",actor.AreaId);
+      if(table=="vehicles")Require(target,tx,actor,"B02","read",actor.AreaId);
       if(table=="person_residence_periods")Require(target,tx,actor,"B02","read",actor.AreaId);
       if(table=="person_identity_numbers")Require(target,tx,actor,"B02","identity_write",actor.AreaId);
       if(table=="module_relations")Require(target,tx,actor,Text(original,"target_feature"),"read",actor.AreaId);
@@ -92,6 +94,9 @@ namespace QLKP.Desktop.Core {
       try {MergeInsert(target,tx,table,row);}
       catch(SQLiteException) when(table=="person_identity_numbers") {
        throw new InvalidOperationException("Không thể hợp nhất nhóm định danh nhân khẩu. Đã hủy toàn bộ lô.");
+      }
+      catch(SQLiteException) when(table=="vehicles") {
+       throw new InvalidOperationException("Không thể hợp nhất nhóm phương tiện. Kiểm tra biển số và chủ xe. Đã hủy toàn bộ lô.");
       }
       summary.Added++;
       string identity=String.Join("|",keys.Select(k=>Text(original,k)));
