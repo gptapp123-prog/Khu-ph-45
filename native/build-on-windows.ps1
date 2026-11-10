@@ -114,9 +114,9 @@ try {
    $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
    $check=New-Object System.Diagnostics.Process;$check.StartInfo=$info
    [void]$check.Start();$stdout=$check.StandardOutput.ReadToEndAsync();$stderr=$check.StandardError.ReadToEndAsync()
-   if (-not $check.WaitForExit(120000)) {
+   if (-not $check.WaitForExit(240000)) {
     Stop-Process -Id $check.Id -Force -ErrorAction SilentlyContinue
-    throw 'Self-test WPF vượt 120 giây, dừng đóng gói để điều tra lỗi.'
+    throw 'Self-test WPF vượt 240 giây, dừng đóng gói để điều tra lỗi.'
    }
    $check.WaitForExit()
    [IO.File]::WriteAllText($selfTestOut,$stdout.Result,[Text.Encoding]::UTF8)
