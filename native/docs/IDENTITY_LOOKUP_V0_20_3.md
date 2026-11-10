@@ -7,3 +7,9 @@ Trong I02, cấp riêng **Tra cứu CCCD chính xác** hoặc **Ghi hoặc sửa
 - Số được lưu trong kho mã hóa hiện có, ngoài danh sách nhân khẩu. Nhật ký ghi thao tác và ID hồ sơ, không ghi số CCCD. Gói danh mục Android không mang dữ liệu này. Sao lưu toàn bộ kho vẫn bao gồm dữ liệu CCCD trong phần mã hóa.
 - Hợp nhất kho có nhóm định danh và yêu cầu thêm quyền ghi. Nếu trùng hoặc xung đột, hủy toàn bộ lô. Lược đồ 14 tạo bảng trống trên kho cũ. Tạo bản sao trước khi nâng cấp.
 - Chưa nối nhập CCCD hàng loạt, OCR, quét căn cước hoặc tra cứu trên Android. Phương tiện và PC–Android hai chiều thuộc phạm vi khác.
+
+## Kiểm thử
+
+Windows 42753488891 đạt 83/83 bước self-test trước và sau cài, 258/258 bước WPF và 4/4 bước cài/chạy/gỡ. Ca riêng kiểm tra tra cứu đúng khu phố, giữ số 0 đầu, phiên cũ sau thu hồi quyền và mở đúng nhân khẩu bằng nút WPF. Đã so mã băm bộ cài và rà 18 tệp log bằng số thử. Bộ cài chưa ký nhà phát hành. Chưa thử Windows 7 hoặc kho dữ liệu thật.
+
+[Bằng chứng kiểm thử](https://github.com/gptapp123-prog/Khu-ph-45/actions/runs/42753488891)
