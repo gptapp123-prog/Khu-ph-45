@@ -579,7 +579,7 @@ namespace QLKP.Desktop.Core {
     OfflineCatalogTransfer.ExportReferenceCatalog(admin,referencePath,recoveryPassword);
     if(!File.Exists(referencePath))throw new InvalidDataException("I06: không xuất được danh mục sử dụng.");
     Console.WriteLine("REPOSITORY_PASS I07 I06 reference/catalog/create/idempotent/export");
-    if(!DataStore.VersionDiagnostics(root).Contains("Lược đồ SQLite: 12"))
+    if(!DataStore.VersionDiagnostics(root).Contains("Lược đồ SQLite: "+DataStore.SchemaVersion))
      throw new InvalidDataException("I09 không hiển thị đúng phiên bản schema.");
     journal.BeginStep("QR_REFERENCE");
     // I05 uses a fake QR payload with the household's exact GUID; no external URL.
