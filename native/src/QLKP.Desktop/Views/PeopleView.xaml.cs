@@ -5,7 +5,7 @@ using QLKP.Desktop.Core;
 namespace QLKP.Desktop.Views {
  public partial class PeopleView : UserControl {
   readonly Session session;readonly Action<string> navigateHousehold;string preselectId;bool pendingPreselection;const int PageSize=50;int pageIndex;
-  public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
+  public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();LookupIdentity.Visibility=DataStore.Can(s,"B02","identity_lookup")?Visibility.Visible:Visibility.Collapsed;OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
   void Reload(){try{
    var previous=People.SelectedItem as PersonRow;
    if(pendingPreselection)pageIndex=DataStore.GetPersonPageIndexById(session,preselectId,PageSize);
@@ -39,6 +39,22 @@ namespace QLKP.Desktop.Views {
    try { DataStore.GetHousehold(session,p.HouseholdId);if(navigateHousehold!=null)navigateHousehold(p.HouseholdId); }
    catch(Exception ex){MessageBox.Show("Không thể mở hồ sơ hộ: "+ex.Message);}
   }
+  void LookupIdentity_Click(object sender,RoutedEventArgs e) {
+   try {
+    var dialog=new PersonIdentityWindow(session){Owner=Window.GetWindow(this)};
+    if(dialog.ShowDialog()==true) {
+     Search.Clear();ResidencyFilter.SelectedIndex=0;
+     preselectId=dialog.MatchedPersonId;pendingPreselection=true;Reload();
+    }
+   }catch(Exception){MessageBox.Show("Không thể mở tra cứu CCCD.");}
+  }
+  void EditIdentity_Click(object sender,RoutedEventArgs e) {
+   var selected=People.SelectedItem as PersonRow;if(selected==null)return;
+   try {
+    var dialog=new PersonIdentityWindow(session,selected.Id){Owner=Window.GetWindow(this)};
+    if(dialog.ShowDialog()==true)Reload();
+   }catch(Exception){MessageBox.Show("Không thể mở định danh của hồ sơ.");}
+  }
   void OpenResidencePeriods_Click(object sender,RoutedEventArgs e) {
    var selected=People.SelectedItem as PersonRow;
    if(selected==null)return;
@@ -58,6 +74,7 @@ namespace QLKP.Desktop.Views {
   void People_SelectionChanged(object sender,SelectionChangedEventArgs e){
    var p=People.SelectedItem as PersonRow;
    if(EditPerson!=null)EditPerson.IsEnabled=false;
+   if(EditIdentity!=null)EditIdentity.Visibility=Visibility.Collapsed;
    if(OpenResidencePeriods!=null)OpenResidencePeriods.Visibility=Visibility.Collapsed;
    PersonHistory.ItemsSource=null;
    if(p==null){Detail.Text="Chọn một nhân khẩu.";HistoryNotice.Text="";return;}
@@ -66,6 +83,7 @@ namespace QLKP.Desktop.Views {
     var current=DataStore.GetPerson(session,p.Id);
     EditPerson.Visibility=DataStore.Can(session,"B02","update")?Visibility.Visible:Visibility.Collapsed;
     EditPerson.IsEnabled=EditPerson.Visibility==Visibility.Visible;
+    if(EditPerson.IsEnabled&&DataStore.Can(session,"B02","identity_write"))EditIdentity.Visibility=Visibility.Visible;
     Detail.Text="Mã hồ sơ: "+current.Id+"\nHọ và tên: "+current.FullName+"\nNgày sinh: "+current.BirthDateDisplay+"\nGiới tính: "+current.Gender+"\nMã hộ hiện tại: "+current.HouseholdCode+"\nQuan hệ: "+current.Relationship;
     if(DataStore.Can(session,"B03","read")){
      OpenResidencePeriods.Visibility=Visibility.Visible;

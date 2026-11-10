@@ -128,6 +128,28 @@ CREATE TRIGGER IF NOT EXISTS residency_change_immutable_delete
  BEFORE DELETE ON residency_changes
  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_RESIDENCY_EVENT'); END;
 
+-- CCCD data is stored in the native encrypted vault and kept outside general person rows.
+CREATE TABLE IF NOT EXISTS person_identity_numbers (
+ person_id TEXT PRIMARY KEY NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+ area_id TEXT NOT NULL REFERENCES areas(id),
+ citizen_number TEXT NOT NULL CHECK(length(citizen_number)=12 AND citizen_number NOT GLOB '*[^0-9]*'),
+ actor_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+ updated_utc TEXT NOT NULL,
+ UNIQUE(area_id,citizen_number)
+);
+CREATE TRIGGER IF NOT EXISTS person_identity_scope_insert
+ BEFORE INSERT ON person_identity_numbers
+ WHEN NEW.area_id IS NOT (SELECT area_id FROM people WHERE id=NEW.person_id)
+ BEGIN SELECT RAISE(ABORT,'INVALID_IDENTITY_SCOPE'); END;
+CREATE TRIGGER IF NOT EXISTS person_identity_scope_update
+ BEFORE UPDATE OF person_id,area_id ON person_identity_numbers
+ WHEN NEW.person_id<>OLD.person_id OR NEW.area_id<>OLD.area_id
+ BEGIN SELECT RAISE(ABORT,'INVALID_IDENTITY_SCOPE'); END;
+CREATE TRIGGER IF NOT EXISTS person_identity_person_scope_update
+ BEFORE UPDATE OF area_id ON people
+ WHEN NEW.area_id<>OLD.area_id AND EXISTS (SELECT 1 FROM person_identity_numbers WHERE person_id=OLD.id)
+ BEGIN SELECT RAISE(ABORT,'MOVE_PERSON_REQUIRES_IDENTITY_WORKFLOW'); END;
+
 -- Address periods are independent of household membership and of legal verification.
 -- NULL end means open until a later period of the same type starts.
 CREATE TABLE IF NOT EXISTS person_residence_periods (

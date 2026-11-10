@@ -113,6 +113,23 @@ namespace QLKP.Desktop.Core {
    if(current.Version!=2||current.Title!="[MẪU] Đã cập nhật "+spec.Code||DataStore.GetModuleHistory(actor,spec.Code,id).Count!=1)
     throw new InvalidDataException("UI update/history failed: "+spec.Code);
   }
+  static void DriveIdentityDialog(Button open,string number,bool confirm) {
+   Exception error=null;bool completed=false;
+   var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
+   timer.Tick+=(sender,args)=>{
+    var window=Application.Current.Windows.OfType<PersonIdentityWindow>().SingleOrDefault();
+    if(window==null)return;
+    timer.Stop();
+    try {
+     Control<PasswordBox>(window,"Number").Password=number;
+     Click(Control<Button>(window,"SubmitButton"),confirm,"Xác nhận định danh");
+     completed=!window.IsVisible;
+    }catch(Exception ex){error=ex;}
+    finally{if(window.IsVisible)window.Close();}
+   };
+   timer.Start();try{Click(open);}finally{timer.Stop();}
+   if(!completed||error!=null)throw new InvalidDataException("Identity UI dialog did not complete.",error);
+  }
   public static void Run() {
    var app=Application.Current;var priorShutdown=app.ShutdownMode;app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
    using(var run=new TestRunRecorder("windows_ui_smoke","ui_e2e")) {
@@ -152,6 +169,11 @@ namespace QLKP.Desktop.Core {
      Click(Control<Button>(accounts,"CreateButton"));
      var admin=DataStore.Login("ui_admin",adminSecret);if(admin==null||admin.Role!="KP_ADMIN")throw new InvalidDataException("Account UI create failed.");
      if(FeatureCatalog.All.Any(f=>!DataStore.Can(admin,f.Code,"read")))throw new InvalidDataException("New KP admin does not see all features by default.");
+     if(DataStore.Can(admin,"B02","identity_lookup")||DataStore.Can(admin,"B02","identity_write"))
+      throw new InvalidDataException("Sensitive identity rights were granted by default.");
+     var adminRights=DataStore.GetAccountRights(root,admin.Id);
+     adminRights.AddRange(new[]{"B02:identity_lookup","B02:identity_write"});
+     DataStore.SetAccountRights(root,admin.Id,adminRights);
      var visited=new HashSet<string>();
      foreach(var code in FeatureCatalog.All.Select(x=>x.Code)) {run.BeginStep("UI_NAV_"+code);Navigate(rootWindow,code);visited.Add(code);}
      Snapshot(rootWindow,evidence,"root-system");rootWindow.Close();
@@ -203,6 +225,16 @@ namespace QLKP.Desktop.Core {
      periodTimer.Start();
      try{Click(Control<Button>(peoplePanel,"OpenResidencePeriods"));}finally{periodTimer.Stop();}
      if(!periodExercised||periodError!=null)throw new InvalidDataException("Residence period dialog UI failed.",periodError);
+     run.BeginStep("UI_B02_IDENTITY_SAVE_AND_LOOKUP");
+     string testIdentity="000000123456";
+     DriveIdentityDialog(Control<Button>(peoplePanel,"EditIdentity"),testIdentity,true);
+     if(DataStore.GetMaskedPersonIdentity(admin,person.Id)!="••••••••3456")
+      throw new InvalidDataException("Identity write did not persist masked data.");
+     Control<DataGrid>(peoplePanel,"People").SelectedItem=null;
+     DriveIdentityDialog(Control<Button>(peoplePanel,"LookupIdentity"),testIdentity,false);
+     var foundIdentity=Control<DataGrid>(peoplePanel,"People").SelectedItem as PersonRow;
+     if(foundIdentity==null||foundIdentity.Id!=person.Id)
+      throw new InvalidDataException("Identity lookup did not select the exact person.");
      foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}

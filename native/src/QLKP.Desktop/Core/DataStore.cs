@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=13;
+  internal const int SchemaVersion=14;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -274,7 +274,8 @@ namespace QLKP.Desktop.Core {
      area=actor.AreaId;
      var valid = new HashSet<string>(new[]{"B01:read","B01:create","B02:read","B02:create","B02:update","B03:read","B03:create","I08:read"});
      var unique=new HashSet<string>(requestedRights==null||requestedRights.Count==0?BusinessDefaultRights():requestedRights);
-     foreach(var perm in ModuleCatalog.AdditionalRights())valid.Add(perm);
+     valid.UnionWith(ModuleCatalog.AdditionalRights());
+     valid.UnionWith(PersonIdentityRights);
      foreach(var perm in unique) {
       if(!valid.Contains(perm))throw new UnauthorizedAccessException("Quyền không hợp lệ: "+perm);
       string[] pair=perm.Split(':');
@@ -306,7 +307,8 @@ namespace QLKP.Desktop.Core {
   static HashSet<string> NormalizeRights(IEnumerable<string> rights) {
    var allowed=new HashSet<string>(StringComparer.Ordinal){"B01:read","B01:create","B02:read","B02:create","B02:update","B03:read","B03:create","I08:read"};
    var result=new HashSet<string>(rights??Enumerable.Empty<string>(),StringComparer.Ordinal);
-   foreach(var right in ModuleCatalog.AdditionalRights())allowed.Add(right);
+   allowed.UnionWith(ModuleCatalog.AdditionalRights());
+   allowed.UnionWith(PersonIdentityRights);
    if(result.Any(x=>!allowed.Contains(x)))throw new UnauthorizedAccessException("Danh sách quyền ngoài danh mục đã duyệt.");
    return result;
   }

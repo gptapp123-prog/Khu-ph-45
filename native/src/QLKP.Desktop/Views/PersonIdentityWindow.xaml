@@ -1,0 +1,17 @@
+<Window x:Class="QLKP.Desktop.Views.PersonIdentityWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Định danh nhân khẩu" SizeToContent="Height" Width="460"
+ WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+ <StackPanel Margin="18">
+  <TextBlock x:Name="Heading" FontSize="19" FontWeight="Bold" Foreground="#102D59" TextWrapping="Wrap"/>
+  <TextBlock x:Name="Current" TextWrapping="Wrap"/>
+  <Label Target="{Binding ElementName=Number}" Content="Số CCCD gồm 12 chữ số"/>
+  <PasswordBox x:Name="Number"/>
+  <WrapPanel Margin="0,8,0,0">
+   <Button x:Name="SubmitButton" IsDefault="True" Click="Submit_Click"/>
+   <Button Content="Đóng" IsCancel="True"/>
+  </WrapPanel>
+  <TextBlock x:Name="Message" TextWrapping="Wrap"/>
+ </StackPanel>
+</Window>

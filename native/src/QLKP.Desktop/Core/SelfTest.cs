@@ -453,6 +453,29 @@ namespace QLKP.Desktop.Core {
     try{DataStore.AddResidencePeriod(admin,verified.Id,"thuong_tru","[MẪU] Trùng","01-01-2021","");}catch(InvalidOperationException){residenceOverlap=true;}
     if(!residenceDenied||!residenceOverlap||DataStore.GetResidencePeriods(admin,verified.Id,0).TotalCount!=3)
      throw new InvalidDataException("B03: kiểm tra phiên hoặc kỳ trùng thất bại.");
+    journal.BeginStep("B02_IDENTITY_SCOPED_LOOKUP");
+    string identityTestSecret="T-"+Guid.NewGuid().ToString("N")+"!";
+    DataStore.CreateAccount(root,"identity_test_admin",identityTestSecret,null);
+    var identityTest=DataStore.Login("identity_test_admin",identityTestSecret);
+    bool identityDenied=false;
+    try{DataStore.FindPersonIdByIdentity(identityTest,"000000123456");}
+    catch(UnauthorizedAccessException){identityDenied=true;}
+    if(!identityDenied)throw new InvalidDataException("B02: identity lookup granted by default.");
+    var identityRights=DataStore.GetAccountRights(root,identityTest.Id);
+    identityRights.AddRange(new[]{"B02:identity_lookup","B02:identity_write"});
+    DataStore.SetAccountRights(root,identityTest.Id,identityRights);
+    identityTest=DataStore.Login("identity_test_admin",identityTestSecret);
+    var identityPerson=DataStore.GetPerson(identityTest,verified.Id);
+    DataStore.SavePersonIdentity(identityTest,identityPerson.Id,identityPerson.Version,"000000123456");
+    if(DataStore.FindPersonIdByIdentity(identityTest,"000000123456")!=identityPerson.Id||
+       DataStore.GetMaskedPersonIdentity(identityTest,identityPerson.Id)!="••••••••3456"||
+       DataStore.FindPersonIdByIdentity(identityTest,"000000123457")!="")
+     throw new InvalidDataException("B02: exact lookup or mask incorrect.");
+    DataStore.SetAccountRights(root,identityTest.Id,identityRights.FindAll(r=>r!="B02:identity_lookup"));
+    bool staleIdentityDenied=false;
+    try{DataStore.FindPersonIdByIdentity(identityTest,"000000123456");}
+    catch(UnauthorizedAccessException){staleIdentityDenied=true;}
+    if(!staleIdentityDenied)throw new InvalidDataException("B02: stale session retained identity lookup.");
     OperationalSelfTest.Run(admin,expiredRoot,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);
