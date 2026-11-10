@@ -126,7 +126,7 @@ namespace QLKP.Desktop.Core {
     }
     bool byStatus=reportFeature!="H01";
     string projection=detail?"feature,id,record_code,title,status,"+
-      (reportFeature=="H04"?"due_date":"date(created_utc,'+7 hours')")+",1":
+      (reportFeature=="H04"?"due_date":"date(substr(created_utc,1,19),'+7 hours')")+",1":
        "feature,'','','',"+(byStatus?"status":"'Tổng hồ sơ'")+",'',COUNT(*)";
     string where="area_id=@area AND feature IN {IN} AND created_utc>=@from AND created_utc<@to";
     if(reportFeature=="H04"){
@@ -185,7 +185,7 @@ namespace QLKP.Desktop.Core {
    XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{{"Tổng hợp",rows}},replaceExisting);
   }
   static List<object[]> AggregateRows(Session s,string from,string to,string sourceFilter,string statusFilter){
-   var period=ReportPeriod(from,to,reportFeature=="H04");
+   var period=ReportPeriod(from,to);
    using(var c=Open())using(var tx=c.BeginTransaction()){
     Require(c,tx,s,"H05","read",s.AreaId);Require(c,tx,s,"H05","export",s.AreaId);
     var sources=ReportSources.Where(x=>HasPermission(c,tx,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();
