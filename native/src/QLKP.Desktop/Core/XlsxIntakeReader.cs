@@ -108,7 +108,7 @@ namespace QLKP.Desktop.Core {
    var formats=new HashSet<int>(new[]{14,15,16,17,22});
    foreach(var f in styles.Descendants(Main+"numFmt")) {
     int id;
-    string code=Regex.Replace((string)f.Attribute("formatCode")??"",@"\[[^\]]*\]|""[^""]*""|\.", "").ToLowerInvariant();
+    string code=Regex.Replace((string)f.Attribute("formatCode")??"",@"\[[^\]]*\]|""[^""]*""|\\.", "").ToLowerInvariant();
     if(Int32.TryParse((string)f.Attribute("numFmtId"),out id)&&code.Contains("y")&&(code.Contains("d")||code.Contains("m")))
      formats.Add(id);
    }
@@ -141,11 +141,11 @@ namespace QLKP.Desktop.Core {
      if(++lineNumber>5001)throw new InvalidDataException("Chỉ hỗ trợ tối đa 5.000 dòng dữ liệu cộng tiêu đề.");
      var values=new string[20];int largest=-1;
      foreach(var cell in row.Elements(Main+"c")){
-      int index=ColumnIndex((string)cell.Attribute("r")??"");
-      if(index>=20)throw new InvalidDataException("Chỉ hỗ trợ tối đa 20 cột dữ liệu.");
-      values[index]=CellText(cell,shared,dates,date1904);
-      if(values[index].Length>300)throw new InvalidDataException("Ô Excel dài trên 300 ký tự.");
-      largest=Math.Max(largest,index);
+      int column=ColumnIndex((string)cell.Attribute("r")??"");
+      if(column>=20)throw new InvalidDataException("Chỉ hỗ trợ tối đa 20 cột dữ liệu.");
+      values[column]=CellText(cell,shared,dates,date1904);
+      if(values[column].Length>300)throw new InvalidDataException("Ô Excel dài trên 300 ký tự.");
+      largest=Math.Max(largest,column);
      }
      if(largest<0)continue;
      if(headerWidth==0)headerWidth=largest+1;
