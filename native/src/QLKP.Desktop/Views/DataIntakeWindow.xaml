@@ -37,6 +37,7 @@
     <Button Content="Đọc CSV/TSV/XLSX" Click="ReadCsv_Click" Margin="0,0,8,0" Padding="12,5"/>
     <Button Content="Dán từ Clipboard" Click="PasteClipboard_Click" Margin="0,0,8,0" Padding="12,5"/>
     <Button Content="Chèn tiêu đề cột" Click="Template_Click" Padding="12,5"/>
+    <Button Content="Tải mẫu Excel" Click="SaveTemplate_Click" Margin="0,0,8,0" Padding="12,5"/>
     <TextBlock Text="Tối đa 5.000 bản ghi/lô · Dữ liệu có dấu được giữ nguyên" Foreground="#506982" Margin="16,0,0,0" VerticalAlignment="Center"/>
    </WrapPanel>
    <TextBox x:Name="Payload" FontFamily="Consolas" FontSize="13" AcceptsTab="True" AcceptsReturn="True"

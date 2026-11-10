@@ -1,5 +1,5 @@
 ﻿#define MyAppName "Quản lý Khu phố"
-#define MyAppVersion "0.20.5-PILOT"
+#define MyAppVersion "0.20.6-PILOT"
 [Setup]
 AppId={{8E73A39E-D3C2-417E-987C-83C4D105A2CD}
 AppName={#MyAppName}
@@ -18,7 +18,7 @@ MinVersion=6.1sp1
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
-UninstallDisplayName=Quản lý Khu phố - 0.20.0
+UninstallDisplayName={#MyAppName} - {#MyAppVersion}
 AppMutex=Local\QLKP-DESKTOP-7DF94E5B-B7D8-4972-A93B-68F1818733E7
 [Files]
 Source: "..\build-output\Release\x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"

@@ -13,7 +13,7 @@
     <TextBlock Text="Trạng thái" VerticalAlignment="Center" Margin="0,0,6,0"/>
     <TextBox x:Name="StatusFilter" Width="145" Margin="0,0,10,0"/>
     <Button Content="Lấy số liệu" Padding="10,6" Click="Refresh_Click"/>
-    <Button x:Name="ExportButton" Content="Xuất CSV tổng hợp" Padding="10,6" Margin="8,0,0,0" Click="Export_Click"/>
+    <Button x:Name="ExportButton" Content="Xuất Excel / CSV" Padding="10,6" Margin="8,0,0,0" Click="Export_Click"/>
    </WrapPanel>
   </StackPanel>
   <Border DockPanel.Dock="Bottom" BorderBrush="#C5D6EC" BorderThickness="0,1,0,0" Padding="2,8">

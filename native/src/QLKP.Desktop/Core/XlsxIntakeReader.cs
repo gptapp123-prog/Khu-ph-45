@@ -4,12 +4,12 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 
 namespace QLKP.Desktop.Core {
- // Local, first-worksheet .xlsx text extractor; never executes workbook formulas or macros.
+ // Local, selected-worksheet .xlsx text extractor; never executes workbook formulas or macros.
  // Explicit limits prevent decompression bombs and accidental giant imports.
  public static class XlsxIntakeReader {
   static readonly XNamespace Main="http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -22,7 +22,7 @@ namespace QLKP.Desktop.Core {
     DtdProcessing=DtdProcessing.Prohibit,XmlResolver=null,MaxCharactersInDocument=maxBytes,IgnoreComments=true}))
     return XDocument.Load(reader);
   }
-  static string CellText(XElement cell,List<string> shared) {
+  static string CellText(XElement cell,List<string> shared,HashSet<int> dates,bool date1904) {
    if(cell.Element(Main+"f")!=null)throw new InvalidDataException("Tệp chứa công thức; hãy chuyển vùng nhập sang giá trị tĩnh trước khi nạp.");
    string kind=(string)cell.Attribute("t")??"";
    if(kind=="inlineStr")return String.Concat(cell.Descendants(Main+"t").Select(x=>x.Value));
@@ -34,6 +34,21 @@ namespace QLKP.Desktop.Core {
     return shared[index];
    }
    if(kind=="e")throw new InvalidDataException("Tệp Excel có ô lỗi; hãy sửa trước khi nhập.");
+   if(kind=="d") {
+    DateTime parsed;
+    if(!DateTime.TryParse(value,CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind,out parsed))
+     throw new InvalidDataException("Ô ngày Excel không hợp lệ.");
+    return parsed.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);
+   }
+   int style;
+   if((kind==""||kind=="n")&&value.Length>0&&Int32.TryParse((string)cell.Attribute("s"),out style)&&dates.Contains(style)) {
+    double serial;
+    if(!Double.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out serial)||
+       Double.IsNaN(serial)||serial<0||serial>2957003||(!date1904&&Math.Floor(serial)==60))
+     throw new InvalidDataException("Số ngày Excel không hợp lệ.");
+    var origin=date1904?new DateTime(1904,1,1):new DateTime(1899,12,serial<60?31:30);
+    return origin.AddDays(Math.Floor(serial)).ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);
+   }
    return value;
   }
   static int ColumnIndex(string reference) {
@@ -47,8 +62,8 @@ namespace QLKP.Desktop.Core {
    if(value<1)throw new InvalidDataException("Thiếu tên cột ô Excel.");
    return value-1;
   }
-  static string SafeSheetPath(XDocument workbook,XDocument rels) {
-   var first=workbook.Descendants(Main+"sheet").FirstOrDefault();
+  static string SafeSheetPath(XDocument workbook,XDocument rels,int index) {
+   var first=workbook.Descendants(Main+"sheet").Skip(index).FirstOrDefault();
    if(first==null)throw new InvalidDataException("Sổ Excel không có trang tính.");
    string relationshipId=(string)first.Attribute(DocRel+"id");
    var rel=rels.Descendants(PackageRel+"Relationship").FirstOrDefault(x=>(string)x.Attribute("Id")==relationshipId);
@@ -67,14 +82,50 @@ namespace QLKP.Desktop.Core {
    if(s.IndexOfAny(new[]{'\t','\r','\n','"'})>=0)return "\""+s.Replace("\"","\"\"")+"\"";
    return s;
   }
-  public static string ReadFirstSheet(string path) {
-   if(String.IsNullOrWhiteSpace(path) || !File.Exists(path))throw new FileNotFoundException("Không tìm thấy tệp Excel.");
+  internal static string[] SheetNames(string path) {
+   using(var archive=Open(path)) {
+    var names=Workbook(archive).Descendants(Main+"sheet").Select(x=>(string)x.Attribute("name")).ToArray();
+    if(names.Length<1||names.Length>100||names.Any(String.IsNullOrWhiteSpace))
+     throw new InvalidDataException("Tệp cần từ 1 đến 100 trang tính có tên.");
+    return names;
+   }
+  }
+  static ZipArchive Open(string path) {
+   if(String.IsNullOrWhiteSpace(path)||!File.Exists(path))throw new FileNotFoundException("Không tìm thấy tệp Excel.");
    if(new FileInfo(path).Length>12*1024*1024)throw new InvalidDataException("XLSX vượt 12 MiB; tách bảng nguồn trước khi nhập.");
-   using(var archive=ZipFile.OpenRead(path)) {
-    if(archive.Entries.Count>2000)throw new InvalidDataException("Tệp Excel có quá nhiều thành phần.");
-    var workbook=SafeXml(archive.GetEntry("xl/workbook.xml"),2*1024*1024);
+   var archive=ZipFile.OpenRead(path);
+   if(archive.Entries.Count<=2000)return archive;
+   archive.Dispose();
+   throw new InvalidDataException("Tệp Excel có quá nhiều thành phần.");
+  }
+  static XDocument Workbook(ZipArchive archive) {
+   return SafeXml(archive.GetEntry("xl/workbook.xml"),2*1024*1024);
+  }
+  static HashSet<int> DateStyles(ZipArchive archive) {
+   var entry=archive.GetEntry("xl/styles.xml");
+   if(entry==null)return new HashSet<int>();
+   var styles=SafeXml(entry,2*1024*1024).Root;
+   var formats=new HashSet<int>(new[]{14,15,16,17,22});
+   foreach(var f in styles.Descendants(Main+"numFmt")) {
+    int id;
+    string code=Regex.Replace((string)f.Attribute("formatCode")??"",@"\[[^\]]*\]|""[^""]*""|\.", "").ToLowerInvariant();
+    if(Int32.TryParse((string)f.Attribute("numFmtId"),out id)&&code.Contains("y")&&(code.Contains("d")||code.Contains("m")))
+     formats.Add(id);
+   }
+   var cells=styles.Element(Main+"cellXfs");
+   return cells==null?new HashSet<int>():new HashSet<int>(cells.Elements(Main+"xf")
+    .Select((x,i)=>new {Index=i,Format=(int?)x.Attribute("numFmtId")}).Where(x=>formats.Contains(x.Format??-1)).Select(x=>x.Index));
+  }
+  public static string ReadFirstSheet(string path) {return ReadSheet(path,0);}
+  internal static string ReadSheet(string path,int index) {
+   if(index<0||index>=100)throw new InvalidDataException("Chọn trang tính hợp lệ.");
+   using(var archive=Open(path)) {
+    var workbook=Workbook(archive);
     var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
-    var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels)),7*1024*1024);
+    var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels,index)),7*1024*1024);
+    string dateSystem=(string)workbook.Root.Element(Main+"workbookPr")?.Attribute("date1904");
+    bool date1904=dateSystem=="1"||dateSystem=="true";
+    var dates=DateStyles(archive);
     var shared=new List<string>();
     var sharedEntry=archive.GetEntry("xl/sharedStrings.xml");
     if(sharedEntry!=null){
@@ -92,7 +143,7 @@ namespace QLKP.Desktop.Core {
      foreach(var cell in row.Elements(Main+"c")){
       int index=ColumnIndex((string)cell.Attribute("r")??"");
       if(index>=20)throw new InvalidDataException("Chỉ hỗ trợ tối đa 20 cột dữ liệu.");
-      values[index]=CellText(cell,shared);
+      values[index]=CellText(cell,shared,dates,date1904);
       if(values[index].Length>300)throw new InvalidDataException("Ô Excel dài trên 300 ký tự.");
       largest=Math.Max(largest,index);
      }

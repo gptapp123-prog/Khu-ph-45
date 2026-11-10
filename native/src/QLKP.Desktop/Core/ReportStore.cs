@@ -126,7 +126,7 @@ namespace QLKP.Desktop.Core {
     tx.Commit();return result;
    }
   }
-  // H05 generates aggregate CSV only. No personal record dump and no raw details.
+  // H05 exports aggregate rows only, shared by CSV and XLSX.
   // CSV is limited to 10,000 aggregate rows and has formula injection protection.
   static string SafeCsv(string value){
    value=(value??"").Replace("\r"," ").Replace("\n"," ").Trim();
@@ -135,6 +135,17 @@ namespace QLKP.Desktop.Core {
    return "\""+value.Replace("\"","\"\"")+"\"";
   }
   public static string ExportReportAggregateCsv(Session s,string from,string to,string sourceFilter,string statusFilter){
+   var sb=new StringBuilder("Ma_khu_pho,Ma_phan_he,Trang_thai,So_ho_so_hoac_an_duoi_5,Tu_ngay,Den_ngay,Loai_so_lieu\r\n");
+   foreach(var row in AggregateRows(s,from,to,sourceFilter,statusFilter))
+    sb.Append(String.Join(",",row.Select(v=>SafeCsv(Convert.ToString(v,CultureInfo.InvariantCulture))))).Append("\r\n");
+   return sb.ToString();
+  }
+  public static void ExportReportAggregateXlsx(Session s,string from,string to,string sourceFilter,string statusFilter,string path) {
+   var rows=AggregateRows(s,from,to,sourceFilter,statusFilter);
+   rows.Insert(0,new object[]{"Mã khu phố","Phân hệ","Trạng thái","Số hồ sơ","Từ ngày","Đến ngày","Loại số liệu"});
+   XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{{"Tổng hợp",rows}});
+  }
+  static List<object[]> AggregateRows(Session s,string from,string to,string sourceFilter,string statusFilter){
    var period=ReportPeriod(from,to);
    using(var c=Open())using(var tx=c.BeginTransaction()){
     Require(c,tx,s,"H05","read",s.AreaId);Require(c,tx,s,"H05","export",s.AreaId);
@@ -147,7 +158,7 @@ namespace QLKP.Desktop.Core {
      sources=sources.Where(x=>x==sourceFilter).ToList();
      household=household&&sourceFilter=="B01";people=people&&sourceFilter=="B02";
     }
-    var sb=new StringBuilder("Ma_khu_pho,Ma_phan_he,Trang_thai,So_ho_so_hoac_an_duoi_5,Tu_ngay,Den_ngay,Loai_so_lieu\r\n");
+    var rows=new List<object[]>();
     using(var cmd=new SQLiteCommand("",c,tx)){
      cmd.Parameters.Add(P("@area",s.AreaId));cmd.Parameters.Add(P("@from",period.Item1));cmd.Parameters.Add(P("@to",period.Item2));
      if(!String.IsNullOrWhiteSpace(statusFilter))cmd.Parameters.Add(P("@status",statusFilter.Trim()));
@@ -161,15 +172,14 @@ namespace QLKP.Desktop.Core {
        query+=" UNION ALL SELECT 'B02','Tổng nhân khẩu',COUNT(*) FROM people WHERE area_id=@area "+
        "AND created_utc>=@from AND created_utc<@to HAVING COUNT(*)>0";
      cmd.CommandText="SELECT * FROM ("+query+") ORDER BY 1,2 LIMIT 10001";
-     int rows=0;using(var r=cmd.ExecuteReader())while(r.Read()){
-      if(++rows>10000)throw new InvalidOperationException("Báo cáo vượt giới hạn xuất an toàn.");
-      sb.Append(SafeCsv(s.AreaId)).Append(',').Append(SafeCsv(r.GetString(0))).Append(',').Append(SafeCsv(r.GetString(1))).Append(',')
-       .Append(SafeCsv(r.GetInt64(2)<5?"Ẩn (1–4)":r.GetInt64(2).ToString(CultureInfo.InvariantCulture))).Append(',')
-       .Append(SafeCsv(from)).Append(',').Append(SafeCsv(to)).Append(',')
-       .Append(SafeCsv("Hồ sơ tạo trong kỳ, trạng thái hiện tại")).Append("\r\n");
+     using(var r=cmd.ExecuteReader())while(r.Read()){
+      if(rows.Count>=10000)throw new InvalidOperationException("Báo cáo vượt giới hạn xuất an toàn.");
+      long count=r.GetInt64(2);
+      rows.Add(new object[]{s.AreaId,r.GetString(0),r.GetString(1),count<5?(object)"Ẩn (1–4)":count,
+       from,to,"Hồ sơ tạo trong kỳ, trạng thái hiện tại"});
      }
     }
-    tx.Commit();return sb.ToString();
+    tx.Commit();return rows;
    }
   }
   public static void LogReportExport(Session s){

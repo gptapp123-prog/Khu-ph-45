@@ -25,7 +25,18 @@ namespace QLKP.Desktop.Views {
     var info=new FileInfo(dialog.FileName);
     bool xlsx=String.Equals(Path.GetExtension(dialog.FileName),".xlsx",StringComparison.OrdinalIgnoreCase);
     if(info.Length>(xlsx?12:2)*1024*1024)throw new InvalidDataException("Tệp quá lớn; chia thành nhiều lô.");
-    if(xlsx)Payload.Text=XlsxIntakeReader.ReadFirstSheet(dialog.FileName);
+    if(xlsx) {
+     var sheets=XlsxIntakeReader.SheetNames(dialog.FileName);
+     int index=sheets.Length==1?0:ChooseSheet(sheets);
+     if(index<0)return;
+     string table=XlsxIntakeReader.ReadSheet(dialog.FileName,index);
+     switch(sheets[index]) {
+      case "Hộ và chủ hộ": IntakeMode.SelectedIndex=0;break;
+      case "Thêm nhân khẩu": IntakeMode.SelectedIndex=1;break;
+      case "Bổ sung nhân khẩu": IntakeMode.SelectedIndex=2;break;
+     }
+     Payload.Text=table;
+    }
     else {
      // Reject broken/unknown encodings rather than silently corrupt Vietnamese names.
      using(var reader=new StreamReader(dialog.FileName,new UTF8Encoding(false,true),true))Payload.Text=reader.ReadToEnd();
@@ -41,10 +52,30 @@ namespace QLKP.Desktop.Views {
     ResultStatus.Text="Đã dán văn bản. Chưa ghi vào kho.";
    }catch(Exception ex){ResultStatus.Text="Không đọc Clipboard: "+ex.Message;}
   }
+  int ChooseSheet(string[] sheets) {
+   var selector=new ComboBox{ItemsSource=sheets,SelectedIndex=0,Margin=new Thickness(0,8,0,12)};
+   var accept=new Button{Content="Đọc trang đã chọn",IsDefault=true,Padding=new Thickness(12,6,12,6)};
+   var cancel=new Button{Content="Hủy",IsCancel=true,Margin=new Thickness(8,0,0,0),Padding=new Thickness(12,6,12,6)};
+   var buttons=new StackPanel{Orientation=Orientation.Horizontal};
+   buttons.Children.Add(accept);buttons.Children.Add(cancel);
+   var panel=new StackPanel{Margin=new Thickness(16)};
+   panel.Children.Add(new TextBlock{Text="Chọn trang tính chứa tiêu đề cột và dữ liệu cần nhập."});
+   panel.Children.Add(selector);panel.Children.Add(buttons);
+   var window=new Window{Owner=this,Title="Chọn trang tính Excel",Width=430,SizeToContent=SizeToContent.Height,
+    ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterOwner,Content=panel};
+   accept.Click+=(s,e)=>window.DialogResult=true;
+   return window.ShowDialog()==true?selector.SelectedIndex:-1;
+  }
+  void SaveTemplate_Click(object sender,RoutedEventArgs e) {
+   try {
+    var picker=new SaveFileDialog{Filter="Sổ Excel (*.xlsx)|*.xlsx",DefaultExt=".xlsx",AddExtension=true,FileName="QLKP_MauNhap_DanCu.xlsx"};
+    if(picker.ShowDialog(this)!=true)return;
+    DataStore.SaveIntakeTemplate(picker.FileName);
+    ResultStatus.Text="Đã lưu mẫu Excel gồm ba trang nhập Dân cư.";
+   } catch(Exception ex){ResultStatus.Text="Không lưu được mẫu Excel. "+ex.Message;}
+  }
   void Template_Click(object sender,RoutedEventArgs e) {
-   if(ModeValue=="CREATE_HOUSEHOLD")Payload.Text="Mã hộ\tĐịa chỉ\tChủ hộ\n";
-   else if(ModeValue=="ADD_MEMBER")Payload.Text="Mã hộ\tHọ tên\tNgày sinh\tGiới tính\tQuan hệ\n";
-   else Payload.Text="Mã hồ sơ\tPhiên bản\tNgày sinh\tGiới tính\n";
+   Payload.Text=String.Join("\t",DataStore.IntakeHeaders(ModeValue))+"\n";
    ResultStatus.Text="Đã chèn tiêu đề cột. Nhập dữ liệu hoặc dán các hàng bên dưới.";
   }
   void Preview_Click(object sender,RoutedEventArgs e) {

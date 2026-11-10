@@ -106,6 +106,19 @@ namespace QLKP.Desktop.Core {
    }
    return "!"+h; // unknown columns are NOT silently discarded
   }
+  internal static string[] IntakeHeaders(string mode) {
+   if(mode=="CREATE_HOUSEHOLD")return new[]{"Mã hộ","Địa chỉ","Chủ hộ"};
+   if(mode=="ADD_MEMBER")return new[]{"Mã hộ","Họ tên","Ngày sinh","Giới tính","Quan hệ"};
+   if(mode=="ENRICH_PERSON")return new[]{"Mã hồ sơ","Phiên bản","Ngày sinh","Giới tính"};
+   throw new InvalidOperationException("Chế độ nhập không hợp lệ.");
+  }
+  internal static void SaveIntakeTemplate(string path) {
+   XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{
+    {"Hộ và chủ hộ",new[]{IntakeHeaders("CREATE_HOUSEHOLD")}},
+    {"Thêm nhân khẩu",new[]{IntakeHeaders("ADD_MEMBER")}},
+    {"Bổ sung nhân khẩu",new[]{IntakeHeaders("ENRICH_PERSON")}}
+   });
+  }
   static HashSet<string> ExpectedFields(string mode) {
    if(mode=="CREATE_HOUSEHOLD")return new HashSet<string>(new[]{"household_code","address","head"});
    if(mode=="ADD_MEMBER")return new HashSet<string>(new[]{"household_code","full_name","birth_date","gender","relationship"});

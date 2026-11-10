@@ -470,6 +470,23 @@ namespace QLKP.Desktop.Core {
     try {DataStore.CommitIntake(user,atomic,false);}catch(System.Data.SQLite.SQLiteException){atomicRejected=true;}
     if(!atomicRejected || DataStore.FindHouseholds(user,"NEW-902").Count!=0)
      throw new InvalidDataException("Lô nhập nhanh không rollback toàn bộ khi gặp trùng đích.");
+    journal.BeginStep("EXCEL_INTAKE");
+    string template=Path.Combine(sandbox,"template.xlsx");
+    DataStore.SaveIntakeTemplate(template);
+    var sheets=XlsxIntakeReader.SheetNames(template);
+    if(sheets.Length!=3||sheets[1]!="Thêm nhân khẩu"||
+       XlsxIntakeReader.ReadSheet(template,1)!="Mã hộ\tHọ tên\tNgày sinh\tGiới tính\tQuan hệ")
+     throw new InvalidDataException("Mẫu XLSX không đúng trang hoặc cột.");
+    string workbook=Path.Combine(sandbox,"multi-sheet.xlsx");
+    XlsxWorkbook.Save(workbook,new System.Collections.Generic.Dictionary<string,System.Collections.Generic.IEnumerable<object[]>>{
+     {"Hướng dẫn",new[]{new object[]{"Bỏ qua trang này"}}},
+     {"Hộ gia đình",new object[][]{DataStore.IntakeHeaders("CREATE_HOUSEHOLD"),new object[]{"EXCEL-01","Địa chỉ Excel","Người thử Excel"}}}
+    });
+    var excel=DataStore.PreviewIntake(user,"CREATE_HOUSEHOLD","XLSX_LOCAL","multi-sheet.xlsx",XlsxIntakeReader.ReadSheet(workbook,1));
+    if(DataStore.FindHouseholds(user,"EXCEL-01").Count!=0||DataStore.CommitIntake(user,excel,false)!=1||
+       DataStore.FindHouseholds(user,"EXCEL-01").Count!=1)
+     throw new InvalidDataException("Đọc trang XLSX được chọn hoặc nhập lô vào kho thất bại.");
+    Console.WriteLine("REPOSITORY_PASS XLSX template/selected sheet/preview/commit");
     // V0.17 Windows runtime gate: reports H01–H05 from authorized source records only.
     journal.BeginStep("REPORTS");
     string reportSecret="T-"+Guid.NewGuid().ToString("N")+"!";
@@ -496,6 +513,13 @@ namespace QLKP.Desktop.Core {
     try{DataStore.GetReportPage(reporter,"H03",beginning,ending,"G01","",0,50);}
     catch(UnauthorizedAccessException){deniedSource=true;}
     if(!deniedSource)throw new InvalidDataException("H03 cho báo cáo nguồn G01 chưa được cấp quyền.");
+    string reportXlsx=Path.Combine(sandbox,"summary.xlsx");
+    DataStore.ExportReportAggregateXlsx(reporter,beginning,ending,"A02","",reportXlsx);
+    string excelReport=XlsxIntakeReader.ReadFirstSheet(reportXlsx);
+    if(!excelReport.StartsWith("Mã khu phố\tPhân hệ",StringComparison.Ordinal)||!excelReport.Contains("\tA02\t")||
+       !excelReport.Contains("Ẩn (1–4)")||excelReport.Contains(taskId))
+     throw new InvalidDataException("Báo cáo XLSX sai nguồn, lộ ID hoặc bỏ ngưỡng ẩn nhóm nhỏ.");
+    Console.WriteLine("REPOSITORY_PASS XLSX H05 aggregate/threshold");
     var csv=DataStore.ExportReportAggregateCsv(reporter,beginning,ending,"A02","");
     if(!csv.Contains("A02")||csv.Contains(taskId)||csv.Contains("Rà soát Đường"))
      throw new InvalidDataException("H05 không tạo CSV tổng hợp an toàn.");

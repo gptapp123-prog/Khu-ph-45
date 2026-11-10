@@ -52,18 +52,23 @@ namespace QLKP.Desktop.Views {
   void Export_Click(object sender,RoutedEventArgs e){
    if(feature!="H05")return;
    try {
-    string content=DataStore.ExportReportAggregateCsv(session,DisplayLabels.IsoDate(FromDate.Text),DisplayLabels.IsoDate(ToDate.Text),
-     Convert.ToString(Source.SelectedItem),StatusFilter.Text.Trim());
-    var choose=new SaveFileDialog{Title="Lưu báo cáo tổng hợp (CSV UTF-8)",Filter="CSV UTF-8 (*.csv)|*.csv",FileName="QLKP_H05_TongHop.csv",AddExtension=true,DefaultExt=".csv"};
+    var choose=new SaveFileDialog{Title="Lưu báo cáo tổng hợp",Filter="Sổ Excel (*.xlsx)|*.xlsx|CSV UTF-8 (*.csv)|*.csv",
+     FileName="QLKP_H05_TongHop",AddExtension=true,DefaultExt=".xlsx"};
     if(choose.ShowDialog(Window.GetWindow(this))!=true)return;
-    // Fail closed on overwrite; overwrite requires separate explicit user action.
-    if(File.Exists(choose.FileName))throw new IOException("Tệp đã tồn tại. Chọn tên khác để tránh ghi đè.");
-    using(var fs=new FileStream(choose.FileName,FileMode.CreateNew,FileAccess.Write,FileShare.None)){
-     byte[] bytes=new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(content)).ToArray();
-     fs.Write(bytes,0,bytes.Length);fs.Flush(true);
-    }
+    string from=DisplayLabels.IsoDate(FromDate.Text),to=DisplayLabels.IsoDate(ToDate.Text);
+    string source=Convert.ToString(Source.SelectedItem),status=StatusFilter.Text.Trim();
+    string extension=Path.GetExtension(choose.FileName);
+    if(extension.Equals(".xlsx",StringComparison.OrdinalIgnoreCase)) {
+     DataStore.ExportReportAggregateXlsx(session,from,to,source,status,choose.FileName);
+    } else if(extension.Equals(".csv",StringComparison.OrdinalIgnoreCase)) {
+     string content=DataStore.ExportReportAggregateCsv(session,from,to,source,status);
+     using(var fs=new FileStream(choose.FileName,FileMode.CreateNew,FileAccess.Write,FileShare.None)){
+      byte[] bytes=new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(content)).ToArray();
+      fs.Write(bytes,0,bytes.Length);fs.Flush(true);
+     }
+    } else throw new InvalidDataException("Chọn phần mở rộng .xlsx hoặc .csv.");
     DataStore.LogReportExport(session);
-    Notice.Text="Đã xuất CSV tổng hợp, không có dữ liệu cá nhân. Đường dẫn: "+choose.FileName;
+    Notice.Text="Đã xuất báo cáo tổng hợp. Đường dẫn: "+choose.FileName;
    }catch(Exception ex){Notice.Text="Chưa xuất báo cáo: "+ex.Message;}
   }
  }
