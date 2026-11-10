@@ -52,7 +52,7 @@ namespace QLKP.Desktop.Core {
     }
     using(var cmd=new SQLiteCommand("PRAGMA user_version;",c)) {
      long ver=Convert.ToInt64(cmd.ExecuteScalar());
-     if(ver>DataStore.SchemaVersionthrow new InvalidDataException("Kho có phiên bản mới hơn ứng dụng; không hạ phiên bản tự động.");
+     if(ver>DataStore.SchemaVersion)throw new InvalidDataException("Kho có phiên bản mới hơn ứng dụng; không hạ phiên bản tự động.");
     }
    }
   }
