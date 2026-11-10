@@ -33,14 +33,44 @@ namespace QLKP.Desktop.Core {
   // Exclude especially sensitive D02/E02/E04/F06: future release needs a separate privacy review.
   static readonly HashSet<string> ReportSources=new HashSet<string>(ModuleCatalog.Editable.Select(x=>x.Code)
     .Where(x=>x!="D02"&&x!="E02"&&x!="E04"&&x!="F06"),StringComparer.Ordinal);
+  static readonly string[] DedicatedReportSources={"B03","F08"};
+
+  static bool CanReadNativeReportSource(SQLiteConnection c,SQLiteTransaction tx,Session session,string feature) {
+   return HasPermission(c,tx,session,feature,"read",session.AreaId)&&
+    (feature!="F08"||HasPermission(c,tx,session,"B02","read",session.AreaId));
+  }
+
+  // The vehicle register has a last-updated timestamp. A period result counts vehicles
+  // by that timestamp. Residency changes use the actual recorded event date.
+  static string DedicatedReportQueries(IEnumerable<string> sources,bool preview,bool byStatus,bool filterStatus) {
+   var sql=new StringBuilder();
+   foreach(string source in sources) {
+    string table=source=="B03"?"residency_changes":"vehicles";
+    string date=source=="B03"?"occurred_utc":"updated_utc";
+    string status=source=="B03"?"'Đã ghi nhận'":"CASE active WHEN 1 THEN 'Đang theo dõi' ELSE 'Ngừng theo dõi' END";
+    string label=byStatus?status:(source=="B03"?"'Tổng biến động đã ghi nhận'":"'Tổng phương tiện cập nhật trong kỳ'");
+    sql.Append(" UNION ALL SELECT '").Append(source).Append("',");
+    if(preview)sql.Append("'','','',");
+    sql.Append(label).Append(',');
+    if(preview)sql.Append("'',");
+    sql.Append("COUNT(*) FROM ").Append(table).Append(" WHERE area_id=@area AND ").Append(date)
+       .Append(">=@from AND ").Append(date).Append("<@to");
+    if(filterStatus)sql.Append(" AND ").Append(status).Append("=@status");
+    if(byStatus&&source=="F08")sql.Append(" GROUP BY active");
+    sql.Append(" HAVING COUNT(*)>0");
+   }
+   return sql.ToString();
+  }
   public static List<string> GetReportableSources(Session s,string reportFeature){
    if(!new[]{"H01","H02","H03","H04","H05"}.Contains(reportFeature))throw new ArgumentException("Sai loại báo cáo.");
    using(var c=Open()){
     Require(c,null,s,reportFeature,"read",s==null?null:s.AreaId);
     var result=ReportSources.Where(x=>HasPermission(c,null,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();
-    if(reportFeature!="H02"&&reportFeature!="H04"){
+    if(reportFeature=="H04")return result.Where(x=>x=="A02").ToList();
+    if(reportFeature!="H02"){
      if(HasPermission(c,null,s,"B01","read",s.AreaId))result.Add("B01");
      if(HasPermission(c,null,s,"B02","read",s.AreaId))result.Add("B02");
+     result.AddRange(DedicatedReportSources.Where(x=>CanReadNativeReportSource(c,null,s,x)));
     }
     return result.OrderBy(x=>x).ToList();
    }
@@ -76,13 +106,15 @@ namespace QLKP.Desktop.Core {
     Require(c,tx,s,reportFeature,"read",s==null?null:s.AreaId);
     var sources=ReportSources.Where(x=>HasPermission(c,tx,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();
     bool detail=reportFeature=="H02"||reportFeature=="H04";
+    var dedicated=detail?new List<string>():DedicatedReportSources.Where(x=>CanReadNativeReportSource(c,tx,s,x)).ToList();
     bool household=!detail&&HasPermission(c,tx,s,"B01","read",s.AreaId);
     bool people=!detail&&HasPermission(c,tx,s,"B02","read",s.AreaId);
     if(reportFeature=="H04")sources=sources.Where(x=>x=="A02").ToList();
     if(!String.IsNullOrWhiteSpace(sourceFilter)&&sourceFilter!="(Tất cả)"){
-     bool permitted=sources.Contains(sourceFilter)||(sourceFilter=="B01"&&household)||(sourceFilter=="B02"&&people);
+     bool permitted=sources.Contains(sourceFilter)||dedicated.Contains(sourceFilter)||(sourceFilter=="B01"&&household)||(sourceFilter=="B02"&&people);
      if(!permitted)throw new UnauthorizedAccessException("Không được xem dữ liệu nguồn này.");
      sources=sources.Where(x=>x==sourceFilter).ToList();
+     dedicated=dedicated.Where(x=>x==sourceFilter).ToList();
      household=household&&sourceFilter=="B01";
      people=people&&sourceFilter=="B02";
     }
@@ -114,6 +146,7 @@ namespace QLKP.Desktop.Core {
       baseQuery+=" UNION ALL SELECT 'B02','','','','Tổng nhân khẩu','',COUNT(*) FROM people "+
        "WHERE area_id=@area AND created_utc>=@from AND created_utc<@to HAVING COUNT(*)>0";
      }
+     baseQuery+=DedicatedReportQueries(dedicated,true,byStatus,!String.IsNullOrWhiteSpace(statusFilter));
      cmd.CommandText="SELECT COUNT(*) FROM ("+baseQuery+")";
      result.TotalCount=Convert.ToInt64(cmd.ExecuteScalar());
      if(result.TotalCount==0){tx.Commit();return result;}
@@ -150,12 +183,14 @@ namespace QLKP.Desktop.Core {
    using(var c=Open())using(var tx=c.BeginTransaction()){
     Require(c,tx,s,"H05","read",s.AreaId);Require(c,tx,s,"H05","export",s.AreaId);
     var sources=ReportSources.Where(x=>HasPermission(c,tx,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();
+    var dedicated=DedicatedReportSources.Where(x=>CanReadNativeReportSource(c,tx,s,x)).ToList();
     bool household=HasPermission(c,tx,s,"B01","read",s.AreaId);
     bool people=HasPermission(c,tx,s,"B02","read",s.AreaId);
     if(!String.IsNullOrWhiteSpace(sourceFilter)&&sourceFilter!="(Tất cả)"){
-     if(!sources.Contains(sourceFilter)&&!(sourceFilter=="B01"&&household)&&!(sourceFilter=="B02"&&people))
+     if(!sources.Contains(sourceFilter)&&!dedicated.Contains(sourceFilter)&&!(sourceFilter=="B01"&&household)&&!(sourceFilter=="B02"&&people))
       throw new UnauthorizedAccessException("Không có quyền dữ liệu nguồn xuất báo cáo.");
      sources=sources.Where(x=>x==sourceFilter).ToList();
+     dedicated=dedicated.Where(x=>x==sourceFilter).ToList();
      household=household&&sourceFilter=="B01";people=people&&sourceFilter=="B02";
     }
     var rows=new List<object[]>();
@@ -171,12 +206,15 @@ namespace QLKP.Desktop.Core {
      if(people && (String.IsNullOrWhiteSpace(statusFilter)||statusFilter.Trim()=="Tổng nhân khẩu"))
        query+=" UNION ALL SELECT 'B02','Tổng nhân khẩu',COUNT(*) FROM people WHERE area_id=@area "+
        "AND created_utc>=@from AND created_utc<@to HAVING COUNT(*)>0";
+     query+=DedicatedReportQueries(dedicated,false,true,!String.IsNullOrWhiteSpace(statusFilter));
      cmd.CommandText="SELECT * FROM ("+query+") ORDER BY 1,2 LIMIT 10001";
      using(var r=cmd.ExecuteReader())while(r.Read()){
       if(rows.Count>=10000)throw new InvalidOperationException("Báo cáo vượt giới hạn xuất an toàn.");
       long count=r.GetInt64(2);
-      rows.Add(new object[]{s.AreaId,r.GetString(0),r.GetString(1),count<5?(object)"Ẩn (1–4)":count,
-       from,to,"Hồ sơ tạo trong kỳ, trạng thái hiện tại"});
+      string source=r.GetString(0);
+      string basis=source=="F08"?"Phương tiện cập nhật trong kỳ, trạng thái hiện tại":
+       source=="B03"?"Biến động được ghi nhận trong kỳ":"Hồ sơ tạo trong kỳ, trạng thái hiện tại";
+      rows.Add(new object[]{s.AreaId,source,r.GetString(1),count<5?(object)"Ẩn (1–4)":count,from,to,basis});
      }
     }
     tx.Commit();return rows;

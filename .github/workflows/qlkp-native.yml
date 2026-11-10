@@ -85,9 +85,9 @@ jobs:
           apk=native/android-companion/app/build/outputs/apk/debug/app-debug.apk
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/aapt" dump badging "$apk" > native/dist/android/apk-metadata.txt
-          grep -q "name='vn.qlkp.companion.test' versionCode='26' versionName='0.21.0'" native/dist/android/apk-metadata.txt
+          grep -q "name='vn.qlkp.companion.test' versionCode='27' versionName='0.21.1'" native/dist/android/apk-metadata.txt
           "$tools/apksigner" verify --verbose --print-certs "$apk" > native/dist/android/apk-signature.txt
-          cp "$apk" native/dist/android/QLKP_Mobile_0.21.0_TEST.apk
+          cp "$apk" native/dist/android/QLKP_Mobile_0.21.1_TEST.apk
           (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:

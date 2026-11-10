@@ -22,7 +22,7 @@ namespace QLKP.Desktop.Core {
  }
  public sealed class ModuleOverview {
   public string Feature {get;set;} public string Label {get;set;}
-  public long Count {get;set;} public long Open {get;set;}
+  public long Count {get;set;} public long? Open {get;set;}
  }
  public sealed class ModuleHistory {
   public string OccurredUtc {get;set;} public string Actor {get;set;}
@@ -356,17 +356,23 @@ namespace QLKP.Desktop.Core {
    }
   }
   public static List<ModuleOverview> GetModuleOverview(Session s) {
-   using(var c=Open()) {
-    Require(c,null,s,"A01","read",s==null?null:s.AreaId);
+   using(var c=Open())using(var tx=c.BeginTransaction()) {
+    Require(c,tx,s,"A01","read",s==null?null:s.AreaId);
     var items=new List<ModuleOverview>();
     foreach(var d in ModuleCatalog.Editable) {
-     if(!HasPermission(c,null,s,d.Code,"read",s.AreaId))continue;
-     using(var cmd=new SQLiteCommand("SELECT COUNT(*),SUM(CASE WHEN status NOT IN ('Hoàn thành nội bộ','Đã diễn ra','Ngừng theo dõi','Ngừng hoạt động') THEN 1 ELSE 0 END) FROM module_records WHERE area_id=@area AND feature=@f",c)) {
+     if(!HasPermission(c,tx,s,d.Code,"read",s.AreaId))continue;
+     using(var cmd=new SQLiteCommand("SELECT COUNT(*),SUM(CASE WHEN status NOT IN ('Hoàn thành nội bộ','Đã diễn ra','Ngừng theo dõi','Ngừng hoạt động') THEN 1 ELSE 0 END) FROM module_records WHERE area_id=@area AND feature=@f",c,tx)) {
       cmd.Parameters.AddRange(new[]{P("@area",s.AreaId),P("@f",d.Code)});
       using(var r=cmd.ExecuteReader())if(r.Read())items.Add(new ModuleOverview{Feature=d.Code,Label=d.Label,Count=r.GetInt64(0),Open=r.IsDBNull(1)?0:r.GetInt64(1)});
      }
     }
-    return items;
+    foreach(var source in new[]{Tuple.Create("B01","households"),Tuple.Create("B02","people"),
+      Tuple.Create("B03","residency_changes"),Tuple.Create("F08","vehicles")}) {
+     if(!CanReadNativeReportSource(c,tx,s,source.Item1))continue;
+     long count=Convert.ToInt64(Scalar(c,tx,"SELECT COUNT(*) FROM "+source.Item2+" WHERE area_id=@area",P("@area",s.AreaId)));
+     items.Add(new ModuleOverview{Feature=source.Item1,Label=FeatureCatalog.All.Single(f=>f.Code==source.Item1).Name,Count=count});
+    }
+    tx.Commit();return items.OrderBy(row=>row.Feature,StringComparer.Ordinal).ToList();
    }
   }
   // Create an internal task from an incoming document, never send/approve the source.

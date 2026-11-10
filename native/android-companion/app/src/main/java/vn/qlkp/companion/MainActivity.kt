@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputFilter
+import android.text.TextWatcher
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -20,6 +22,13 @@ import java.io.ByteArrayOutputStream
 class MainActivity : Activity() {
  private lateinit var status:TextView
  private lateinit var phrase:EditText
+ private lateinit var catalogSearch:EditText
+ private lateinit var catalogActions:LinearLayout
+ private lateinit var catalogPrevious:Button
+ private lateinit var catalogNext:Button
+ private lateinit var catalogRows:TextView
+ private var catalogEntries=emptyList<String>()
+ private var catalogIndex=0
  private lateinit var taskStatus:TextView
  private lateinit var taskSummary:TextView
  private lateinit var taskResult:EditText
@@ -71,7 +80,25 @@ class MainActivity : Activity() {
   wrap.addView(title);wrap.addView(about);wrap.addView(phrase)
   wrap.addView(action("Mở nhiệm vụ .qlkptask") { openDocument(requestTask) })
   wrap.addView(taskStatus);wrap.addView(taskActions)
-  wrap.addView(catalogButton);wrap.addView(status)
+  catalogSearch=EditText(this).apply { hint="Tìm theo mã hoặc nhãn";isSingleLine=true;isSaveEnabled=false }
+  catalogRows=TextView(this).apply { textSize=15f;setTextColor(Color.DKGRAY) }
+  catalogPrevious=action("Trang trước") { catalogIndex--;showCatalog() }
+  catalogNext=action("Trang sau") { catalogIndex++;showCatalog() }
+  val paging=LinearLayout(this).apply {
+   orientation=LinearLayout.HORIZONTAL
+   addView(catalogPrevious);addView(catalogNext)
+  }
+  catalogActions=LinearLayout(this).apply {
+   orientation=LinearLayout.VERTICAL;visibility=View.GONE
+   addView(catalogSearch);addView(paging);addView(catalogRows)
+   addView(action("Đóng danh mục") { clearCatalog();status.text="Đã đóng danh mục." })
+  }
+  catalogSearch.addTextChangedListener(object:TextWatcher {
+   override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int) {}
+   override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) { catalogIndex=0;showCatalog() }
+   override fun afterTextChanged(s:Editable?) {}
+  })
+  wrap.addView(catalogButton);wrap.addView(status);wrap.addView(catalogActions)
   setContentView(ScrollView(this).apply { isFillViewport=true;addView(wrap) })
  }
 
@@ -136,9 +163,31 @@ class MainActivity : Activity() {
   }
   try {
    val lines=CatalogCodec.decrypt(readPackage(uri,524344),pass)
-   status.text="Danh mục đã giải mã (chỉ xem, không lưu):\n"+lines.take(30).joinToString("\n")+
-    (if(lines.size>30)"\n... và ${lines.size-30} nhãn khác" else "")
-  } catch(ex:Exception) { status.text="Từ chối gói: sai mật khẩu, tệp hỏng hoặc sai định dạng. "+ex.javaClass.simpleName }
+   clearCatalog()
+   catalogEntries=lines
+   catalogActions.visibility=View.VISIBLE
+   showCatalog()
+  } catch(ex:Exception) {
+   clearCatalog()
+   status.text="Không mở được gói danh mục. Kiểm tra mật khẩu và tệp đã chọn."
+  }
+ }
+
+ private fun showCatalog() {
+  if(catalogEntries.isEmpty())return
+  val result=catalogPage(catalogEntries,catalogSearch.text.toString(),catalogIndex)
+  catalogIndex=result.index
+  catalogPrevious.isEnabled=catalogIndex>0
+  catalogNext.isEnabled=catalogIndex+1<result.pageCount
+  status.text=if(result.matchCount==0)"Không có nhãn phù hợp."
+   else "Trang ${result.index+1}/${result.pageCount} · ${result.matchCount} nhãn"
+  catalogRows.text=result.rows.joinToString("\n")
+ }
+
+ private fun clearCatalog() {
+  catalogEntries=emptyList();catalogIndex=0
+  catalogSearch.text.clear();catalogRows.text=""
+  catalogActions.visibility=View.GONE
  }
 
  private fun readPackage(uri:Uri,limit:Int):ByteArray {

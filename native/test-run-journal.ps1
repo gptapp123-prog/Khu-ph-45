@@ -29,7 +29,7 @@ function New-QlkpTestRun([string]$Root) {
  $id=[guid]::NewGuid().ToString('N');$directory=Join-Path $Root $id
  New-Item -ItemType Directory -Path $directory -ErrorAction Stop | Out-Null
  $steps=New-Object System.Collections.ArrayList
- $report=[ordered]@{format='QLKP_TEST_RUN_V1';session_id=$id;parent_session_id='';kind='windows_build';layer='build';status='RUNNING';started_utc=[DateTime]::UtcNow.ToString('o');finished_utc='';duration_ms=0;source_version='0.21.0-PILOT';source_hash='';hash_kind='';environment=([Environment]::OSVersion.VersionString+' '+$env:PROCESSOR_ARCHITECTURE);origin='LOCAL';original_session_id='';import_sha256='';last_sequence=0;total=0;passed=0;failed=0;skipped=0;steps=$steps}
+ $report=[ordered]@{format='QLKP_TEST_RUN_V1';session_id=$id;parent_session_id='';kind='windows_build';layer='build';status='RUNNING';started_utc=[DateTime]::UtcNow.ToString('o');finished_utc='';duration_ms=0;source_version='0.21.1-PILOT';source_hash='';hash_kind='';environment=([Environment]::OSVersion.VersionString+' '+$env:PROCESSOR_ARCHITECTURE);origin='LOCAL';original_session_id='';import_sha256='';last_sequence=0;total=0;passed=0;failed=0;skipped=0;steps=$steps}
  $run=@{report=$report;directory=$directory;clock=[Diagnostics.Stopwatch]::StartNew();active=$null;stepClock=$null;completed=$false}
  $f=[System.IO.FileStream]::new((Join-Path $directory 'events.jsonl'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
  $f.Dispose();Save-QlkpRun $run 'SESSION_START' $null;return $run

@@ -10,7 +10,7 @@
    <DataGrid.Columns><DataGridTextColumn Header="Mã" Binding="{Binding Feature}" Width="90"/>
     <DataGridTextColumn Header="Nhóm hồ sơ" Binding="{Binding Label}" Width="*"/>
     <DataGridTextColumn Header="Tổng hồ sơ" Binding="{Binding Count}" Width="150"/>
-    <DataGridTextColumn Header="Chưa kết thúc nội bộ" Binding="{Binding Open}" Width="200"/>
+    <DataGridTextColumn Header="Chưa kết thúc nội bộ" Binding="{Binding Open, TargetNullValue=—}" Width="200"/>
    </DataGrid.Columns>
   </DataGrid>
  </DockPanel>

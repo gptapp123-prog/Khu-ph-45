@@ -39,6 +39,7 @@ namespace QLKP.Desktop.Views {
    Notice.Text=feature=="H05"?"Chỉ xuất tổng hợp; nhóm 1–4 hồ sơ được ẩn số chính xác. Không xuất danh tính hay ghi chú.":
     (feature=="H04"?"Theo dõi hạn công việc A02 trong kỳ và các việc chưa hoàn thành đã quá hạn từ trước kỳ; trạng thái hiện tại.":
      "Nhóm 1–4 hồ sơ được ẩn số chính xác. Số liệu theo trạng thái hiện tại, KHÔNG phải ảnh chụp lịch sử tại cuối kỳ.");
+   if(feature!="H02"&&feature!="H04")Notice.Text+=" B03 tính theo ngày ghi nhận. F08 tính theo lần cập nhật gần nhất.";
   }catch(Exception ex){Results.ItemsSource=null;Previous.IsEnabled=false;Next.IsEnabled=false;PageInfo.Text="";Notice.Text="Không thể tạo báo cáo: "+ex.Message;}}
   void OpenRecord_DoubleClick(object sender,MouseButtonEventArgs e){
    if(feature!="H02"&&feature!="H04")return;

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 namespace QLKP.Desktop.Core {
  public static class SelfTest {
   public static void Run() {
@@ -694,6 +695,30 @@ namespace QLKP.Desktop.Core {
     if(!duplicateVehicle||!deniedVehicle||!staleVehicle||editedVehicle==null||editedVehicle.Seats!=7||
        editedVehicle.PayloadKg.HasValue||editedVehicle.Active)
      throw new InvalidDataException("F08: kiểm tra trùng, quyền, phiên bản hoặc chuyển loại thất bại.");
+    journal.BeginStep("A01_H01_H03_H05_NATIVE_SOURCES");
+    var overview=DataStore.GetModuleOverview(root);
+    if(overview.Find(x=>x.Feature=="F08")?.Count!=1||(overview.Find(x=>x.Feature=="B03")?.Count??0)<1||
+       (overview.Find(x=>x.Feature=="B01")?.Count??0)<1||(overview.Find(x=>x.Feature=="B02")?.Count??0)<1)
+     throw new InvalidDataException("A01 thiếu số liệu sổ chuyên dụng.");
+    var restrictedOverview=DataStore.GetModuleOverview(operatorUser);
+    if(restrictedOverview.Exists(x=>x.Feature=="B03"||x.Feature=="F08"||x.Feature=="B02"))
+     throw new InvalidDataException("A01 lộ số liệu nguồn chưa được cấp quyền.");
+    var vehicleReport=DataStore.GetReportPage(root,"H03",beginning,ending,"F08","Ngừng theo dõi",0,50);
+    if(vehicleReport.TotalCount!=1||vehicleReport.Items[0].CountDisplay!="Ẩn (1–4)"||vehicleReport.Items[0].RecordId!="")
+     throw new InvalidDataException("H03 chưa tổng hợp đúng phương tiện theo trạng thái hoặc để lộ định danh.");
+    var residenceReport=DataStore.GetReportPage(root,"H01",beginning,ending,"B03","",0,50);
+    if(residenceReport.TotalCount!=1||residenceReport.Items[0].Count<1)
+     throw new InvalidDataException("H01 thiếu biến động trong kỳ.");
+    var vehicleCsv=DataStore.ExportReportAggregateCsv(root,beginning,ending,"F08","Ngừng theo dõi");
+    if(!vehicleCsv.Contains("Ẩn (1–4)")||!vehicleCsv.Contains("Phương tiện cập nhật trong kỳ")||
+       vehicleCsv.Contains("00TH01234")||vehicleCsv.Contains(verified.Id))
+     throw new InvalidDataException("H05 xuất sai số liệu phương tiện hoặc lộ chủ xe.");
+    bool reportVehicleDenied=false;
+    try{DataStore.GetReportPage(reporter,"H03",beginning,ending,"F08","",0,50);}
+    catch(UnauthorizedAccessException){reportVehicleDenied=true;}
+    if(!reportVehicleDenied||!DataStore.GetReportableSources(root,"H04").SequenceEqual(new[]{"A02"}))
+     throw new InvalidDataException("Báo cáo không chặn nguồn thiếu quyền hoặc sai danh sách nguồn H04.");
+    Console.WriteLine("REPOSITORY_PASS A01 H01 H03 H05 native source counts/scope/privacy");
     OperationalSelfTest.Run(admin,expiredRoot,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);
@@ -822,6 +847,15 @@ namespace QLKP.Desktop.Core {
     Console.WriteLine("REPOSITORY_PASS I07 I06 reference/catalog/create/idempotent/export");
     if(!DataStore.VersionDiagnostics(root).Contains("Lược đồ SQLite: "+DataStore.SchemaVersion))
      throw new InvalidDataException("I09 không hiển thị đúng phiên bản schema.");
+    journal.BeginStep("I09_PACKAGE_INTEGRITY");
+    string hashFixture=Path.Combine(sandbox,"checksum.zip");
+    File.WriteAllBytes(hashFixture,new byte[]{97,98,99});
+    string referenceHash="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    if(!DataStore.VerifyPackageSha256(root,hashFixture,referenceHash).Contains("KHỚP mã băm đã nhập")||
+       !DataStore.VerifyPackageSha256(root,hashFixture,new string('0',64)).Contains("KHÔNG KHỚP mã băm")||
+       !DataStore.VerifyPackageSha256(root,hashFixture,"").Contains("CHƯA XÁC THỰC"))
+     throw new InvalidDataException("I09 phân loại sai mã băm hợp lệ, khác hoặc thiếu tham chiếu.");
+    Console.WriteLine("REPOSITORY_PASS I09 matching/mismatched/missing SHA-256 reference");
     journal.BeginStep("QR_REFERENCE");
     // I05 generates and reopens real PNGs using isolated fixture IDs.
     var householdForQr=DataStore.GetHouseholdsPage(user,"",0,50);
