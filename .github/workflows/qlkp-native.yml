@@ -2,8 +2,6 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/native-account-0213-retry]
 
 permissions:
   contents: read
@@ -66,7 +64,6 @@ jobs:
 
 
   android:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
