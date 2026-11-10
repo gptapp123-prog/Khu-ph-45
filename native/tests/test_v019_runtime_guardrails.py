@@ -72,7 +72,8 @@ class V019GuardrailTests(unittest.TestCase):
         self.assertIn(f"-ne '{assembly}'", read('test-windows-install.ps1'))
     def test_10_build_requires_real_wpf_selftest_before_installer(self):
         ps=read('build-on-windows.ps1')
-        self.assertIn('WaitForExit(120000)',ps)
+        self.assertIn('$check.WaitForExit(240000)',ps)
+        self.assertIn("-Arguments '--self-test' -Timeout 240000",read('test-windows-install.ps1'))
         self.assertIn('if($check.ExitCode -ne 0)',ps)
         self.assertLess(ps.index('if($check.ExitCode -ne 0)'),ps.index("& $isccPath 'installer\\QLKP-PILOT.iss'"))
         self.assertIn('System.Data.SQLite.dll',ps)
