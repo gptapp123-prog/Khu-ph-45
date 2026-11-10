@@ -50,7 +50,7 @@ namespace QLKP.Desktop.Views {
      MembersNotice.Text="";
     }else{
      Members.ItemsSource=null;
-     MembersNotice.Text="Tài khoản chưa có quyền xem nhân khẩu."
+     MembersNotice.Text="Tài khoản chưa có quyền xem nhân khẩu.";
     }
    }
    catch(Exception ex){SelectedDetail.Text="Không thể đọc hồ sơ: "+ex.Message;Members.ItemsSource=null;}
