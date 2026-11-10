@@ -52,16 +52,27 @@ namespace QLKP.Desktop.Core {
   }
 
   public static string AddResidencePeriod(Session actor,string personId,string kind,string address,string fromDisplay,string untilDisplay) {
+   string start=DisplayLabels.IsoDate(fromDisplay),end=DisplayLabels.IsoDate(untilDisplay);
+   address=ValidateResidencePeriod(kind,address,start,end);
+   using(var c=Open())using(var tx=c.BeginTransaction()) {
+    string id=AddResidencePeriod(c,tx,actor,personId,kind,address,start,end);
+    tx.Commit();return id;
+   }
+  }
+
+  static string ValidateResidencePeriod(string kind,string address,string start,string end) {
    if(kind!="thuong_tru"&&kind!="tam_tru")throw new InvalidOperationException("Chọn loại cư trú.");
    address=(address??"").Trim();
    if(address.Length<1||address.Length>255||address.Any(Char.IsControl))
     throw new InvalidOperationException("Địa chỉ phải từ 1 đến 255 ký tự hợp lệ.");
-   string start=DisplayLabels.IsoDate(fromDisplay),end=DisplayLabels.IsoDate(untilDisplay);
    if(start.Length==0||String.CompareOrdinal(start,LocalDateKey)>0)
     throw new InvalidOperationException("Nhập ngày bắt đầu không sau hôm nay.");
    if(end.Length!=0&&String.CompareOrdinal(end,start)<=0)
     throw new InvalidOperationException("Mốc kết thúc phải sau ngày bắt đầu.");
-   using(var c=Open())using(var tx=c.BeginTransaction()) {
+   return address;
+  }
+
+  static string AddResidencePeriod(SQLiteConnection c,SQLiteTransaction tx,Session actor,string personId,string kind,string address,string start,string end) {
     RequireResidencePerson(c,tx,actor,personId,"read");
     Require(c,tx,actor,"B03","create",actor.AreaId);
     if(Convert.ToInt32(Scalar(c,tx,@"SELECT COUNT(*) FROM person_residence_periods
@@ -75,8 +86,7 @@ namespace QLKP.Desktop.Core {
       P("@person",personId),P("@kind",kind),P("@address",address),P("@start",start),
       P("@end",end.Length==0?null:end),P("@actor",actor.Id),P("@utc",Now));
     Audit(c,tx,actor.Id,"RESIDENCE_PERIOD_ADDED","residence_period",id);
-    tx.Commit();return id;
-   }
+    return id;
   }
  }
 }

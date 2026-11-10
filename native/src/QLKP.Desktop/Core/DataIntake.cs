@@ -102,6 +102,7 @@ namespace QLKP.Desktop.Core {
     case "ngay sinh": case "date of birth": case "dob":return "birth_date";
     case "gioi tinh": case "gender":return "gender";
     case "quan he": case "quan he voi chu ho": case "relationship":return "relationship";
+    case "ma nguon v2.1":return "legacy_person_key";
     case "ma ho so": case "person id": case "ma nhan khau":return "person_id";
     case "phien ban": case "version":case "expected version":return "expected_version";
    }
@@ -118,11 +119,12 @@ namespace QLKP.Desktop.Core {
    if(mode=="ADD_MEMBER")return new HashSet<string>(new[]{"household_code","full_name","birth_date","gender","relationship"});
    return new HashSet<string>(new[]{"person_id","expected_version","birth_date","gender"});
   }
-  static List<Dictionary<string,string>> ParseIntakeRows(string mode,string input) {
+  static List<Dictionary<string,string>> ParseIntakeRows(string mode,string input,bool allowSourceKeys=false) {
    if(!IntakeModes.Contains(mode))throw new InvalidOperationException("Chế độ thu dữ liệu không hợp lệ.");
    var matrix=ReadIntakeTable(input);
    var headers=matrix[0].Select(CanonicalHeader).ToArray();
    var expected=ExpectedFields(mode);
+   if(allowSourceKeys&&mode!="ENRICH_PERSON")expected.Add("legacy_person_key");
    if(headers.Distinct(StringComparer.Ordinal).Count()!=headers.Length)throw new InvalidDataException("Tiêu đề bị trùng sau ánh xạ.");
    if(headers.Any(x=>!expected.Contains(x)))throw new InvalidDataException("Có cột chưa được ánh xạ: "+String.Join(", ",headers.Where(x=>!expected.Contains(x))));
    var required=mode=="CREATE_HOUSEHOLD"?new[]{"household_code","address","head"}:
@@ -237,10 +239,10 @@ namespace QLKP.Desktop.Core {
    }
   }
   static IntakePreview PreviewIntake(SQLiteConnection c,SQLiteTransaction tx,Session session,string mode,
-   string sourceKind,string sourceLabel,string payload,HashSet<string> plannedHouseholds) {
+   string sourceKind,string sourceLabel,string payload,HashSet<string> plannedHouseholds,bool allowSourceKeys=false) {
    if(!IntakeKinds.Contains(sourceKind))throw new InvalidDataException("Nguồn thu chưa được hỗ trợ.");
    var source=IntakeSourceLabel(sourceLabel);
-   var rows=ParseIntakeRows(mode,payload);
+   var rows=ParseIntakeRows(mode,payload,allowSourceKeys);
    var preview=new IntakePreview {RequestId=Guid.NewGuid().ToString("N"),Mode=mode,SourceKind=sourceKind,
     SourceLabel=source,Payload=payload,Digest=IntakeDigest(mode,sourceKind,payload),ActorId=session==null?null:session.Id,AreaId=session==null?null:session.AreaId};
     RequireIntakeMode(c,tx,session,mode);
@@ -280,11 +282,11 @@ namespace QLKP.Desktop.Core {
     tx.Commit();return count;
    }
   }
-  static int CommitIntake(SQLiteConnection c,SQLiteTransaction tx,Session session,IntakePreview approved,bool allowCandidateDuplicates) {
+  static int CommitIntake(SQLiteConnection c,SQLiteTransaction tx,Session session,IntakePreview approved,bool allowCandidateDuplicates,Dictionary<string,string> newPeople=null) {
    if(session==null || approved==null || approved.Payload==null || approved.ActorId!=session.Id || approved.AreaId!=session.AreaId)
     throw new UnauthorizedAccessException("Bản xem trước không thuộc phiên và khu phố hiện tại.");
    if(approved.HasCandidateWarnings && !allowCandidateDuplicates)throw new InvalidOperationException("Có nghi trùng: cần người có quyền đối chiếu và xác nhận trước khi ghi.");
-   var rows=ParseIntakeRows(approved.Mode,approved.Payload);
+   var rows=ParseIntakeRows(approved.Mode,approved.Payload,newPeople!=null);
    if(approved.Digest!=IntakeDigest(approved.Mode,approved.SourceKind,approved.Payload))throw new InvalidDataException("Nguồn đã thay đổi sau xem trước.");
    Guid id;
    if(!Guid.TryParseExact(approved.RequestId,"N",out id))throw new InvalidDataException("Mã lần thu không hợp lệ.");
@@ -299,7 +301,8 @@ namespace QLKP.Desktop.Core {
     }
     for(int i=0;i<rows.Count;i++){
      var row=rows[i];
-     if(approved.Mode=="CREATE_HOUSEHOLD")CreateHouseholdInTransaction(c,tx,session,row["household_code"],row["address"],row["head"],GetIntake(row,"birth_date"),GetIntake(row,"gender"));
+     string createdPerson=null;
+     if(approved.Mode=="CREATE_HOUSEHOLD")createdPerson=CreateHouseholdInTransaction(c,tx,session,row["household_code"],row["address"],row["head"],GetIntake(row,"birth_date"),GetIntake(row,"gender"));
      else if(approved.Mode=="ADD_MEMBER"){
       string household=ResolveHousehold(c,tx,session,row["household_code"]);
       string name=row["full_name"],birth=GetIntake(row,"birth_date"),gender=GetIntake(row,"gender"),rel=row["relationship"];
@@ -314,7 +317,10 @@ namespace QLKP.Desktop.Core {
       Exec(c,tx,"INSERT INTO household_memberships(id,household_id,person_id,relationship,start_utc,created_utc) VALUES(@id,@h,@p,@rel,@utc,@utc)",
        P("@id",member),P("@h",household),P("@p",person),P("@rel",rel),P("@utc",now));
       Audit(c,tx,session.Id,"INTAKE_ADD_MEMBER","person",person);
+      createdPerson=person;
      }else EnsurePersonEnrichment(c,tx,session,row,true);
+     string sourceKey=GetIntake(row,"legacy_person_key");
+     if(sourceKey.Length>0)newPeople.Add(WorkbookHouseholdKey(sourceKey),createdPerson);
     }
     // Only provenance metadata is persisted; the original imported PII is NOT retained.
     Exec(c,tx,@"INSERT INTO intake_batches(request_id,actor_id,area_id,mode,source_kind,source_label,payload_sha256,row_count,created_utc)

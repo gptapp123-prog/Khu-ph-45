@@ -536,26 +536,67 @@ namespace QLKP.Desktop.Core {
      new object[]{"V21-H1","V21-N1","Chủ hộ","","Hiệu lực"},
      new object[]{"HO-CU","V21-N2","Con","2020-01-01","Đã kết thúc"}
     };
+    var legacyResidence=new System.Collections.Generic.List<object[]>{
+     new object[]{"MaBanGhiCuTru","MaNhanKhau","MaDiaChi","LoaiCuTru","TuNgay","DenNgay"},
+     new object[]{"V21-R2","V21-N1","V21-D2","Thường trú","2021-01-01",""},
+     new object[]{"V21-R1","V21-N1","V21-D1","Thường trú","01-01-2020","01-01-2021"},
+     new object[]{"V21-R3","V21-N2","V21-D1","Tạm trú","2020-10-01",""}
+    };
     var legacySheets=new System.Collections.Generic.Dictionary<string,System.Collections.Generic.IEnumerable<object[]>>{
      {"HoGiaDinh",new object[][]{new object[]{"MaHo","MaChuHo","DiaChiDayDu"},new object[]{"V21-H1","V21-N1","Địa chỉ V21"}}},
      {"NhanKhau",new[]{legacyHeaders,legacyHead,legacyMember}},
      {"ThanhVienHo",legacyLinks},
-     {"CuTru",new object[][]{new object[]{"MaNhanKhau","LoaiCuTru"},new object[]{"V21-N1","Tạm trú"}}}
+     {"CuTru",legacyResidence},
+     {"DiaChi_NhaO",new object[][]{new object[]{"MaDiaChi","DiaChiDayDu"},new object[]{"V21-D1","Địa chỉ cư trú cũ"},new object[]{"V21-D2","Địa chỉ cư trú mới"}}},
+     {"AnhNhanKhau",new object[][]{new object[]{"MaNhanKhau","TenTep"},new object[]{"V21-N1","anh-thu.jpg"}}}
     };
     XlsxWorkbook.Save(legacyWorkbook,legacySheets);
     var converted=DataStore.ConvertLegacyResidentWorkbook(legacyWorkbook);
     converted.Save(convertedWorkbook);
-    if(!converted.Summary.Contains("CuTru")||converted.Summary.Contains("ID_FIXTURE_ONLY")||
+    if(!converted.Summary.Contains("3 kỳ cư trú")||!converted.Summary.Contains("AnhNhanKhau")||converted.Summary.Contains("ID_FIXTURE_ONLY")||
        DataStore.FindHouseholds(user,"V21-H1").Count!=0||XlsxIntakeReader.ReadFirstSheet(convertedWorkbook).Contains("ID_FIXTURE_ONLY"))
      throw new InvalidDataException("Chuyển mẫu v2.1 ghi sớm vào kho, lộ trường loại trừ hoặc thiếu tóm tắt.");
     var legacyPreview=DataStore.PreviewWorkbookIntake(user,convertedWorkbook);
-    if(DataStore.CommitWorkbookIntake(user,legacyPreview,false)!=2)
+    string noResidenceSecret="Test!"+Guid.NewGuid().ToString("N");
+    DataStore.CreateAccount(admin,"test_import_no_residence",noResidenceSecret,new[]{"B01:read","B01:create","B02:read","B02:create"});
+    var noResidence=DataStore.Login("test_import_no_residence",noResidenceSecret);
+    bool deniedLegacyResidence=false;
+    try{DataStore.PreviewWorkbookIntake(noResidence,convertedWorkbook);}
+    catch(UnauthorizedAccessException){deniedLegacyResidence=true;}
+    if(!deniedLegacyResidence)throw new InvalidDataException("Nhập lịch cư trú không kiểm tra quyền B03.");
+    using(var conn=DataStore.Open())using(var command=new System.Data.SQLite.SQLiteCommand(
+     "CREATE TRIGGER test_residence_abort BEFORE INSERT ON person_residence_periods WHEN NEW.address='Địa chỉ cư trú mới' BEGIN SELECT RAISE(ABORT,'TEST_RESIDENCE_ROLLBACK'); END;",conn))
+     command.ExecuteNonQuery();
+    bool residenceRollback=false;
+    try{DataStore.CommitWorkbookIntake(user,legacyPreview,false);}
+    catch(System.Data.SQLite.SQLiteException){residenceRollback=true;}
+    finally {
+     using(var conn=DataStore.Open())using(var command=new System.Data.SQLite.SQLiteCommand("DROP TRIGGER test_residence_abort;",conn))
+      command.ExecuteNonQuery();
+    }
+    if(!residenceRollback||DataStore.FindHouseholds(user,"V21-H1").Count!=0||
+       DataStore.CommitWorkbookIntake(user,legacyPreview,false)!=5||
+       DataStore.CommitWorkbookIntake(user,legacyPreview,false)!=5)
      throw new InvalidDataException("Sổ sau chuyển đổi không nhập được.");
     var importedHead=DataStore.FindPeople(user,"Chủ hộ V21")[0];
     var importedMember=DataStore.FindPeople(user,"Thành viên V21")[0];
     if(importedHead.BirthDate!="1980-01-10"||importedHead.Gender!="Nam"||importedHead.HouseholdCode!="V21-H1"||
        importedMember.BirthDate!="2000-01-10"||importedMember.HouseholdCode!="V21-H1")
      throw new InvalidDataException("Chuyển mẫu v2.1 sai ngày sinh hoặc liên kết hộ.");
+    var headResidence=DataStore.GetResidencePeriods(user,importedHead.Id,0);
+    var memberResidence=DataStore.GetResidencePeriods(user,importedMember.Id,0);
+    if(headResidence.TotalCount!=2||headResidence.Items[0].Address!="Địa chỉ cư trú mới"||
+       headResidence.Items[1].ValidUntil!="2021-01-01"||memberResidence.TotalCount!=1||memberResidence.Items[0].Kind!="tam_tru")
+     throw new InvalidDataException("Kỳ cư trú gắn sai người, địa chỉ, thứ tự hoặc bị ghi lặp.");
+    legacyResidence.Add(new object[]{"V21-R4","V21-N1","V21-D1","Thường trú","2020-06-01","2022-01-01"});
+    string residenceConflict=Path.Combine(sandbox,"dan-cu-v21-residence-conflict.xlsx");
+    XlsxWorkbook.Save(residenceConflict,legacySheets);
+    bool residenceConflictRejected=false;
+    try{DataStore.ConvertLegacyResidentWorkbook(residenceConflict);}
+    catch(InvalidDataException){residenceConflictRejected=true;}
+    if(!residenceConflictRejected)throw new InvalidDataException("Sổ cư trú có kỳ chồng lấn chưa bị chặn.");
+    legacyResidence.RemoveAt(legacyResidence.Count-1);
+    Console.WriteLine("REPOSITORY_PASS XLSX legacy residence mapping/permission/overlap/atomic rollback/retry");
     legacyLinks.Add(new object[]{"V21-H1","V21-N2","Con","","Hiệu lực"});
     string legacyConflict=Path.Combine(sandbox,"dan-cu-v21-conflict.xlsx");
     XlsxWorkbook.Save(legacyConflict,legacySheets);

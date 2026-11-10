@@ -126,23 +126,25 @@ namespace QLKP.Desktop.Core {
     return ReadSheet(archive,Workbook(archive),index);
    }
   }
-  internal static string[] ReadWorkbook(string path,string[] expected) {
+  internal static string[] ReadWorkbook(string path,string[] expected,string optional) {
    using(var archive=Open(path)) {
     var workbook=Workbook(archive);
     var names=SheetNames(workbook);
-    if(names.Length!=expected.Length||expected.Any(name=>!names.Contains(name,StringComparer.Ordinal)))
+    bool hasOptional=names.Contains(optional,StringComparer.Ordinal);
+    if(names.Length!=expected.Length+(hasOptional?1:0)||expected.Any(name=>!names.Contains(name,StringComparer.Ordinal)))
      throw new InvalidDataException("Sổ không đúng mẫu ba trang của QLKP. Mẫu Dân cư v2.1 cần chuyển cột trước khi nhập.");
-    return expected.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name))).ToArray();
+    return expected.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name)))
+     .Concat(new[]{hasOptional?ReadSheet(archive,workbook,Array.IndexOf(names,optional)):null}).ToArray();
    }
   }
-  internal static string[] ReadLegacySheets(string path,string[] required,out string[] otherNames,out string[] populatedOtherNames) {
+  internal static string[] ReadLegacySheets(string path,string[] required,string[] optional,out string[] otherNames,out string[] populatedOtherNames) {
    using(var archive=Open(path)) {
     var workbook=Workbook(archive);
     var names=SheetNames(workbook);
     if(names.Length>24||names.Distinct(StringComparer.OrdinalIgnoreCase).Count()!=names.Length||
        required.Any(name=>!names.Contains(name,StringComparer.Ordinal)))
      throw new InvalidDataException("Cần các trang HoGiaDinh, NhanKhau và ThanhVienHo của mẫu v2.1.");
-    otherNames=names.Where(name=>!required.Contains(name,StringComparer.Ordinal)).ToArray();
+    otherNames=names.Except(required,StringComparer.Ordinal).Except(optional,StringComparer.Ordinal).ToArray();
     var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
     var dataNames=new List<string>();
     foreach(string name in otherNames) {
@@ -154,7 +156,8 @@ namespace QLKP.Desktop.Core {
       dataNames.Add(name);
     }
     populatedOtherNames=dataNames.ToArray();
-    return required.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name),64)).ToArray();
+    return required.Concat(optional).Select(name=>names.Contains(name,StringComparer.Ordinal)?
+     ReadSheet(archive,workbook,Array.IndexOf(names,name),64):null).ToArray();
    }
   }
   static string ReadSheet(ZipArchive archive,XDocument workbook,int index,int maxColumns=20) {

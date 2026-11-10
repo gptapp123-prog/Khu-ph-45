@@ -583,7 +583,7 @@ namespace QLKP.Desktop.Core {
     tx.Commit();return (int)(before/pageSize);
    }
   }
-  static void CreateHouseholdInTransaction(SQLiteConnection c,SQLiteTransaction tx,Session s,string code,string address,string owner,string birth="",string gender="") {
+  static string CreateHouseholdInTransaction(SQLiteConnection c,SQLiteTransaction tx,Session s,string code,string address,string owner,string birth="",string gender="") {
    if(String.IsNullOrWhiteSpace(code)||String.IsNullOrWhiteSpace(address)||String.IsNullOrWhiteSpace(owner))throw new InvalidOperationException("Thiếu mã hộ, địa chỉ hoặc họ tên chủ hộ.");
    if(code.Trim().Length>40 || address.Trim().Length>300 || owner.Trim().Length>200)throw new InvalidOperationException("Mã hộ, địa chỉ hoặc họ tên vượt giới hạn thử nghiệm.");
    string household=Id(),person=Id(),membership=Id(),now=Now;
@@ -591,6 +591,7 @@ namespace QLKP.Desktop.Core {
    Exec(c,tx,"INSERT INTO people(id,area_id,full_name,search_name,date_of_birth,gender,created_utc,updated_utc) VALUES(@i,@a,@n,@search,@dob,@gender,@t,@t)",P("@i",person),P("@a",s.AreaId),P("@n",owner.Trim()),P("@search",NormalizeSearch(owner)),P("@dob",birth.Length==0?null:birth),P("@gender",gender.Length==0?null:gender),P("@t",now));
    Exec(c,tx,"INSERT INTO household_memberships(id,household_id,person_id,relationship,start_utc,created_utc) VALUES(@i,@h,@p,'Chủ hộ',@t,@t)",P("@i",membership),P("@h",household),P("@p",person),P("@t",now));
    Audit(c,tx,s.Id,"CREATE_HOUSEHOLD","household",household);
+   return person;
   }
   public static void AddHousehold(Session s,string code,string address,string owner) {
    using(var c=Open())using(var tx=c.BeginTransaction()) {

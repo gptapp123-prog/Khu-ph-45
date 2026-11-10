@@ -21,7 +21,7 @@ try {
  New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
  $run=New-QlkpTestRun $runRoot
  Start-QlkpStage $run 'PRECHECK'
- Write-Host '=== QLKP PILOT V0.20.8 - WINDOWS NATIVE BUILD ===' -ForegroundColor Cyan
+ Write-Host '=== QLKP PILOT V0.20.9 - WINDOWS NATIVE BUILD ===' -ForegroundColor Cyan
  # Packaging always requires the runtime gate, even when invoked without -SmokeTest.
  if($Installer -and -not $NoInstaller) { $SmokeTest=$true }
  # Do not mistake a setup file left over from an earlier build for a current release.

@@ -55,7 +55,7 @@ namespace QLKP.Desktop.Core {
   }
   internal static LegacyResidentConversion ConvertLegacyResidentWorkbook(string path) {
    string[] excluded, populatedExcluded;
-   var sheets=XlsxIntakeReader.ReadLegacySheets(path,LegacySheets,out excluded,out populatedExcluded);
+   var sheets=XlsxIntakeReader.ReadLegacySheets(path,LegacySheets,new[]{"CuTru","DiaChi_NhaO"},out excluded,out populatedExcluded);
    var households=LegacyRows(LegacySheets[0],sheets[0],"MaHo","MaChuHo","DiaChiDayDu");
    var residents=LegacyRows(LegacySheets[1],sheets[1],"MaNhanKhau","HoTen","NgaySinh","GioiTinh");
    var memberships=LegacyRows(LegacySheets[2],sheets[2],"MaHo","MaNhanKhau","QuanHeVoiChuHo","DenNgay","TrangThaiQuanHe");
@@ -84,6 +84,29 @@ namespace QLKP.Desktop.Core {
     active.Add(membership);
    }
 
+   var residences=sheets[3]==null?new List<LegacyRow>():
+    LegacyRows("CuTru",sheets[3],"MaBanGhiCuTru","MaNhanKhau","MaDiaChi","LoaiCuTru","TuNgay","DenNgay");
+   var residenceRows=new List<object[]>{WorkbookResidenceHeaders};
+   var addressRows=new List<LegacyRow>();
+   if(residences.Count>0) {
+    LegacyIndex(residences,"MaBanGhiCuTru");
+    if(sheets[4]==null)throw new InvalidDataException("CuTru có dữ liệu nhưng thiếu trang DiaChi_NhaO.");
+    addressRows=LegacyRows("DiaChi_NhaO",sheets[4],"MaDiaChi","DiaChiDayDu");
+    var addresses=LegacyIndex(addressRows,"MaDiaChi");
+    foreach(var period in residences) {
+     string person=period.Required("MaNhanKhau");
+     LegacyRow address;
+     if(!peopleByKey.ContainsKey(WorkbookHouseholdKey(person)))
+      throw period.Error("Không tìm thấy MaNhanKhau trong trang NhanKhau.");
+     if(!addresses.TryGetValue(WorkbookHouseholdKey(period.Required("MaDiaChi")),out address))
+      throw period.Error("Không tìm thấy MaDiaChi trong trang DiaChi_NhaO.");
+     residenceRows.Add(new object[]{person,period.Required("LoaiCuTru"),address.Required("DiaChiDayDu"),period.Required("TuNgay"),period.Value("DenNgay")});
+    }
+    ParseWorkbookResidence(LegacyTsv(residenceRows));
+   }
+   bool carriesResidence=residences.Count>0;
+   if(residents.Count+residences.Count>IntakeMaxRows)
+    throw new InvalidDataException("Tổng số nhân khẩu và kỳ cư trú vượt 5.000 dòng.");
    var headKeys=new HashSet<string>(StringComparer.Ordinal);
    var householdRows=new List<object[]>{IntakeHeaders("CREATE_HOUSEHOLD").Concat(new[]{"Ngày sinh","Giới tính"}).ToArray()};
    foreach(var household in households) {
@@ -110,27 +133,48 @@ namespace QLKP.Desktop.Core {
     memberRows.Add(new object[]{household.Required("MaHo"),resident.Required("HoTen"),resident.Value("NgaySinh"),resident.Value("GioiTinh"),relation});
    }
 
+   if(carriesResidence) {
+    householdRows[0]=householdRows[0].Concat(new object[]{"Mã nguồn v2.1"}).ToArray();
+    for(int i=0;i<households.Count;i++)
+     householdRows[i+1]=householdRows[i+1].Concat(new object[]{households[i].Required("MaChuHo")}).ToArray();
+    memberRows[0]=memberRows[0].Concat(new object[]{"Mã nguồn v2.1"}).ToArray();
+    int memberIndex=1;
+    foreach(var resident in residents) {
+     string key=resident.Required("MaNhanKhau");
+     if(headKeys.Contains(WorkbookHouseholdKey(key)))continue;
+     memberRows[memberIndex]=memberRows[memberIndex].Concat(new object[]{key}).ToArray();
+     memberIndex++;
+    }
+   } else if(sheets[4]!=null) {
+    excluded=excluded.Concat(new[]{"DiaChi_NhaO"}).ToArray();
+    if(ReadIntakeTable(sheets[4],true,64).Count>1)populatedExcluded=populatedExcluded.Concat(new[]{"DiaChi_NhaO"}).ToArray();
+   }
    // Apply the current intake rules before exposing an output that can be imported.
-   ValidateLegacyOutput("CREATE_HOUSEHOLD",householdRows);
-   if(memberRows.Count>1)ValidateLegacyOutput("ADD_MEMBER",memberRows);
+   ValidateLegacyOutput("CREATE_HOUSEHOLD",householdRows,carriesResidence);
+   if(memberRows.Count>1)ValidateLegacyOutput("ADD_MEMBER",memberRows,carriesResidence);
    int omitted=CountOmitted(households,"MaHo","MaChuHo","DiaChiDayDu")+
     CountOmitted(residents,"MaNhanKhau","HoTen","NgaySinh","GioiTinh","MaHoHienTai")+
-    CountOmitted(active,"MaHo","MaNhanKhau","QuanHeVoiChuHo","DenNgay","TrangThaiQuanHe");
+    CountOmitted(active,"MaHo","MaNhanKhau","QuanHeVoiChuHo","DenNgay","TrangThaiQuanHe")+
+    CountOmitted(residences,"MaBanGhiCuTru","MaNhanKhau","MaDiaChi","LoaiCuTru","TuNgay","DenNgay")+
+    CountOmitted(addressRows,"MaDiaChi","DiaChiDayDu");
    var output=new Dictionary<string,IEnumerable<object[]>>{
     {WorkbookSheets[0],householdRows},{WorkbookSheets[1],memberRows},{WorkbookSheets[2],new object[][]{IntakeHeaders("ENRICH_PERSON")}}
    };
-   string summary="Sẽ tạo mẫu nhập cho "+households.Count+" hộ và "+residents.Count+" người, gồm "+headKeys.Count+" chủ hộ.\n"+
-    "Bỏ qua "+(memberships.Count-active.Count)+" quan hệ đã kết thúc hoặc chờ xác nhận và "+omitted+" ô có dữ liệu ngoài phạm vi ánh xạ trong ba trang nguồn.\n"+
+   if(carriesResidence)output.Add(WorkbookResidenceSheet,residenceRows);
+   string summary="Sẽ tạo mẫu nhập cho "+households.Count+" hộ và "+residents.Count+" người, gồm "+headKeys.Count+" chủ hộ, và "+residences.Count+" kỳ cư trú.\n"+
+    "Bỏ qua "+(memberships.Count-active.Count)+" quan hệ đã kết thúc hoặc chờ xác nhận và "+omitted+" ô có dữ liệu ngoài phạm vi ánh xạ trong các trang đã đọc.\n"+
     "Các trang ngoài phạm vi ("+excluded.Length+"): "+(excluded.Length==0?"không có":String.Join(", ",excluded))+".\n"+
     "Trang nghiệp vụ ngoài phạm vi có dữ liệu: "+(populatedExcluded.Length==0?"không có":String.Join(", ",populatedExcluded))+".\n"+
-    "Chỉ chuyển mã hộ, địa chỉ, họ tên, ngày sinh, giới tính và quan hệ hiện hành. Các mã nhân khẩu v2.1 dùng để đối chiếu. Khi nhập, kho sẽ tạo ID mới.";
+    "Chuyển thông tin hộ, nhân khẩu, quan hệ hiện hành và kỳ thường trú/tạm trú theo khai báo. Các mã nguồn dùng để đối chiếu. Kho sẽ tạo ID mới.";
    return new LegacyResidentConversion(output,summary);
   }
 
-  static void ValidateLegacyOutput(string mode,List<object[]> rows) {
-   string text=String.Join("\n",rows.Select(row=>String.Join("\t",row.Select(cell=>
+  static string LegacyTsv(List<object[]> rows) {
+   return String.Join("\n",rows.Select(row=>String.Join("\t",row.Select(cell=>
     "\""+Convert.ToString(cell).Replace("\"","\"\"")+"\""))));
-   var parsed=ParseIntakeRows(mode,text);
+  }
+  static void ValidateLegacyOutput(string mode,List<object[]> rows,bool carriesResidence) {
+   var parsed=ParseIntakeRows(mode,LegacyTsv(rows),carriesResidence);
    foreach(var row in parsed) {
     if(row["household_code"].Length>40||GetIntake(row,"head").Length>200||GetIntake(row,"full_name").Length>200)
      throw new InvalidDataException("Mã hộ hoặc họ tên vượt giới hạn nhập của QLKP.");
