@@ -6,7 +6,7 @@ namespace QLKP.Desktop.Views {
  public partial class PeopleView : UserControl {
   readonly Session session;readonly Action<string> navigateHousehold;string preselectId;bool pendingPreselection;const int PageSize=50;int pageIndex;
   public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();LookupIdentity.Visibility=DataStore.Can(s,"B02","identity_lookup")?Visibility.Visible:Visibility.Collapsed;OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
-  void Reload(){try{
+  internal void Reload(){try{
    var previous=People.SelectedItem as PersonRow;
    if(pendingPreselection)pageIndex=DataStore.GetPersonPageIndexById(session,preselectId,PageSize);
    var page=DataStore.GetPeoplePage(session,Search.Text,pageIndex,PageSize,(ResidencyFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"");

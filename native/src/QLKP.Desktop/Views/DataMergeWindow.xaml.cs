@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using QLKP.Desktop.Core;
 namespace QLKP.Desktop.Views {
  public partial class DataMergeWindow : Window {
+  internal bool SavedChanges {get;private set;}
   readonly Session session;MergePlan plan;
   public DataMergeWindow(Session s){InitializeComponent();session=s;WindowLayout.FitInitialSize(this);Closed+=(o,e)=>{if(plan!=null)plan.Dispose();SourcePassword.Clear();};}
   void Choose_Click(object sender,RoutedEventArgs e) {
@@ -26,7 +27,7 @@ namespace QLKP.Desktop.Views {
   void Apply_Click(object sender,RoutedEventArgs e) {
    if(plan==null||!ApplyButton.IsEnabled)return;
    if(MessageBox.Show(this,"Áp dụng "+plan.Added+" dòng mới vào khu phố "+plan.AreaCode+"?", "Xác nhận hợp nhất",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
-   try{ApplyButton.IsEnabled=false;DataStore.ApplyMerge(session,plan);Result.Text="Đã hợp nhất. Bản phục hồi cục bộ: "+plan.RecoveryFile+". Quản trị hệ thống có thể khôi phục tại Sao lưu và khôi phục.";}
+   try{ApplyButton.IsEnabled=false;DataStore.ApplyMerge(session,plan);SavedChanges=true;Result.Text="Đã hợp nhất. Bản phục hồi cục bộ: "+plan.RecoveryFile+". Quản trị hệ thống có thể khôi phục tại Sao lưu và khôi phục.";}
    catch(InvalidOperationException ex){Result.Text=ex.Message;}
    catch(Exception ex){StartupDiagnostics.WriteException("DATA_MERGE_APPLY_FAILED",ex);Result.Text="Chưa áp dụng hợp nhất ("+ex.GetType().Name+"). Dừng thao tác và đối chiếu lại; xem nhật ký khởi động nếu cần phục hồi.";}
   }

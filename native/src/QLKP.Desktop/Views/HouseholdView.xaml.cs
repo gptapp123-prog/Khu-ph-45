@@ -6,7 +6,7 @@ namespace QLKP.Desktop.Views {
  public partial class HouseholdView : UserControl {
   readonly Session session;readonly Action<string> navigatePerson;string preselectId;bool pendingPreselection;const int PageSize=50;int pageIndex;string validatedText;string validatedMemberText;string validatedMemberHouseholdId;string validatedMemberKey;
   public HouseholdView(Session s,Action<string> openPerson=null,string householdId=null){InitializeComponent();session=s;navigatePerson=openPerson;preselectId=householdId;pendingPreselection=(householdId!=null);OpenPerson.IsEnabled=DataStore.Can(s,"B02","read");AddHouseholdButton.IsEnabled=DataStore.Can(s,"B01","create");AddMemberButton.IsEnabled=DataStore.Can(s,"B02","create") && DataStore.Can(s,"B01","read");CheckButton.IsEnabled=AddHouseholdButton.IsEnabled;CheckMembersBatchButton.IsEnabled=DataStore.Can(s,"B02","create") && DataStore.Can(s,"B01","read");Reload();}
-  void Reload(){try{
+  internal void Reload(){try{
    var previous=Households.SelectedItem as HouseholdRow;
    if(pendingPreselection){pageIndex=DataStore.GetHouseholdPageIndexById(session,preselectId,PageSize);}
    var page=DataStore.GetHouseholdsPage(session,Search.Text,pageIndex,PageSize,(HousingFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"");

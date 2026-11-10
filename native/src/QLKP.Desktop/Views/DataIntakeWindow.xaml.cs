@@ -8,6 +8,7 @@ using Microsoft.Win32;
 using QLKP.Desktop.Core;
 namespace QLKP.Desktop.Views {
  public partial class DataIntakeWindow : Window {
+  internal bool SavedChanges {get;private set;}
   readonly Session session;IntakePreview approved;WorkbookIntakePreview workbook;
   public DataIntakeWindow(Session account) {InitializeComponent();WindowLayout.FitInitialSize(this);session=account;ResultStatus.Text="Chưa kiểm tra hoặc ghi dữ liệu.";}
   string ModeValue {get {return (IntakeMode.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"";} }
@@ -134,6 +135,7 @@ namespace QLKP.Desktop.Views {
     "Xác nhận ghi dữ liệu",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes){CommitButton.IsEnabled=true;return;}
    try {
     var count=DataStore.CommitIntake(session,approved,AcknowledgeCandidates.IsChecked==true);
+    SavedChanges=true;
     ResultStatus.Text="Đã ghi/xử lý "+count+" dòng. Lô có ID kiểm soát riêng, không ghi lại khi gửi trùng.";
     approved=null;
    }catch(Exception ex){ResultStatus.Text="Không ghi bất kỳ phần nào của lô: "+ex.Message;approved=null;}
@@ -148,6 +150,7 @@ namespace QLKP.Desktop.Views {
    CommitButton.IsEnabled=false;
    try {
     int count=DataStore.CommitWorkbookIntake(session,workbook,allow);
+    SavedChanges=true;
     ResultStatus.Text="Đã ghi "+count+" dòng từ sổ Excel trong một giao dịch.";
    } catch(Exception ex){ResultStatus.Text="Không ghi sổ. "+ex.Message;}
    finally {workbook=null;}
