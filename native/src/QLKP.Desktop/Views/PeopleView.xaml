@@ -19,6 +19,7 @@
   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="16"><TextBlock Text="HỒ SƠ CÁ NHÂN" FontSize="18" Foreground="#102D59" FontWeight="Bold"/><TextBlock x:Name="Detail" TextWrapping="Wrap" FontSize="15"/><Button x:Name="OpenHousehold" Content="Mở hồ sơ hộ liên quan" Click="OpenHousehold_Click"/>
    <Button x:Name="EditPerson" Content="Cập nhật hồ sơ đã chọn" Click="EditPerson_Click" Visibility="Collapsed"/>
    <TextBlock Text="Liên kết hộ dùng khóa định danh và kiểm tra quyền riêng; không tự mở hồ sơ chỉ vì trùng tên." TextWrapping="Wrap" Foreground="#60728A"/>
+   <Button x:Name="OpenResidencePeriods" Content="Lịch sử địa chỉ cư trú" Click="OpenResidencePeriods_Click" Visibility="Collapsed"/>
    <TextBlock Text="LỊCH SỬ BIẾN ĐỘNG (B03)" FontWeight="Bold" Foreground="#102D59" Margin="4,16,4,4"/>
    <DataGrid x:Name="PersonHistory" Height="176" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single">
     <DataGrid.Columns><DataGridTextColumn Header="Ngày UTC" Binding="{Binding TimestampDisplay}" Width="190"/>

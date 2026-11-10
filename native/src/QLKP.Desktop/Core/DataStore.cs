@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
+  internal const int SchemaVersion=13;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -49,7 +50,7 @@ namespace QLKP.Desktop.Core {
    string sql=File.ReadAllText(schema,Encoding.UTF8);
    using(var c=Open()) {
     long installed=Convert.ToInt64(Scalar(c,null,"PRAGMA user_version;"));
-    if(installed>12)throw new InvalidDataException("Dữ liệu mới hơn phần mềm; không cho phép hạ cấp.");
+    if(installed>SchemaVersion)throw new InvalidDataException("Dữ liệu mới hơn phần mềm; không cho phép hạ cấp.");
     // The old v7 module_records CHECK cannot be ALTERed. Rebuild its table transactionally,
     // temporarily disabling FKs only while the table is replaced; verify before commit.
     bool rebuild=installed>0 && installed<11 && Convert.ToInt32(Scalar(c,null,
@@ -89,7 +90,7 @@ namespace QLKP.Desktop.Core {
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_residency_reason_area ON residency_changes(area_id,search_reason)");
       using(var check=new SQLiteCommand("PRAGMA foreign_key_check",c,tx))
        using(var reader=check.ExecuteReader())if(reader.Read())throw new InvalidDataException("Nâng cấp phá vỡ khóa ngoại; đã hủy giao dịch.");
-      using(var cmd=new SQLiteCommand("PRAGMA user_version=12;",c,tx))cmd.ExecuteNonQuery();
+      using(var cmd=new SQLiteCommand("PRAGMA user_version="+SchemaVersion+";",c,tx))cmd.ExecuteNonQuery();
       tx.Commit();
      }
     } finally {if(rebuild)Exec(c,null,"PRAGMA foreign_keys=ON");}

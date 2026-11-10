@@ -176,8 +176,8 @@ class SecurityAndPackaging(unittest.TestCase):
         self.assertNotIn('I08',root_rule)
 
     def test_schema_v4_and_existing_migration_contract(self):
-        self.assertIn('if(installed>12)',STORE)
-        self.assertIn('PRAGMA user_version=12',STORE)
+        self.assertIn('if(installed>SchemaVersion)',STORE)
+        self.assertIn('PRAGMA user_version=',STORE)
         self.assertIn('EnsureSearchColumn(c,tx,"people","search_name")',STORE)
         self.assertIn('EnsureSearchColumn(c,tx,"households","search_address")',STORE)
         self.assertIn('EnsureSearchColumn(c,tx,"residency_changes","search_reason")',STORE)

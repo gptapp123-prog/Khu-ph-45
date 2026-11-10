@@ -440,6 +440,19 @@ namespace QLKP.Desktop.Core {
     if(!csv.Contains("A02")||csv.Contains(taskId)||csv.Contains("Rà soát Đường"))
      throw new InvalidDataException("H05 không tạo CSV tổng hợp an toàn.");
     DataStore.LogReportExport(reporter);
+    journal.BeginStep("B03_RESIDENCE_PERIODS");
+    string firstPeriod=DataStore.AddResidencePeriod(admin,verified.Id,"thuong_tru","[MẪU] Địa chỉ cũ","01-01-2020","");
+    DataStore.AddResidencePeriod(admin,verified.Id,"thuong_tru","[MẪU] Địa chỉ mới","01-01-2021","");
+    DataStore.AddResidencePeriod(admin,verified.Id,"tam_tru","[MẪU] Địa chỉ tạm trú","01-01-2021","");
+    var residence=DataStore.GetResidencePeriods(admin,verified.Id,0);
+    var firstRow=residence.Items.Find(r=>r.Id==firstPeriod);
+    if(residence.TotalCount!=3||firstRow==null||firstRow.ValidUntil!="2021-01-01"||firstRow.Address!="[MẪU] Địa chỉ cũ")
+     throw new InvalidDataException("B03: không giữ đúng lịch sử địa chỉ hoặc mốc hiệu lực.");
+    bool residenceDenied=false,residenceOverlap=false;
+    try{DataStore.GetResidencePeriods(expiredRoot,verified.Id,0);}catch(UnauthorizedAccessException){residenceDenied=true;}
+    try{DataStore.AddResidencePeriod(admin,verified.Id,"thuong_tru","[MẪU] Trùng","01-01-2021","");}catch(InvalidOperationException){residenceOverlap=true;}
+    if(!residenceDenied||!residenceOverlap||DataStore.GetResidencePeriods(admin,verified.Id,0).TotalCount!=3)
+     throw new InvalidDataException("B03: kiểm tra phiên hoặc kỳ trùng thất bại.");
     OperationalSelfTest.Run(admin,expiredRoot,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);

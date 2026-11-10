@@ -52,7 +52,7 @@ namespace QLKP.Desktop.Core {
     }
     using(var cmd=new SQLiteCommand("PRAGMA user_version;",c)) {
      long ver=Convert.ToInt64(cmd.ExecuteScalar());
-     if(ver>12)throw new InvalidDataException("Kho có phiên bản mới hơn ứng dụng; không hạ phiên bản tự động.");
+     if(ver>DataStore.SchemaVersionthrow new InvalidDataException("Kho có phiên bản mới hơn ứng dụng; không hạ phiên bản tự động.");
     }
    }
   }
@@ -61,7 +61,7 @@ namespace QLKP.Desktop.Core {
     try {
      Directory.CreateDirectory(DataStore.DataFolder);
      // Never log passwords, SQL values, paths of citizens' files, or record contents.
-     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.20.1-PILOT"+Environment.NewLine,Encoding.UTF8);
+     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.20.2-PILOT"+Environment.NewLine,Encoding.UTF8);
     } catch { /* Logging failures must not cause data deletion. */ }
    }
   }

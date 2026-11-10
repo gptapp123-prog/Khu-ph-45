@@ -39,6 +39,12 @@ namespace QLKP.Desktop.Views {
    try { DataStore.GetHousehold(session,p.HouseholdId);if(navigateHousehold!=null)navigateHousehold(p.HouseholdId); }
    catch(Exception ex){MessageBox.Show("Không thể mở hồ sơ hộ: "+ex.Message);}
   }
+  void OpenResidencePeriods_Click(object sender,RoutedEventArgs e) {
+   var selected=People.SelectedItem as PersonRow;
+   if(selected==null)return;
+   try {new ResidencePeriodsWindow(session,selected.Id){Owner=Window.GetWindow(this)}.ShowDialog();}
+   catch(Exception){MessageBox.Show("Không thể mở lịch sử địa chỉ cư trú.");}
+  }
   void OpenHistoryHousehold_Click(object sender,RoutedEventArgs e) {
    var selected=People.SelectedItem as PersonRow;
    var history=PersonHistory.SelectedItem as ResidencyChangeRow;
@@ -52,6 +58,7 @@ namespace QLKP.Desktop.Views {
   void People_SelectionChanged(object sender,SelectionChangedEventArgs e){
    var p=People.SelectedItem as PersonRow;
    if(EditPerson!=null)EditPerson.IsEnabled=false;
+   if(OpenResidencePeriods!=null)OpenResidencePeriods.Visibility=Visibility.Collapsed;
    PersonHistory.ItemsSource=null;
    if(p==null){Detail.Text="Chọn một nhân khẩu.";HistoryNotice.Text="";return;}
    try {
@@ -61,6 +68,7 @@ namespace QLKP.Desktop.Views {
     EditPerson.IsEnabled=EditPerson.Visibility==Visibility.Visible;
     Detail.Text="Mã hồ sơ: "+current.Id+"\nHọ và tên: "+current.FullName+"\nNgày sinh: "+current.BirthDateDisplay+"\nGiới tính: "+current.Gender+"\nMã hộ hiện tại: "+current.HouseholdCode+"\nQuan hệ: "+current.Relationship;
     if(DataStore.Can(session,"B03","read")){
+     OpenResidencePeriods.Visibility=Visibility.Visible;
      var history=DataStore.ListPersonResidencyHistory(session,current.Id);
      PersonHistory.ItemsSource=history;
      HistoryNotice.Text=history.Count==0?"Chưa ghi nhận biến động B03 cho hồ sơ này.":history.Count+" sự kiện được ghi, chỉ chọn dòng khi cần mở hộ đích.";

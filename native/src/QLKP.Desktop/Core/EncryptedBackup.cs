@@ -52,7 +52,7 @@ namespace QLKP.Desktop.Core {
   }
   static void CheckSnapshot(SQLiteConnection c) {
    VaultStorage.Check(c);
-   using(var q=new SQLiteCommand("PRAGMA user_version",c))if(Convert.ToInt32(q.ExecuteScalar())>12)throw new InvalidDataException("Schema bản sao mới hơn ứng dụng.");
+   using(var q=new SQLiteCommand("PRAGMA user_version",c))if(Convert.ToInt32(q.ExecuteScalar())>DataStore.SchemaVersion)throw new InvalidDataException("Schema bản sao mới hơn ứng dụng.");
    foreach(string table in new[]{"accounts","households","people"})using(var q=new SQLiteCommand("SELECT count(*) FROM "+VaultStorage.Quote(table),c))q.ExecuteScalar();
   }
   public static void Create(Session admin,string path,string phrase) {

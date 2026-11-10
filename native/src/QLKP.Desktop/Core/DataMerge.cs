@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace QLKP.Desktop.Core {
  public sealed class MergeSummary {
   public string Table {get;internal set;} public int Added {get;internal set;} public int Identical {get;internal set;}
-  public string Label {get{return Table=="households"?"Hộ gia đình":Table=="people"?"Nhân khẩu":Table=="household_profiles"?"Phân loại hộ":Table=="person_profiles"?"Phân loại nhân khẩu":Table=="household_memberships"?"Thành viên trong hộ":Table=="member_import_batches"?"Lịch sử nhập nhân khẩu":Table=="residency_changes"?"Biến động cư trú":Table=="intake_batches"?"Lịch sử nhập liệu":Table=="module_records"?"Hồ sơ các phân hệ":Table=="module_field_values"?"Thông tin chi tiết hồ sơ":Table=="module_record_history"?"Lịch sử xử lý hồ sơ":Table=="module_relations"?"Liên kết giữa các hồ sơ":Table=="shared_catalog_items"?"Danh mục khu phố":"Nhóm dữ liệu";}}
+  public string Label {get{return Table=="households"?"Hộ gia đình":Table=="people"?"Nhân khẩu":Table=="household_profiles"?"Phân loại hộ":Table=="person_profiles"?"Phân loại nhân khẩu":Table=="household_memberships"?"Thành viên trong hộ":Table=="member_import_batches"?"Lịch sử nhập nhân khẩu":Table=="residency_changes"?"Biến động cư trú":Table=="person_residence_periods"?"Kỳ địa chỉ cư trú":Table=="intake_batches"?"Lịch sử nhập liệu":Table=="module_records"?"Hồ sơ các phân hệ":Table=="module_field_values"?"Thông tin chi tiết hồ sơ":Table=="module_record_history"?"Lịch sử xử lý hồ sơ":Table=="module_relations"?"Liên kết giữa các hồ sơ":Table=="shared_catalog_items"?"Danh mục khu phố":"Nhóm dữ liệu";}}
  }
  public sealed class MergePlan : IDisposable {
   internal string Candidate,Before,BaseHash,CandidateHash,ActorId,AreaId,RunId;
@@ -19,7 +19,7 @@ namespace QLKP.Desktop.Core {
   public void Dispose(){foreach(string f in new[]{Candidate,Before})if(!String.IsNullOrEmpty(f)&&File.Exists(f))File.Delete(f);Candidate=Before=null;}
  }
  public static partial class DataStore {
-  static readonly string[] MergeTables={"households","people","household_profiles","person_profiles","household_memberships","member_import_batches","residency_changes","intake_batches","module_records","module_field_values","module_record_history","module_relations","shared_catalog_items"};
+  static readonly string[] MergeTables={"households","people","household_profiles","person_profiles","household_memberships","member_import_batches","residency_changes","person_residence_periods","intake_batches","module_records","module_field_values","module_record_history","module_relations","shared_catalog_items"};
   static readonly string[] ActorColumns={"actor_id","created_by","updated_by","changed_by"};
   static string MergeStage(string prefix){string dir=Path.Combine(DataFolder,"maintenance");Directory.CreateDirectory(dir);return Path.Combine(dir,prefix+"-"+Guid.NewGuid().ToString("N")+".qlkpvault");}
   static void RequireMerge(SQLiteConnection c,SQLiteTransaction tx,Session s) {
@@ -27,7 +27,7 @@ namespace QLKP.Desktop.Core {
    if(!new[]{"ROOT_ADMIN","KP_ADMIN","ASSIGNED_USER"}.Contains(s.Role))throw new UnauthorizedAccessException("Tài khoản không hợp lệ.");
   }
   static List<Dictionary<string,object>> MergeRows(SQLiteConnection c,string table,string where="",SQLiteTransaction tx=null,params SQLiteParameter[] parameters) {
-   var rows=new List<Dictionary<string,object>>();using(var cmd=new SQLiteCommand("SELECT * FROM "+VaultStorage.Quote(table)+(where.Length>0?" WHERE "+where:""),c,tx)) {
+   var rows=new List<Dictionary<string,object>>();using(var cmd=new SQLiteCommand("SELECT * FROM "+VaultStorage.Quote(table)+(where.Length>0?" WHERE "+where:"")+(table=="person_residence_periods"?" ORDER BY valid_from,id":""),c,tx)) {
     cmd.Parameters.AddRange(parameters);using(var r=cmd.ExecuteReader())while(r.Read()) {if(rows.Count>=200000)throw new InvalidDataException("Lô hợp nhất vượt 200.000 dòng trong một bảng.");var row=new Dictionary<string,object>(StringComparer.Ordinal);for(int i=0;i<r.FieldCount;i++)row[r.GetName(i)]=r.GetValue(i);rows.Add(row);}
    }return rows;
   }
@@ -35,7 +35,7 @@ namespace QLKP.Desktop.Core {
   static bool SameValue(object a,object b){if(a==DBNull.Value||b==DBNull.Value)return a==DBNull.Value&&b==DBNull.Value;if(a is byte[]&&b is byte[])return ((byte[])a).SequenceEqual((byte[])b);return Equals(a,b);}
   static string[] MergeKey(string table){return table=="module_field_values"?new[]{"record_id","field_key"}:table=="household_profiles"?new[]{"household_id"}:table=="person_profiles"?new[]{"person_id"}:table=="member_import_batches"?new[]{"idempotency_key"}:table=="intake_batches"?new[]{"request_id"}:new[]{"id"};}
   static string ScopedSource(string table) {
-   if(new[]{"households","people","residency_changes","intake_batches","module_records","module_relations"}.Contains(table))return "area_id=@area";
+   if(new[]{"households","people","residency_changes","person_residence_periods","intake_batches","module_records","module_relations"}.Contains(table))return "area_id=@area";
    if(table=="shared_catalog_items")return "scope_area=@area";
    if(table=="household_profiles")return "household_id IN (SELECT id FROM households WHERE area_id=@area)";
    if(table=="person_profiles")return "person_id IN (SELECT id FROM people WHERE area_id=@area)";
@@ -43,7 +43,7 @@ namespace QLKP.Desktop.Core {
    return "record_id IN (SELECT id FROM module_records WHERE area_id=@area)";
   }
   static string MergeFeature(SQLiteConnection source,string table,Dictionary<string,object> row) {
-   if(table=="shared_catalog_items")return "I07";if(table=="residency_changes")return "B03";
+   if(table=="shared_catalog_items")return "I07";if(table=="residency_changes"||table=="person_residence_periods")return "B03";
    if(table.StartsWith("module_",StringComparison.Ordinal))return table=="module_records"?Text(row,"feature"):Convert.ToString(Scalar(source,null,"SELECT feature FROM module_records WHERE id=@id",P("@id",Text(row,table=="module_relations"?"source_id":"record_id"))));
    return table=="households"||table=="household_profiles"?"B01":"B02";
   }
@@ -57,8 +57,11 @@ namespace QLKP.Desktop.Core {
     var modules=new List<Dictionary<string,object>>();
     foreach(string table in MergeTables) {
      var summary=new MergeSummary{Table=table};plan.Summary.Add(summary);
+     if(table=="person_residence_periods"&&Convert.ToInt32(Scalar(source,null,
+       "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=@table",P("@table",table)))==0)continue;
      foreach(var original in MergeRows(source,table,ScopedSource(table),null,P("@area",sourceArea))) {
       string feature=MergeFeature(source,table,original);Require(target,tx,actor,feature,"read",actor.AreaId);Require(target,tx,actor,feature,feature=="I07"?"manage":"create",actor.AreaId);
+      if(table=="person_residence_periods")Require(target,tx,actor,"B02","read",actor.AreaId);
       if(table=="module_relations")Require(target,tx,actor,Text(original,"target_feature"),"read",actor.AreaId);
       if(table=="module_record_history"&&(Convert.ToInt64(original["old_version"])<1||Convert.ToInt64(original["new_version"])>Convert.ToInt64(Scalar(target,tx,"SELECT version FROM module_records WHERE id=@id",P("@id",Text(original,"record_id"))))))throw new InvalidOperationException("Lịch sử không khớp phiên bản hồ sơ; đã hủy toàn bộ lô.");
       var row=new Dictionary<string,object>(original,StringComparer.Ordinal);
@@ -77,6 +80,14 @@ namespace QLKP.Desktop.Core {
        summary.Identical++;continue;
       }
       if(table=="module_records") {modules.Add(original);row["related_feature"]="";row["related_id"]="";}
+      if(table=="person_residence_periods") {
+       if(String.CompareOrdinal(Text(row,"valid_from"),LocalDateKey)>0||Text(row,"address").Any(Char.IsControl))
+        throw new InvalidOperationException("Kỳ cư trú nguồn có ngày bắt đầu hoặc địa chỉ không hợp lệ. Đã hủy toàn bộ lô.");
+       var later=Scalar(target,tx,@"SELECT count(*) FROM person_residence_periods
+         WHERE person_id=@person AND kind=@kind AND valid_from>=@start",
+         P("@person",row["person_id"]),P("@kind",row["kind"]),P("@start",row["valid_from"]));
+       if(Convert.ToInt32(later)!=0)throw new InvalidOperationException("Kỳ cư trú xung đột với lịch sử đã có. Đã hủy toàn bộ lô.");
+      }
       MergeInsert(target,tx,table,row);summary.Added++;
       string identity=String.Join("|",keys.Select(k=>Text(original,k)));
       Exec(target,tx,"INSERT INTO data_merge_items(run_id,source_table,source_id,source_actor_id,source_created_by,source_updated_by) VALUES(@r,@t,@id,@a,@c,@u)",P("@r",plan.RunId),P("@t",table),P("@id",identity),P("@a",Text(original,"actor_id")),P("@c",Text(original,"created_by").Length>0?Text(original,"created_by"):Text(original,"changed_by")),P("@u",Text(original,"updated_by")));

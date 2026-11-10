@@ -128,6 +128,44 @@ CREATE TRIGGER IF NOT EXISTS residency_change_immutable_delete
  BEFORE DELETE ON residency_changes
  BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_RESIDENCY_EVENT'); END;
 
+-- Address periods are independent of household membership and of legal verification.
+-- NULL end means open until a later period of the same type starts.
+CREATE TABLE IF NOT EXISTS person_residence_periods (
+ id TEXT PRIMARY KEY NOT NULL,
+ area_id TEXT NOT NULL REFERENCES areas(id),
+ person_id TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+ kind TEXT NOT NULL CHECK(kind IN ('thuong_tru','tam_tru')),
+ address TEXT NOT NULL CHECK(length(trim(address)) BETWEEN 1 AND 255),
+ valid_from TEXT NOT NULL CHECK(length(valid_from)=10 AND date(valid_from,'+0 days') IS valid_from),
+ valid_until TEXT CHECK(valid_until IS NULL OR
+   (length(valid_until)=10 AND date(valid_until,'+0 days') IS valid_until AND valid_until>valid_from)),
+ actor_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+ recorded_utc TEXT NOT NULL,
+ UNIQUE(person_id,kind,valid_from)
+);
+CREATE TRIGGER IF NOT EXISTS person_residence_period_scope_insert
+ BEFORE INSERT ON person_residence_periods
+ WHEN NEW.area_id IS NOT (SELECT area_id FROM people WHERE id=NEW.person_id)
+ BEGIN SELECT RAISE(ABORT, 'CROSS_AREA_RESIDENCE_PERIOD'); END;
+CREATE TRIGGER IF NOT EXISTS person_residence_period_overlap_insert
+ BEFORE INSERT ON person_residence_periods
+ WHEN EXISTS (
+   SELECT 1 FROM person_residence_periods p
+   WHERE p.person_id=NEW.person_id AND p.kind=NEW.kind
+     AND ((p.valid_from<NEW.valid_from AND p.valid_until>NEW.valid_from)
+       OR (p.valid_from>NEW.valid_from AND NEW.valid_until>p.valid_from)))
+ BEGIN SELECT RAISE(ABORT, 'OVERLAPPING_RESIDENCE_PERIOD'); END;
+CREATE TRIGGER IF NOT EXISTS person_residence_period_immutable_update
+ BEFORE UPDATE ON person_residence_periods
+ BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_RESIDENCE_PERIOD'); END;
+CREATE TRIGGER IF NOT EXISTS person_residence_period_immutable_delete
+ BEFORE DELETE ON person_residence_periods
+ BEGIN SELECT RAISE(ABORT, 'IMMUTABLE_RESIDENCE_PERIOD'); END;
+CREATE TRIGGER IF NOT EXISTS person_residence_period_person_scope_update
+ BEFORE UPDATE OF area_id ON people
+ WHEN NEW.area_id<>OLD.area_id AND EXISTS (SELECT 1 FROM person_residence_periods WHERE person_id=OLD.id)
+ BEGIN SELECT RAISE(ABORT, 'MOVE_PERSON_REQUIRES_RESIDENCE_WORKFLOW'); END;
+
 -- V0.8: normalized search indexes are created by DataStore.Initialize after ALTER/backfill migration.
 
 -- V0.10: explicit, evidence-aware classification. Empty profile means NOT CLASSIFIED.

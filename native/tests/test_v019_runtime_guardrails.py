@@ -58,10 +58,15 @@ class V019GuardrailTests(unittest.TestCase):
         ps=read('build-on-windows.ps1')
         iss=read('installer/QLKP-PILOT.iss')
         cmd=read('BUILD_SETUP_1_CLICK.cmd')
-        self.assertIn('<Version>0.20.0.0</Version>',csproj)
-        self.assertIn('V0.20',ps)
-        self.assertIn('0.20.0-PILOT',iss)
-        self.assertIn('V0.20',cmd)
+        versions = dict(line.split('=', 1) for line in read('release.properties').splitlines() if '=' in line)
+        name = versions['desktopVersionName']
+        assembly = versions['desktopAssemblyVersion']
+        self.assertIn(f'<Version>{assembly}</Version>', csproj)
+        self.assertIn(f'<FileVersion>{assembly}</FileVersion>', csproj)
+        self.assertIn('V' + name.split('-')[0], ps)
+        self.assertIn(f'#define MyAppVersion "{name}"', iss)
+        self.assertIn('V' + name.split('-')[0], cmd)
+        self.assertIn(f"-ne '{assembly}'", read('test-windows-install.ps1'))
     def test_10_build_requires_real_wpf_selftest_before_installer(self):
         ps=read('build-on-windows.ps1')
         self.assertIn('WaitForExit(120000)',ps)
