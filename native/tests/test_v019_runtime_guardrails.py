@@ -23,7 +23,9 @@ class V019GuardrailTests(unittest.TestCase):
         self.assertIn('Require(c,tx,s,reportFeature,"read"',src)
     def test_03_export_also_masks_low_counts(self):
         src=read('src/QLKP.Desktop/Core/ReportStore.cs')
-        self.assertIn('r.GetInt64(2)<5?"Ẩn (1–4)"',src)
+        self.assertIn('long count=r.GetInt64(2)',src)
+        self.assertIn('count<5?(object)"Ẩn (1–4)"',src)
+        self.assertEqual(src.count("AggregateRows(s,from,to,sourceFilter,statusFilter)"),2)
         self.assertIn('Require(c,tx,s,"H05","export"',src)
     def test_04_windows_runtime_selftest_checks_privacy(self):
         src=read('src/QLKP.Desktop/Core/SelfTest.cs')
