@@ -28,7 +28,7 @@
      </WrapPanel>
      <Label Target="{Binding ElementName=Address}" Content="Địa chỉ cư trú"/>
      <TextBox x:Name="Address" MaxLength="255"/>
-     <Button Content="Ghi kỳ cư trú" Click="Save_Click" HorizontalAlignment="Left"/>
+     <Button x:Name="SavePeriod" Content="Ghi kỳ cư trú" Click="Save_Click" HorizontalAlignment="Left"/>
     </StackPanel>
    </Border>
   </StackPanel>

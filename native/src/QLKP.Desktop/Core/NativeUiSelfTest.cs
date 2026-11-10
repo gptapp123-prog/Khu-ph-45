@@ -164,7 +164,7 @@ namespace QLKP.Desktop.Core {
       try {
        Control<TextBox>(window,"SourcePath").Text=mergeSource;
        run.BeginStep("UI_DATA_MERGE_PREVIEW");Click(Control<Button>(window,"PreviewButton"));
-       if(!Control<Button>(window,"ApplyButton").IsEnabled||Control<DataGrid>(window,"Summary").Items.Count!=13)throw new InvalidDataException("Merge preview UI failed.");
+       if(!Control<Button>(window,"ApplyButton").IsEnabled||!Control<DataGrid>(window,"Summary").Items.Cast<MergeSummary>().Any(x=>x.Table=="person_residence_periods"))throw new InvalidDataException("Merge preview UI failed.");
        Snapshot(window,evidence,"merge-preview");
        run.BeginStep("UI_DATA_MERGE_CONFIRM_APPLY");Click(Control<Button>(window,"ApplyButton"),true,"Xác nhận hợp nhất");
        if(DataStore.FindHouseholds(admin,"MERGE-DIALOG").Count!=1)throw new InvalidDataException("Merge button did not persist records.");
@@ -173,6 +173,36 @@ namespace QLKP.Desktop.Core {
       finally{if(window!=null)window.Close();}
      };
      mergeTimer.Start();try{Click(Control<Button>(quality,"MergeButton"));}finally{mergeTimer.Stop();}if(mergeError!=null)throw new InvalidDataException("Merge dialog UI failed.",mergeError);
+     run.BeginStep("UI_B03_RESIDENCE_PERIOD_BUTTON");
+     var person=DataStore.HouseholdMembers(admin,DataStore.FindHouseholds(admin,"MERGE-DIALOG").Single().Id).Single();
+     var peoplePanel=Navigate(main,"B02");
+     Control<DataGrid>(peoplePanel,"People").SelectedItem=Control<DataGrid>(peoplePanel,"People").Items.Cast<PersonRow>().Single(row=>row.Id==person.Id);
+     Drain();
+     Exception periodError=null;bool periodExercised=false;
+     var periodTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
+     periodTimer.Tick+=(o,args)=>{
+      var window=Application.Current.Windows.OfType<ResidencePeriodsWindow>().SingleOrDefault();
+      if(window==null)return;
+      periodTimer.Stop();
+      try {
+       var save=Control<Button>(window,"SavePeriod");
+       Click(save);
+       if(DataStore.GetResidencePeriods(admin,person.Id,0).TotalCount!=0)
+        throw new InvalidDataException("Blank address created a period.");
+       Control<TextBox>(window,"Address").Text="[MẪU] Địa chỉ cư trú UI";
+       Control<TextBox>(window,"ValidFrom").Text="01-01-2020";
+       Click(save);
+       var row=DataStore.GetResidencePeriods(admin,person.Id,0).Items.Single();
+       if(row.Address!="[MẪU] Địa chỉ cư trú UI"||row.ValidFrom!="2020-01-01"||Control<DataGrid>(window,"Periods").Items.Count!=1)
+        throw new InvalidDataException("Residence UI did not write and reload the correct person.");
+       Snapshot(window,evidence,"B03-residence-period");
+       periodExercised=true;
+      }catch(Exception ex){periodError=ex;}
+      finally{window.Close();}
+     };
+     periodTimer.Start();
+     try{Click(Control<Button>(peoplePanel,"OpenResidencePeriods"));}finally{periodTimer.Stop();}
+     if(!periodExercised||periodError!=null)throw new InvalidDataException("Residence period dialog UI failed.",periodError);
      foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
