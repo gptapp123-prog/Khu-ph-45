@@ -6,7 +6,7 @@ namespace QLKP.Desktop.Views {
  public partial class LoginWindow : Window {
   bool firstRun;
   public LoginWindow(){InitializeComponent();WindowLayout.FitInitialSize(this);RefreshMode();Loaded+=(s,e)=>LoginName.Focus();}
-  void RefreshMode(){firstRun=DataStore.IsFirstRun();OwnerSetup.Visibility=SetupButton.Visibility=firstRun?Visibility.Visible:Visibility.Collapsed;LoginButton.Visibility=firstRun?Visibility.Collapsed:Visibility.Visible;ModeTitle.Text=firstRun?"KHỞI TẠO HỆ THỐNG":"ĐĂNG NHẬP HỆ THỐNG";ModeHint.Text=firstRun?"Tạo quản trị hệ thống đầu tiên và thiết lập khu phố.":"Kho đã có tài khoản. Đăng nhập bằng tài khoản được cấp; quản trị viên cấp thêm tài khoản trong mục Tài khoản.";}
+  void RefreshMode(){firstRun=DataStore.IsFirstRun();OwnerSetup.Visibility=SetupButton.Visibility=firstRun?Visibility.Visible:Visibility.Collapsed;LoginButton.Visibility=RecoveryButton.Visibility=firstRun?Visibility.Collapsed:Visibility.Visible;ModeTitle.Text=firstRun?"KHỞI TẠO HỆ THỐNG":"ĐĂNG NHẬP HỆ THỐNG";ModeHint.Text=firstRun?"Tạo quản trị hệ thống đầu tiên và thiết lập khu phố.":"Kho đã có tài khoản. Đăng nhập bằng tài khoản được cấp; quản trị viên cấp thêm tài khoản trong mục Tài khoản.";}
   void ShowMessage(string text){Message.Text=text;Message.BringIntoView();}
   void EnterApp(Session session){var w=new MainWindow(session);LoginPassword.Clear();VisibleLoginPassword.Clear();ConfirmPassword.Clear();w.Show();Close();}
   string CurrentPassword {get{return RevealPassword.IsChecked==true?VisibleLoginPassword.Text:LoginPassword.Password;}}
@@ -14,6 +14,15 @@ namespace QLKP.Desktop.Views {
    if(LoginPassword==null||VisibleLoginPassword==null||RevealPassword==null)return;
    if(RevealPassword.IsChecked==true){VisibleLoginPassword.Text=LoginPassword.Password;LoginPassword.Clear();LoginPassword.Visibility=Visibility.Collapsed;VisibleLoginPassword.Visibility=Visibility.Visible;VisibleLoginPassword.Focus();VisibleLoginPassword.CaretIndex=VisibleLoginPassword.Text.Length;}
    else {LoginPassword.Password=VisibleLoginPassword.Text;VisibleLoginPassword.Clear();VisibleLoginPassword.Visibility=Visibility.Collapsed;LoginPassword.Visibility=Visibility.Visible;LoginPassword.Focus();}
+  }
+  void RecoverRoot_Click(object sender,RoutedEventArgs e) {
+   var username=LoginName.Text.Trim();
+   if(String.IsNullOrEmpty(username)){ShowMessage("Nhập tên tài khoản quản trị hệ thống trước.");LoginName.Focus();return;}
+   if(AccountPasswordDialog.Show(this,"Khôi phục quản trị hệ thống","Mã phục hồi đã lưu",(code,next)=>{
+    var replacement=DataStore.RecoverRootPassword(username,code,next);
+    if(replacement==null)throw new InvalidOperationException("Không xác minh được mã hoặc xác minh đang tạm khóa.");
+    return replacement;
+   })) {LoginPassword.Clear();VisibleLoginPassword.Clear();ShowMessage("Đã đặt mật khẩu mới. Hãy đăng nhập lại.");}
   }
   void Diagnostics_Click(object sender,RoutedEventArgs e) {
    try {

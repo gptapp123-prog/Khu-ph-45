@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=16;
+  internal const int SchemaVersion=17;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -97,6 +97,7 @@ namespace QLKP.Desktop.Core {
     } finally {if(rebuild)Exec(c,null,"PRAGMA foreign_keys=ON");}
    }
    UpgradeBusinessDefaults();
+   UpgradeOrdinaryAccountRights();
   }
   // Migration for existing V1–V3 databases. All schema updates and search-key backfill
   // occur inside the same SQLite transaction, so a failure never leaves half a migration.
@@ -172,23 +173,12 @@ namespace QLKP.Desktop.Core {
      }
     }
     if(id==null||active!=1){tx.Commit();return null;}
-    string blocked=Convert.ToString(Scalar(c,tx,"SELECT blocked_until_utc FROM login_throttle WHERE account_id=@id",P("@id",id)));
-    DateTime blockUntil;
-    if(!String.IsNullOrEmpty(blocked) && DateTime.TryParse(blocked,CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind,out blockUntil)) {
-     if(blockUntil.ToUniversalTime()>DateTime.UtcNow){tx.Commit();return null;}
-     // Expired throttling window: a fresh sequence of attempts may begin.
-     Exec(c,tx,"DELETE FROM login_throttle WHERE account_id=@id",P("@id",id));
-    }
-    bool matched=EqualBytes(Convert.FromBase64String(hash),Convert.FromBase64String(Hash(password,Convert.FromBase64String(salt64))));
-    if(!matched) {
-     Exec(c,tx,"INSERT OR IGNORE INTO login_throttle(account_id,failed_count,updated_utc) VALUES(@id,0,@t)",P("@id",id),P("@t",Now));
-     Exec(c,tx,@"UPDATE login_throttle SET failed_count=failed_count+1,updated_utc=@t,
-      blocked_until_utc=CASE WHEN failed_count+1>=5 THEN @until ELSE NULL END WHERE account_id=@id",
-      P("@id",id),P("@t",Now),P("@until",DateTime.UtcNow.AddMinutes(15).ToString("o",CultureInfo.InvariantCulture)));
-     Audit(c,tx,id,"LOGIN_DENIED","account",id);
+    if(IsLoginBlocked(c,tx,id)){tx.Commit();return null;}
+    if(!PasswordMatches(password,hash,salt64)) {
+     RecordLoginFailure(c,tx,id,"LOGIN_DENIED");
      tx.Commit();return null;
     }
-    Exec(c,tx,"DELETE FROM login_throttle WHERE account_id=@id",P("@id",id));
+    ClearLoginThrottle(c,tx,id);
     Audit(c,tx,id,"LOGIN_SUCCESS","account",id);
     tx.Commit();
     if(role=="ROOT_ADMIN")area=Convert.ToString(Scalar(c,null,"SELECT id FROM areas ORDER BY created_utc,id LIMIT 1"));
@@ -252,7 +242,7 @@ namespace QLKP.Desktop.Core {
    Exec(c,tx,"INSERT INTO audit_log(id,actor_id,event_code,entity_type,entity_id,utc,result) VALUES(@i,@u,@e,@k,@n,@t,'OK')",P("@i",Id()),P("@u",actor),P("@e",ev),P("@k",kind),P("@n",entityId),P("@t",Now));
   }
   static void InsertAccount(SQLiteConnection c,SQLiteTransaction tx,string username,string password,string role,string areaId,string actorId,out string userId) {
-   if(String.IsNullOrWhiteSpace(username))throw new InvalidOperationException("Chưa nhập tên tài khoản.");
+   if(String.IsNullOrWhiteSpace(username)||username.Trim().Length>128)throw new InvalidOperationException("Tên tài khoản phải có từ 1 đến 128 ký tự.");
    var secret=NewPassword(password);userId=Id();
    Exec(c,tx,"INSERT INTO accounts(id,username,hash_b64,salt_b64,role,area_id,created_utc) VALUES(@i,@u,@h,@s,@r,@a,@t)",P("@i",userId),P("@u",username.Trim()),P("@h",secret.Item1),P("@s",secret.Item2),P("@r",role),P("@a",areaId),P("@t",Now));
    Audit(c,tx,actorId,"CREATE_ACCOUNT","account",userId);
@@ -274,20 +264,39 @@ namespace QLKP.Desktop.Core {
     } else if(actor.Role=="KP_ADMIN") {
      area=actor.AreaId;
      var valid = new HashSet<string>(new[]{"B01:read","B01:create","B02:read","B02:create","B02:update","B03:read","B03:create","I08:read"});
-     var unique=new HashSet<string>(requestedRights==null||requestedRights.Count==0?BusinessDefaultRights():requestedRights);
+     if(requestedRights!=null&&requestedRights.Count==0)
+      throw new InvalidOperationException("Chọn ít nhất một quyền hoặc sử dụng bộ quyền mặc định.");
+     var delegatable=ReadDelegatableRights(c,tx,actor);
+     var unique=new HashSet<string>(requestedRights??OrdinaryAccountDefaults().Where(delegatable.Contains).ToList());
      valid.UnionWith(ModuleCatalog.AdditionalRights());
      valid.UnionWith(PersonIdentityRights);
+     if(unique.Count==0)throw new InvalidOperationException("Chưa có quyền nghiệp vụ được phép cấp.");
      foreach(var perm in unique) {
       if(!valid.Contains(perm))throw new UnauthorizedAccessException("Quyền không hợp lệ: "+perm);
-      string[] pair=perm.Split(':');
-      if(Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM delegation_ceiling WHERE admin_id=@u AND feature=@f AND action=@x AND area_id=@a",P("@u",actor.Id),P("@f",pair[0]),P("@x",pair[1]),P("@a",area)))!=1 ||
-       !HasPermission(c,tx,actor,pair[0],pair[1],area))
+      if(!delegatable.Contains(perm))
        throw new UnauthorizedAccessException("Quyền vượt giới hạn ủy quyền hoặc quyền hiện có.");
      }
      InsertAccount(c,tx,username,password,"ASSIGNED_USER",area,actor.Id,out target);
      foreach(var perm in unique) {var pair=perm.Split(':');Grant(c,tx,target,pair[0],pair[1],area,actor.Id);}
     } else throw new UnauthorizedAccessException("Tài khoản cấp dưới không được tạo tài khoản.");
     tx.Commit();
+   }
+  }
+  static HashSet<string> ReadDelegatableRights(SQLiteConnection c,SQLiteTransaction tx,Session admin) {
+   var rights=new HashSet<string>(StringComparer.Ordinal);
+   using(var cmd=new SQLiteCommand(@"SELECT p.feature,p.action FROM permissions p JOIN delegation_ceiling d
+    ON d.admin_id=p.account_id AND d.area_id=p.area_id AND d.feature=p.feature AND d.action=p.action
+    WHERE p.account_id=@id AND p.area_id=@area",c,tx)) {
+    cmd.Parameters.Add(P("@id",admin.Id));
+    cmd.Parameters.Add(P("@area",admin.AreaId));
+    using(var reader=cmd.ExecuteReader())while(reader.Read())rights.Add(reader.GetString(0)+":"+reader.GetString(1));
+   }
+   return rights;
+  }
+  public static HashSet<string> GetDelegatableAccountRights(Session actor) {
+   using(var c=Open())using(var tx=c.BeginTransaction()) {
+    Require(c,tx,actor,"I01","manage",actor==null?null:actor.AreaId);
+    return ReadDelegatableRights(c,tx,actor);
    }
   }
   // Scope check applies equally to lookups and writes: no self-grant, no cross-area editing.
@@ -328,16 +337,8 @@ namespace QLKP.Desktop.Core {
    var wanted=NormalizeRights(rights);
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     string area=CheckTarget(c,tx,actor,targetId);
-    if(actor.Role=="KP_ADMIN") {
-     foreach(string right in wanted) {
-      var pair=right.Split(':');
-      if(Convert.ToInt32(Scalar(c,tx,@"SELECT COUNT(*) FROM delegation_ceiling
-        WHERE admin_id=@id AND area_id=@area AND feature=@f AND action=@act",P("@id",actor.Id),P("@area",area),P("@f",pair[0]),P("@act",pair[1])))!=1 ||
-       !HasPermission(c,tx,actor,pair[0],pair[1],area))
-       throw new UnauthorizedAccessException("Quyền vượt phạm vi ủy quyền hoặc quyền hiện có của ADMIN.");
-     }
-    }
-    // Only editable B01/B02 rights are replaced. Management rights are kept separate.
+    if(actor.Role=="KP_ADMIN" && !wanted.IsSubsetOf(ReadDelegatableRights(c,tx,actor)))
+     throw new UnauthorizedAccessException("Quyền vượt phạm vi ủy quyền hoặc quyền hiện có của ADMIN.");
     Exec(c,tx,"DELETE FROM permissions WHERE account_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));
     if(actor.Role=="ROOT_ADMIN")
      Exec(c,tx,"DELETE FROM delegation_ceiling WHERE admin_id=@id AND feature IN ('B01','B02','B03','I08','I03','A01','A02','A03','A04','A05','A06','B04','B05','B06','B07','C01','C02','C03','C04','C05','C06','D01','D02','D03','D04','D05','E01','E02','E03','E04','E05','E06','E07','F01','F02','F03','F04','F05','F06','F07','F08','G01','G02','G03','G04','H01','H02','H03','H04','H05','I05','I06','I07','I09')",P("@id",targetId));

@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS login_throttle (
  failed_count INTEGER NOT NULL DEFAULT 0 CHECK(failed_count>=0),
  blocked_until_utc TEXT, updated_utc TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS account_recovery (
+ account_id TEXT PRIMARY KEY NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+ hash_b64 TEXT NOT NULL, salt_b64 TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS permissions (
  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
  feature TEXT NOT NULL, action TEXT NOT NULL,

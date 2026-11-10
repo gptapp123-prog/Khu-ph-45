@@ -27,6 +27,7 @@
     <TextBlock x:Name="Message" Foreground="#B51E31" TextWrapping="Wrap" Margin="4,10" AutomationProperties.LiveSetting="Assertive"/>
     <Button x:Name="SetupButton" Content="Khởi tạo tài khoản quản trị hệ thống" Click="Setup_Click" MinHeight="42"/>
     <Button x:Name="LoginButton" Content="Đăng nhập" Height="42" Click="Login_Click"/>
+    <Button x:Name="RecoveryButton" Content="Khôi phục quản trị bằng mã" Click="RecoverRoot_Click" MinHeight="38"/>
     <Button Content="Kiểm tra kho dữ liệu" Click="Diagnostics_Click" MinHeight="38" Margin="4,12,4,4"/>
     <Border Background="#FFF3DE" BorderBrush="#E7C887" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,12">
      <TextBlock Text="Kho mã hóa gắn với tài khoản Windows. Hãy tạo bản sao phục hồi trước khi đổi máy hoặc cài lại Windows." FontSize="12" TextWrapping="Wrap" Foreground="#8B4418"/>

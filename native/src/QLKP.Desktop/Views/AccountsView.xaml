@@ -2,6 +2,7 @@
  <DockPanel Margin="12"><ScrollViewer DockPanel.Dock="Top" MaxHeight="350" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
   <TextBlock Text="I01 · TÀI KHOẢN VÀ CẤP QUYỀN" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
   <TextBlock x:Name="Instruction" Foreground="#506682" TextWrapping="Wrap"/>
+  <WrapPanel Margin="0,6"><Button Content="Đổi mật khẩu của tôi" Click="ChangePassword_Click"/><Button x:Name="RecoveryButton" Content="Tạo mã phục hồi quản trị" Click="RecoveryCode_Click"/></WrapPanel>
   <Border x:Name="CreateSection" BorderBrush="#D9E2F0" BorderThickness="1" Padding="12"><StackPanel>
    <WrapPanel><TextBlock Text="Tên đăng nhập" VerticalAlignment="Center"/><TextBox x:Name="Username" Width="200"/><TextBlock Text="Mật khẩu mới" VerticalAlignment="Center"/><PasswordBox x:Name="Password" Width="220"/></WrapPanel>
    <CheckBox x:Name="CustomizeRights" Content="Giới hạn quyền riêng cho tài khoản này" Checked="Customize_Changed" Unchecked="Customize_Changed" Margin="8"/>

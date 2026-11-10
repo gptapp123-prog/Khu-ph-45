@@ -101,10 +101,12 @@ class SourceTest(unittest.TestCase):
         self.assertIn(r'build-output\Release\x64\*',installer)
         self.assertIn('SmokeTest',build)
     def test_lockout_in_login(self):
-        self.assertIn('DateTime.UtcNow.AddMinutes(15)',core)
+        passwords=read('src/QLKP.Desktop/Core/AccountPasswords.cs')
+        self.assertIn('DateTime.UtcNow.AddMinutes(15)',passwords)
+        self.assertIn('RecordLoginFailure(c,tx,id,"LOGIN_DENIED")',core)
         self.assertIn('LOGIN_DENIED',core)
         self.assertIn('LOGIN_SUCCESS',core)
-        self.assertIn('blocked_until_utc',core)
+        self.assertIn('blocked_until_utc',passwords)
     def test_permissions_version_on_change(self):
         self.assertIn('UPDATE accounts SET policy_version=policy_version+1 WHERE id=@id',core)
         self.assertIn('affected.Add(r.GetString(0))',core)

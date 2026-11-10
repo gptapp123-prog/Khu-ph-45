@@ -172,7 +172,7 @@ class SecurityAndPackaging(unittest.TestCase):
         policy=(ROOT/'src/QLKP.Desktop/Core/BusinessDefaults.cs').read_text(encoding='utf-8')
         defaults, grant=policy.split('public static List<string> BusinessDefaultRights()',1)[1].split('static void GrantBusinessDefaults(',1)
         self.assertIn('"I08:read"',defaults)
-        self.assertIn('foreach(string right in BusinessDefaultRights())',grant)
+        self.assertIn('foreach(string right in ceiling?BusinessDefaultRights():OrdinaryAccountDefaults())',grant)
         self.assertIn('Grant(c,tx,id,p[0],p[1],area,root)',grant)
         root_create=clip('if(actor.Role=="ROOT_ADMIN") {','} else if(actor.Role=="KP_ADMIN")')
         self.assertIn('GrantBusinessDefaults(c,tx,target,area,actor.Id,true)',root_create)

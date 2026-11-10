@@ -5,7 +5,7 @@ from pathlib import Path
 FORMAT='QLKP_TEST_RUN_V1'
 def utc():return dt.datetime.now(dt.timezone.utc).isoformat()
 class Journal:
- def __init__(self,root:Path,kind='regression',layer='source_sql',source_version='0.21.2-PILOT',source_hash=''):
+ def __init__(self,root:Path,kind='regression',layer='source_sql',source_version='0.21.3-PILOT',source_hash=''):
   self.id=uuid.uuid4().hex;self.directory=Path(root)/self.id;self.directory.mkdir(parents=True,exist_ok=False)
   self.started=time.monotonic_ns();self.active=None;self.closed=False
   self.report=dict(format=FORMAT,session_id=self.id,parent_session_id='',kind=kind,layer=layer,status='RUNNING',started_utc=utc(),finished_utc='',duration_ms=0,

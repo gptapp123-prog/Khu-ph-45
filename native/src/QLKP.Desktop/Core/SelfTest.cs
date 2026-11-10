@@ -910,6 +910,7 @@ namespace QLKP.Desktop.Core {
     StartupDiagnostics.CheckPlaintextMaintenanceArtifacts();
     journal.BeginStep("A02_OFFLINE_TASK_EXCHANGE");
     TestOfflineTaskExchange(root,admin,user,adminSecret,sandbox);
+    DataStore.RunAccountPasswordRegression(journal,root,ownerSecret);
     StartupDiagnostics.CheckDatabase(DataStore.DatabasePath);
    } catch(Exception ex){journal.EndStep("FAIL",ex.GetType().Name);throw;}
    finally {

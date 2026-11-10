@@ -17,6 +17,7 @@ namespace QLKP.Desktop.Views {
   void Reload_Click(object sender,RoutedEventArgs e){Reload();}
   void Accounts_SelectionChanged(object sender,SelectionChangedEventArgs e) {
    var row=Selected;SaveRights.IsEnabled=row!=null&&row.Id!=session.Id&&(session.Role=="ROOT_ADMIN"?row.Role=="KP_ADMIN":row.Role=="ASSIGNED_USER");BlockAccount.IsEnabled=UnblockAccount.IsEnabled=row!=null&&row.Role=="ASSIGNED_USER"&&session.Role=="KP_ADMIN"; SelectedAccount.Text=row==null?"Chưa chọn tài khoản":row.Username+" · "+DisplayLabels.Role(row.Role)+" · "+row.Status;
+   ResetPassword.IsEnabled=SaveRights.IsEnabled;
    RightB01Read.IsChecked=false;RightB01Create.IsChecked=false;RightB02Read.IsChecked=false;RightB02Create.IsChecked=false;RightB02Update.IsChecked=false;RightB03Read.IsChecked=false;RightB03Create.IsChecked=false;RightI08Read.IsChecked=false;
    foreach(CheckBox cb in AdditionalRights.Children)cb.IsChecked=false;
    if(row==null)return;
@@ -40,6 +41,13 @@ namespace QLKP.Desktop.Views {
    if(MessageBox.Show("Thay đổi quyền của "+row.Username+"?", "Xác nhận",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
    try{DataStore.SetAccountRights(session,row.Id,SelectedRights());Info.Text="Đã cập nhật quyền; phiên cũ không còn hợp lệ.";}
    catch(Exception ex){Info.Text="Không thể đổi quyền: "+ex.GetType().Name;}}
+  void ResetPassword_Click(object sender,RoutedEventArgs e) {
+   var row=Selected;
+   if(row==null||!ResetPassword.IsEnabled)return;
+   if(AccountPasswordDialog.Show(Window.GetWindow(this),"Đặt lại mật khẩu cho "+row.Username,"Mật khẩu hiện tại của bạn",(current,next)=>{
+    DataStore.ResetSubordinatePassword(session,row.Id,current,next);return null;
+   }))Info.Text="Đã đặt lại mật khẩu. Tài khoản cần đăng nhập lại.";
+  }
   void ChangeStatus(bool active) { var row=Selected;if(row==null){Info.Text="Chọn tài khoản cần khóa hoặc mở khóa.";return;}
    if(MessageBox.Show((active?"Mở khóa ":"Khóa ")+row.Username+"?","Xác nhận",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
    try{DataStore.SetAccountStatus(session,row.Id,active);Reload();Info.Text="Đã thay đổi trạng thái tài khoản.";}

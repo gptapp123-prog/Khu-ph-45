@@ -14,7 +14,13 @@ namespace QLKP.Desktop.Core {
    if(ListCatalog(admin,"",0).TotalCount!=13||GetWorkspaceSummary(admin).Households!=0)throw new InvalidDataException("Default catalog missing or business records seeded.");
    run.BeginStep("P9_NEW_ORDINARY_DEFAULTS_AND_PROTECTED_ADMINS");
    string password="T-"+Guid.NewGuid().ToString("N")+"!";CreateAccount(admin,"default_operator",password,null);var op=Login("default_operator",password);
-   foreach(var right in BusinessDefaultRights()){var p=right.Split(':');if(!Can(op,p[0],p[1]))throw new InvalidDataException("Ordinary account missing default business right.");}
+   foreach(var right in OrdinaryAccountDefaults()){var p=right.Split(':');if(!Can(op,p[0],p[1]))throw new InvalidDataException("Ordinary account missing default business right.");}
+   if(Can(op,"I03","read")||Can(op,"I07","manage")||Can(op,"I08","merge"))
+    throw new InvalidDataException("Ordinary account received sensitive defaults.");
+   bool emptyDenied=false;
+   try { CreateAccount(admin,"empty_rights",password,new string[0]); }
+   catch(InvalidOperationException) { emptyDenied=true; }
+   if(!emptyDenied||Login("empty_rights",password)!=null)throw new InvalidDataException("Empty custom rights fell back to defaults.");
    string protectedHash=AccountIdentities();
    foreach(var actor in new[]{admin,op})foreach(var target in new[]{root.Id,admin.Id}) {
     bool denied=false;try{SetAccountStatus(actor,target,false);}catch(UnauthorizedAccessException){denied=true;}if(!denied)throw new InvalidDataException("Default actor altered administrator status.");
@@ -28,7 +34,7 @@ namespace QLKP.Desktop.Core {
    if(GetPerson(op,original.Id).FullName!="[MẪU] Hồ sơ đã sửa")throw new InvalidDataException("Default operator cannot edit person.");
    run.BeginStep("P9_SHARED_CATALOG_AREA_OVERRIDE");
    var global=ListCatalog(op,"",0).Items.First();string initialLabel=global.Label;
-   string localId=SaveCatalog(op,new CatalogEntry{Id=global.Id,Version=global.Version,Category=global.Category,Code=global.Code,Label="[MẪU] Nhãn riêng",Active=true});
+   string localId=SaveCatalog(admin,new CatalogEntry{Id=global.Id,Version=global.Version,Category=global.Category,Code=global.Code,Label="[MẪU] Nhãn riêng",Active=true});
    if(localId==global.Id||ListCatalog(op,"",0).TotalCount!=13||ListCatalog(root,"",0).Items.Single(x=>x.Id==global.Id).Label!=initialLabel)throw new InvalidDataException("Catalog override changed shared definition or created visible duplicate.");
    run.BeginStep("P9_UPGRADE_EXISTING_ACCOUNTS_IDENTITY_PRESERVED");
    SetAccountRights(admin,op.Id,new[]{"B01:read"});SetAccountRights(root,admin.Id,new[]{"B01:read"});
@@ -37,8 +43,31 @@ namespace QLKP.Desktop.Core {
    Initialize();
    if(Can(admin,"B01","read"))throw new InvalidDataException("Policy migration did not invalidate old session.");
    admin=Login("test_admin",adminPassword);op=Login("default_operator",password);
-   foreach(var actor in new[]{admin,op})foreach(var right in BusinessDefaultRights()){var p=right.Split(':');if(!Can(actor,p[0],p[1]))throw new InvalidDataException("Existing account not upgraded.");}
+   foreach(var right in BusinessDefaultRights()) {
+    var p=right.Split(':');
+    if(!Can(admin,p[0],p[1])||Can(op,p[0],p[1])!=OrdinaryAccountDefaults().Contains(right))
+     throw new InvalidDataException("Existing account not upgraded.");
+   }
    if(AccountIdentities()!=identities||GetHousehold(op,householdId).Address!="[MẪU] Địa chỉ đã sửa"||!Directory.GetFiles(Path.Combine(DataFolder,"maintenance"),"before-policy-p9-*.qlkpvault").Any())throw new InvalidDataException("Policy upgrade changed identity/data or lacked recovery snapshot.");
+   run.BeginStep("ACCOUNT_RIGHTS_UPGRADE_REVOKES_SENSITIVE_GRANTS");
+   SetAccountRights(admin,op.Id,new[]{"B01:read","I03:read","I07:manage","I08:merge"});
+   op=Login("default_operator",password);
+   using(var c=Open())Exec(c,null,"DELETE FROM system_policy_migrations WHERE code=@c",P("@c",OrdinaryRightsMigration));
+   Initialize();
+   if(Can(op,"B01","read"))throw new InvalidDataException("Old policy session survived migration.");
+   op=Login("default_operator",password);
+   if(!Can(op,"B01","read")||Can(op,"I03","read")||Can(op,"I07","manage")||Can(op,"I08","merge")||
+      !Directory.GetFiles(Path.Combine(DataFolder,"maintenance"),"before-account-rights-*.qlkpvault").Any())
+    throw new InvalidDataException("Existing ordinary account retained sensitive rights or migration lacked backup.");
+   run.BeginStep("ACCOUNT_DEFAULTS_RESPECT_DELEGATION");
+   SetAccountRights(root,admin.Id,new[]{"B01:read"});
+   admin=Login("test_admin",adminPassword);
+   CreateAccount(admin,"ceiling_operator",password,null);
+   var limited=Login("ceiling_operator",password);
+   if(!Can(limited,"B01","read")||Can(limited,"B01","create")||Can(limited,"B02","read"))
+    throw new InvalidDataException("Default account ignored reduced delegation.");
+   SetAccountRights(root,admin.Id,BusinessDefaultRights());
+   admin=Login("test_admin",adminPassword);
    run.BeginStep("P9_RESTART_DOES_NOT_REGRANT_EXPLICIT_RESTRICTION");
    SetAccountRights(admin,op.Id,new[]{"B01:read"});op=Login("default_operator",password);Initialize();
    if(Can(op,"B01","create")||!Can(op,"B01","read"))throw new InvalidDataException("Restart undid explicit restriction.");

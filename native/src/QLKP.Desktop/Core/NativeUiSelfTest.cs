@@ -344,8 +344,11 @@ namespace QLKP.Desktop.Core {
      Control<TextBox>(accountPanel,"Username").Text="ui_ordinary";Control<PasswordBox>(accountPanel,"Password").Password=ordinarySecret;
      Click(Control<Button>(accountPanel,"CreateButton"));main.Close();
      var ordinary=DataStore.Login("ui_ordinary",ordinarySecret);main=Login("ui_ordinary",ordinarySecret);
-     foreach(var feature in FeatureCatalog.All){run.BeginStep("UI_ORDINARY_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_ORDINARY_WRITE_"+feature.Code);ExerciseModule(ordinary,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code),"USER-");}}
+     foreach(var feature in FeatureCatalog.All.Where(f=>f.Code!="I03")){run.BeginStep("UI_ORDINARY_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_ORDINARY_WRITE_"+feature.Code);ExerciseModule(ordinary,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code),"USER-");}}
      var protectedAccounts=Navigate(main,"I01");if(Control<Border>(protectedAccounts,"CreateSection").Visibility!=Visibility.Collapsed)throw new InvalidDataException("Ordinary account can create administrator accounts.");
+     if(Control<ListBox>(main,"Features").Items.Cast<Feature>().Any(f=>f.Code=="I03")||
+        Control<Button>(main,"MergeWorkspaceButton").Visibility!=Visibility.Collapsed)
+      throw new InvalidDataException("Ordinary account can open sensitive default controls.");
      Snapshot(main,evidence,"ordinary-protected-accounts");Navigate(main,"I07");Snapshot(main,evidence,"ordinary-catalog");
      run.BeginStep("UI_LOGOUT_BUTTON");Click(Control<Button>(main,"LogoutButton"));
      if(Application.Current.Windows.OfType<MainWindow>().Any())throw new InvalidDataException("Logout left a main window open.");

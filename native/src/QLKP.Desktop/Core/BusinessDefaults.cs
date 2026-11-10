@@ -17,8 +17,36 @@ namespace QLKP.Desktop.Core {
    foreach(var p in new[]{"B01:read","B01:create","B01:update","B02:read","B02:create","B02:update","B03:read","B03:create","I08:read"})rights.Add(p);
    return rights.OrderBy(x=>x,StringComparer.Ordinal).ToList();
   }
+  const string OrdinaryRightsMigration="ORDINARY_ACCOUNT_RIGHTS_V1";
+  const string RestrictedOrdinaryRightsSql="((feature='I03' AND action='read') OR (feature='I07' AND action='manage') OR (feature='I08' AND action='merge'))";
+  public static List<string> OrdinaryAccountDefaults() {
+   return BusinessDefaultRights().Where(right=>right!="I03:read"&&right!="I07:manage"&&right!="I08:merge").ToList();
+  }
+  static void UpgradeOrdinaryAccountRights() {
+   const string applied="SELECT COUNT(*) FROM system_policy_migrations WHERE code=@c";
+   const string affected="SELECT DISTINCT p.account_id FROM permissions p JOIN accounts a ON a.id=p.account_id WHERE a.role='ASSIGNED_USER' AND "+RestrictedOrdinaryRightsSql;
+   using(var c=Open()) {
+    if(Convert.ToInt32(Scalar(c,null,applied,P("@c",OrdinaryRightsMigration)))!=0)return;
+    if(Convert.ToInt32(Scalar(c,null,"SELECT COUNT(*) FROM ("+affected+")"))>0) {
+     string folder=Path.Combine(DataFolder,"maintenance");Directory.CreateDirectory(folder);
+     var key=VaultStorage.CurrentKey();
+     try { VaultStorage.Snapshot(Path.Combine(folder,"before-account-rights-"+Guid.NewGuid().ToString("N")+".qlkpvault"),key); }
+     finally { Array.Clear(key,0,key.Length); }
+    }
+   }
+   using(var c=Open())using(var tx=c.BeginTransaction()) {
+    if(Convert.ToInt32(Scalar(c,tx,applied,P("@c",OrdinaryRightsMigration)))==0) {
+     Exec(c,tx,"UPDATE accounts SET policy_version=policy_version+1 WHERE id IN ("+affected+")");
+     Exec(c,tx,"DELETE FROM permissions WHERE account_id IN (SELECT id FROM accounts WHERE role='ASSIGNED_USER') AND "+RestrictedOrdinaryRightsSql);
+     string root=Convert.ToString(Scalar(c,tx,"SELECT id FROM accounts WHERE role='ROOT_ADMIN'"));
+     if(!String.IsNullOrEmpty(root))Audit(c,tx,root,"ORDINARY_ACCOUNT_RIGHTS_UPGRADED","policy",OrdinaryRightsMigration);
+     Exec(c,tx,"INSERT INTO system_policy_migrations(code,applied_utc) VALUES(@c,@utc)",P("@c",OrdinaryRightsMigration),P("@utc",Now));
+    }
+    tx.Commit();
+   }
+  }
   static void GrantBusinessDefaults(SQLiteConnection c,SQLiteTransaction tx,string id,string area,string root,bool ceiling) {
-   foreach(string right in BusinessDefaultRights()) {
+   foreach(string right in ceiling?BusinessDefaultRights():OrdinaryAccountDefaults()) {
     var p=right.Split(':');Grant(c,tx,id,p[0],p[1],area,root);
     if(ceiling)Exec(c,tx,"INSERT OR IGNORE INTO delegation_ceiling(admin_id,feature,action,area_id) VALUES(@id,@f,@action,@area)",P("@id",id),P("@f",p[0]),P("@action",p[1]),P("@area",area));
    }

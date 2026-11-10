@@ -24,6 +24,7 @@
      <StackPanel x:Name="AdditionalRights"/>
      <TextBlock Text="Lưu quyền sẽ cập nhật phiên bản chính sách và khiến phiên cũ không còn hợp lệ." TextWrapping="Wrap" Foreground="#526781"/>
      <Button x:Name="SaveRights" Content="Lưu thay đổi quyền" Click="Save_Click"/>
+     <Button x:Name="ResetPassword" Content="Đặt lại mật khẩu tài khoản được chọn" Click="ResetPassword_Click" IsEnabled="False"/>
      <Button x:Name="BlockAccount" Content="Khóa tài khoản được chọn" Click="Block_Click"/>
      <Button x:Name="UnblockAccount" Content="Mở khóa tài khoản được chọn" Click="Unblock_Click"/>
      <TextBlock Text="Không cho phép tự cấp quyền, sửa ADMIN gốc, hoặc sửa tài khoản khác địa bàn." TextWrapping="Wrap" Foreground="#A44312"/>

@@ -115,7 +115,7 @@ namespace QLKP.Desktop.Views {
    else if(f.Code=="B01")FeatureContent.Content=DataStore.Can(session,"B01","read")?new HouseholdView(session,NavigateToPerson):(UserControl)new NoticeView("Không được phép xem hồ sơ hộ.");
    else if(f.Code=="B02")FeatureContent.Content=DataStore.Can(session,"B02","read")?new PeopleView(session,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem nhân khẩu.");
    else if(f.Code=="B03")FeatureContent.Content=DataStore.Can(session,"B03","read")?new ResidencyChangeView(session,NavigateToPerson,NavigateToHousehold):(UserControl)new NoticeView("Không được phép xem biến động.");
-   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","read")?new AccountsView(session):(UserControl)new NoticeView("Không được phép quản trị tài khoản.");
+   else if(f.Code=="I01")FeatureContent.Content=DataStore.Can(session,"I01","read")?new AccountsView(session,()=>Logout_Click(this,new RoutedEventArgs())):(UserControl)new NoticeView("Không được phép quản trị tài khoản.");
    else if(f.Code=="I02")FeatureContent.Content=DataStore.Can(session,"I02","manage")?new AccessControlView(session):(UserControl)new CurrentRightsView(session);
    else if(f.Code=="I03")FeatureContent.Content=DataStore.Can(session,"I03","read")?new AuditTrailView(session):(UserControl)new NoticeView("Không được phép xem nhật ký.");
    else if(f.Code=="I04")FeatureContent.Content=DataStore.Can(session,"I04","read")?new BackupView(session):(UserControl)new NoticeView("Không được phép sao lưu và khôi phục.");
