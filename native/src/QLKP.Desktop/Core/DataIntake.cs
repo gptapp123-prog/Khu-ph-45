@@ -15,6 +15,7 @@ namespace QLKP.Desktop.Core {
   public string TargetKey {get;set;}
   public string Operation {get;set;}
   public string Notice {get;set;}
+  internal bool CandidateWarning {get;set;}
  }
  public sealed class IntakePreview {
   public string RequestId {get;set;}
@@ -175,6 +176,14 @@ namespace QLKP.Desktop.Core {
   static string GetIntake(IDictionary<string,string> row,string field) {
    string value;return row.TryGetValue(field,out value)?value:"";
   }
+  internal static bool CanUseIntakeMode(Session session,string mode) {
+   switch(mode) {
+    case "CREATE_HOUSEHOLD": return Can(session,"B01","create");
+    case "ADD_MEMBER": return Can(session,"B01","read")&&Can(session,"B02","create");
+    case "ENRICH_PERSON": return Can(session,"B02","read")&&Can(session,"B02","update");
+    default: return false;
+   }
+  }
   static void RequireIntakeMode(SQLiteConnection c,SQLiteTransaction tx,Session session,string mode) {
    if(session==null || session.AreaId==null)throw new UnauthorizedAccessException("Cần tài khoản có phạm vi khu phố.");
    if(mode=="CREATE_HOUSEHOLD")Require(c,tx,session,"B01","create",session.AreaId);
@@ -249,6 +258,7 @@ namespace QLKP.Desktop.Core {
     var seenPersonCandidates=new HashSet<string>(StringComparer.Ordinal);
     for(int i=0;i<rows.Count;i++){
      var row=rows[i];string key="",notice="Đủ điều kiện (chưa ghi)",operation="";
+     bool candidateWarning=false;
      if(mode=="CREATE_HOUSEHOLD"){
       key=row["household_code"];operation="Tạo hộ + chủ hộ";
       if(Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM households WHERE area_id=@area AND code=@code COLLATE NOCASE",P("@area",session.AreaId),P("@code",key)))>0)
@@ -265,14 +275,14 @@ namespace QLKP.Desktop.Core {
       string candidateKey=h+"|"+NormalizeSearch(draft.Name)+"|"+draft.DateOfBirth;
       bool sameInBatch=draft.DateOfBirth.Length>0 && !seenPersonCandidates.Add(candidateKey);
       if(sameInBatch || (!planned&&SuspectedDuplicateCount(c,tx,h,draft.Name,draft.DateOfBirth)>0)){
-       preview.HasCandidateWarnings=true;
+       preview.HasCandidateWarnings=true;candidateWarning=true;
        notice="Nghi trùng họ tên + ngày sinh trong hộ hoặc lô; cần xác minh";
       }
      }else{
       key=row["person_id"];operation="Bổ sung trường còn thiếu theo ID";
       notice=EnsurePersonEnrichment(c,tx,session,row,false);
      }
-     preview.Rows.Add(new IntakePreviewRow{LineNumber=i+2,TargetKey=key,Operation=operation,Notice=notice});
+     preview.Rows.Add(new IntakePreviewRow{LineNumber=i+2,TargetKey=key,Operation=operation,Notice=notice,CandidateWarning=candidateWarning});
     }
    return preview;
   }
@@ -309,7 +319,8 @@ namespace QLKP.Desktop.Core {
       ValidateMemberDraft(new MemberDraft{Name=name,DateOfBirth=birth,Gender=gender,Relationship=rel},i+2);
       if(rel=="Chủ hộ" && Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM household_memberships WHERE household_id=@h AND relationship='Chủ hộ' AND end_utc IS NULL",P("@h",household)))>0)
        throw new InvalidDataException("Hộ đã có chủ hộ. Không cho phép tự gộp.");
-      if(SuspectedDuplicateCount(c,tx,household,name,birth)>0 && !allowCandidateDuplicates)
+      if(SuspectedDuplicateCount(c,tx,household,name,birth)>0 &&
+       (!allowCandidateDuplicates||i>=approved.Rows.Count||!approved.Rows[i].CandidateWarning))
        throw new InvalidDataException("Phát hiện nghi trùng mới; cần xem trước lại.");
       string person=Id(),member=Id(),now=Now;
       Exec(c,tx,"INSERT INTO people(id,area_id,full_name,search_name,date_of_birth,gender,created_utc,updated_utc) VALUES(@id,@area,@name,@search,@birth,@gender,@utc,@utc)",

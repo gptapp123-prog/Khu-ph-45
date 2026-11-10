@@ -36,12 +36,14 @@ class MainActivity : Activity() {
  private var task:OfflineTask?=null
  private var taskPassword:String?=null
  private var pendingResult:ByteArray?=null
+ private lateinit var retryResult:Button
  private val requestCatalog=104
  private val requestTask=105
  private val requestResult=106
 
  override fun onCreate(savedInstanceState:Bundle?) {
   super.onCreate(savedInstanceState)
+  pendingResult=savedInstanceState?.getByteArray("pendingResult")
   val wrap=LinearLayout(this).apply {
    orientation=LinearLayout.VERTICAL
    setPadding(30,65,30,30)
@@ -81,7 +83,9 @@ class MainActivity : Activity() {
   wrap.addView(action("Đọc ảnh và mã QR") { startActivity(Intent(this,DocumentScanActivity::class.java)) })
   wrap.addView(about);wrap.addView(phrase)
   wrap.addView(action("Mở nhiệm vụ .qlkptask") { openDocument(requestTask) })
-  wrap.addView(taskStatus);wrap.addView(taskActions)
+  retryResult=action("Lưu lại tệp kết quả") { chooseResultLocation() }.apply { visibility=View.GONE }
+  if(pendingResult!=null)retryResult.visibility=View.VISIBLE
+  wrap.addView(taskStatus);wrap.addView(retryResult);wrap.addView(taskActions)
   catalogSearch=EditText(this).apply { hint="Tìm theo mã hoặc nhãn";isSingleLine=true;isSaveEnabled=false }
   catalogRows=TextView(this).apply { textSize=15f;setTextColor(Color.DKGRAY) }
   catalogPrevious=action("Trang trước") { catalogIndex--;showCatalog() }
@@ -119,19 +123,35 @@ class MainActivity : Activity() {
   },request)
  }
 
- @Suppress("DEPRECATION")
+ override fun onSaveInstanceState(state:Bundle) {
+  super.onSaveInstanceState(state)
+  // Only the encrypted PC exchange package is saved across activity recreation.
+  state.putByteArray("pendingResult",pendingResult)
+ }
+
  private fun createResult() {
   val current=task ?: return
   val password=taskPassword ?: return
   try {
    pendingResult=TaskCodec.sealResult(current,taskResult.text.toString(),password)
+   chooseResultLocation()
+  } catch(ex:Exception) {
+   taskStatus.text=if(taskResult.text.isBlank())"Hãy nhập kết quả thực hiện." else "Không tạo được tệp kết quả."
+  }
+ }
+
+ @Suppress("DEPRECATION")
+ private fun chooseResultLocation() {
+  if(pendingResult==null)return
+  try {
    startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
     addCategory(Intent.CATEGORY_OPENABLE);type="application/octet-stream"
     putExtra(Intent.EXTRA_TITLE,"ket-qua.qlkpresult")
    },requestResult)
+   retryResult.visibility=View.GONE
   } catch(ex:Exception) {
-   pendingResult=null
-   taskStatus.text=if(taskResult.text.isBlank())"Hãy nhập kết quả thực hiện." else "Không tạo được tệp kết quả."
+   retryResult.visibility=View.VISIBLE
+   taskStatus.text="Không mở được trình lưu tệp kết quả."
   }
  }
 
@@ -141,13 +161,21 @@ class MainActivity : Activity() {
   val uri=data?.data
   if(requestCode==requestResult) {
    val bytes=pendingResult
-   pendingResult=null
-   if(resultCode!=RESULT_OK || uri==null)return
+   if(resultCode!=RESULT_OK || uri==null) {
+    retryResult.visibility=if(bytes!=null)View.VISIBLE else View.GONE
+    taskStatus.text="Đã hủy lưu tệp kết quả."
+    return
+   }
    try {
     require(bytes!=null)
-    contentResolver.openOutputStream(uri,"w")?.use { it.write(bytes) } ?: error("Không mở được tệp.")
+    contentResolver.openOutputStream(uri,"wt")?.use { it.write(bytes) } ?: error("Không mở được tệp.")
+    pendingResult=null
+    retryResult.visibility=View.GONE
     taskStatus.text="Đã lưu kết quả. Chuyển tệp .qlkpresult về PC để xác nhận."
-   } catch(ex:Exception) { taskStatus.text="Chưa lưu được tệp kết quả. Hãy thử lại." }
+   } catch(ex:Exception) {
+    retryResult.visibility=if(bytes!=null)View.VISIBLE else View.GONE
+    taskStatus.text=if(bytes!=null)"Chưa lưu được tệp kết quả. Hãy thử lại." else "Hãy mở nhiệm vụ và tạo lại tệp kết quả."
+   }
    return
   }
   if(resultCode!=RESULT_OK || uri==null || (requestCode!=requestTask && requestCode!=requestCatalog))return
@@ -208,6 +236,7 @@ class MainActivity : Activity() {
 
  private fun clearTask() {
   task=null;taskPassword=null;pendingResult=null
+  retryResult.visibility=View.GONE
   taskResult.text.clear();taskSummary.text=""
   taskActions.visibility=View.GONE
  }

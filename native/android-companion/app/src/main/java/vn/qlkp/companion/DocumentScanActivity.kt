@@ -43,7 +43,7 @@ class DocumentScanActivity : Activity() {
  private val decoder=Executors.newSingleThreadExecutor()
  private var capture:File?=null
  private var qr=false
- private var exportText:String?=null
+ private var pendingExport:Bundle?=null
  private val pickImage=301
  private val takeImage=302
  private val saveText=303
@@ -51,6 +51,7 @@ class DocumentScanActivity : Activity() {
  override fun onCreate(savedInstanceState:Bundle?) {
   super.onCreate(savedInstanceState)
   window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+  pendingExport=savedInstanceState?.getBundle("pendingExport")
   qr=savedInstanceState?.getBoolean("qr") ?: false
   savedInstanceState?.getString("capture")?.takeIf { it.matches(Regex("capture-[A-Za-z0-9-]+\\.jpg")) }
    ?.let { capture=File(File(cacheDir,"scan-images"),it) }
@@ -86,6 +87,7 @@ class DocumentScanActivity : Activity() {
 
  override fun onSaveInstanceState(state:Bundle) {
   super.onSaveInstanceState(state)
+  state.putBundle("pendingExport",pendingExport)
   state.putBoolean("qr",qr)
   state.putString("capture",capture?.name)
  }
@@ -137,13 +139,13 @@ class DocumentScanActivity : Activity() {
    status.text="Kết quả trống, sai định dạng hoặc vượt 64 KB."
    return
   }
-  exportText=value
   try {
+   pendingExport=ScanExportState.seal(value)
    startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
     addCategory(Intent.CATEGORY_OPENABLE);type="text/plain"
     putExtra(Intent.EXTRA_TITLE,if(qr)"qlkp-qr.txt" else "qlkp-ocr.txt")
    },saveText)
-  } catch(ex:Exception) { exportText=null;status.text="Không mở được trình lưu tệp." }
+  } catch(ex:Exception) { pendingExport=null;status.text="Không mở được trình lưu tệp." }
  }
 
  @Deprecated("Uses platform activity results for delegated camera capture and document selection")
@@ -152,13 +154,20 @@ class DocumentScanActivity : Activity() {
   val uri=data?.data
   when(requestCode) {
    saveText -> {
-    val text=exportText
-    exportText=null
-    if(resultCode==RESULT_OK&&uri!=null&&text!=null)try {
-     contentResolver.openOutputStream(uri,"w")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-      ?: error("Không mở được tệp.")
-     status.text="Đã lưu tệp TXT."
-    } catch(ex:Exception) { status.text="Không lưu được tệp TXT." }
+    val pending=pendingExport
+    pendingExport=null
+    try {
+     val bytes=ScanExportState.open(checkNotNull(pending))
+     try {
+      result.setText(bytes.toString(Charsets.UTF_8))
+      save.isEnabled=true
+      if(resultCode==RESULT_OK&&uri!=null) {
+       contentResolver.openOutputStream(uri,"wt")?.use { it.write(bytes) }
+        ?: error("Không mở được tệp.")
+       status.text="Đã lưu tệp TXT."
+      } else status.text="Đã hủy lưu tệp."
+     } finally { bytes.fill(0) }
+    } catch(ex:Exception) { status.text="Không lưu được tệp TXT. Thử lưu lại hoặc đọc lại ảnh." }
    }
    pickImage -> if(resultCode==RESULT_OK&&uri!=null)recognize(uri,null)
    takeImage -> {

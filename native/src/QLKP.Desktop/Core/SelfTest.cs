@@ -615,7 +615,7 @@ namespace QLKP.Desktop.Core {
     var reporter=DataStore.Login("test_reporter",reportSecret);
     if(reporter==null || !DataStore.Can(reporter,"H05","export") || !DataStore.Can(root,"H01","read"))
      throw new InvalidDataException("Quyền báo cáo riêng không đúng.");
-    var date=DateTime.UtcNow.Date;
+    var date=DataStore.ReportLocalToday;
     var beginning=new DateTime(date.Year,date.Month,1).ToString("yyyy-MM-dd");
     var ending=date.ToString("yyyy-MM-dd");
     var periodic=DataStore.GetReportPage(reporter,"H01",beginning,ending,"A02","",0,50);
@@ -638,6 +638,14 @@ namespace QLKP.Desktop.Core {
     if(!excelReport.StartsWith("Mã khu phố\tPhân hệ",StringComparison.Ordinal)||!excelReport.Contains("\tA02\t")||
        !excelReport.Contains("Ẩn (1–4)")||excelReport.Contains(taskId))
      throw new InvalidDataException("Báo cáo XLSX sai nguồn, lộ ID hoặc bỏ ngưỡng ẩn nhóm nhỏ.");
+    DataStore.ExportReportAggregateXlsx(reporter,beginning,ending,"A02","",reportXlsx,true);
+    if(XlsxIntakeReader.ReadFirstSheet(reportXlsx)!=excelReport)
+     throw new InvalidDataException("Ghi đè báo cáo Excel làm thay đổi nội dung.");
+    var vietnamDay=DataStore.ReportPeriod("2026-11-10","2026-11-10");
+    var deadlineDay=DataStore.ReportPeriod("2026-11-10","2026-11-10",true);
+    if(vietnamDay.Item1!="2026-11-09T17:00:00"||vietnamDay.Item2!="2026-11-10T17:00:00"||
+       deadlineDay.Item1!="2026-11-10"||deadlineDay.Item2!="2026-11-11")
+     throw new InvalidDataException("Lọc mốc ngày Việt Nam hoặc hạn ngày H04 không đúng.");
     Console.WriteLine("REPOSITORY_PASS XLSX H05 aggregate/threshold");
     var csv=DataStore.ExportReportAggregateCsv(reporter,beginning,ending,"A02","");
     if(!csv.Contains("A02")||csv.Contains(taskId)||csv.Contains("Rà soát Đường"))

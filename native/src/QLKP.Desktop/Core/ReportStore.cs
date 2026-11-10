@@ -24,7 +24,7 @@ namespace QLKP.Desktop.Core {
     DateTime due;
     if(String.IsNullOrWhiteSpace(RecordId) || !DateTime.TryParseExact(Date,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out due))return "";
     if(Status=="Hoàn thành nội bộ")return "Đã hoàn thành";
-    return due<DateTime.Today?"Quá hạn":"Trong hạn";
+    return due<DataStore.ReportLocalToday?"Quá hạn":"Trong hạn";
   } }
   public string DisplayFeature {get {var f=FeatureCatalog.All.FirstOrDefault(x=>x.Code==Feature);return f==null?Feature:Feature+" · "+f.Name;}}
  }
@@ -75,13 +75,19 @@ namespace QLKP.Desktop.Core {
     return result.OrderBy(x=>x).ToList();
    }
   }
-  static Tuple<string,string> ReportPeriod(string from,string to){
+  static readonly TimeSpan ReportUtcOffset=TimeSpan.FromHours(7);
+  internal static DateTime ReportLocalToday {get{return DateTime.UtcNow.Add(ReportUtcOffset).Date;}}
+  internal static Tuple<string,string> ReportPeriod(string from,string to,bool calendarDates=false){
    DateTime a,b;
    if(!DateTime.TryParseExact(from,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out a) ||
       !DateTime.TryParseExact(to,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out b) ||
-      a>b || (b-a).TotalDays>366)
+      a>b || a.Year<2 || b==DateTime.MaxValue.Date || (b-a).TotalDays>366)
     throw new InvalidOperationException("Kỳ báo cáo cần ngày đầu/cuối hợp lệ, tối đa 366 ngày.");
-   return Tuple.Create(a.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture),b.AddDays(1).ToString("yyyy-MM-dd",CultureInfo.InvariantCulture));
+   if(calendarDates)return Tuple.Create(from,b.AddDays(1).ToString("yyyy-MM-dd",CultureInfo.InvariantCulture));
+   // Compare UTC timestamp prefixes so both whole-second and fractional ISO timestamps sort correctly.
+   const string utcPrefix="yyyy-MM-dd'T'HH:mm:ss";
+   return Tuple.Create(a.Subtract(ReportUtcOffset).ToString(utcPrefix,CultureInfo.InvariantCulture),
+    b.AddDays(1).Subtract(ReportUtcOffset).ToString(utcPrefix,CultureInfo.InvariantCulture));
   }
   static string InClause(SQLiteCommand cmd,IEnumerable<string> codes){
    var list=new List<string>();int i=0;
@@ -101,7 +107,7 @@ namespace QLKP.Desktop.Core {
     string sourceFilter,string statusFilter,int pageIndex,int pageSize=50){
    if(!new[]{"H01","H02","H03","H04","H05"}.Contains(reportFeature))throw new InvalidOperationException("Loại báo cáo không hợp lệ.");
    if(pageIndex<0||pageSize<1||pageSize>100)throw new InvalidOperationException("Phân trang không hợp lệ.");
-   var period=ReportPeriod(from,to);
+   var period=ReportPeriod(from,to,reportFeature=="H04");
    using(var c=Open())using(var tx=c.BeginTransaction()){
     Require(c,tx,s,reportFeature,"read",s==null?null:s.AreaId);
     var sources=ReportSources.Where(x=>HasPermission(c,tx,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();
@@ -120,7 +126,7 @@ namespace QLKP.Desktop.Core {
     }
     bool byStatus=reportFeature!="H01";
     string projection=detail?"feature,id,record_code,title,status,"+
-      (reportFeature=="H04"?"due_date":"substr(created_utc,1,10)")+",1":
+      (reportFeature=="H04"?"due_date":"date(created_utc,'+7 hours')")+",1":
        "feature,'','','',"+(byStatus?"status":"'Tổng hồ sơ'")+",'',COUNT(*)";
     string where="area_id=@area AND feature IN {IN} AND created_utc>=@from AND created_utc<@to";
     if(reportFeature=="H04"){
@@ -173,13 +179,13 @@ namespace QLKP.Desktop.Core {
     sb.Append(String.Join(",",row.Select(v=>SafeCsv(Convert.ToString(v,CultureInfo.InvariantCulture))))).Append("\r\n");
    return sb.ToString();
   }
-  public static void ExportReportAggregateXlsx(Session s,string from,string to,string sourceFilter,string statusFilter,string path) {
+  public static void ExportReportAggregateXlsx(Session s,string from,string to,string sourceFilter,string statusFilter,string path,bool replaceExisting=false) {
    var rows=AggregateRows(s,from,to,sourceFilter,statusFilter);
    rows.Insert(0,new object[]{"Mã khu phố","Phân hệ","Trạng thái","Số hồ sơ","Từ ngày","Đến ngày","Loại số liệu"});
-   XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{{"Tổng hợp",rows}});
+   XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{{"Tổng hợp",rows}},replaceExisting);
   }
   static List<object[]> AggregateRows(Session s,string from,string to,string sourceFilter,string statusFilter){
-   var period=ReportPeriod(from,to);
+   var period=ReportPeriod(from,to,reportFeature=="H04");
    using(var c=Open())using(var tx=c.BeginTransaction()){
     Require(c,tx,s,"H05","read",s.AreaId);Require(c,tx,s,"H05","export",s.AreaId);
     var sources=ReportSources.Where(x=>HasPermission(c,tx,s,x,"read",s.AreaId)).OrderBy(x=>x).ToList();

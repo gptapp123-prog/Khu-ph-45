@@ -17,7 +17,7 @@ namespace QLKP.Desktop.Views {
    if(!new[]{"H01","H02","H03","H04","H05"}.Contains(code))throw new ArgumentException("Không phải màn báo cáo.");
    session=s;feature=code;openRecord=navigate;InitializeComponent();
    Heading.Text=FeatureCatalog.All.First(x=>x.Code==code).ToString();
-   var today=DateTime.Today;FromDate.Text=new DateTime(today.Year,today.Month,1).ToString("dd-MM-yyyy",CultureInfo.InvariantCulture);
+   var today=DataStore.ReportLocalToday;FromDate.Text=new DateTime(today.Year,today.Month,1).ToString("dd-MM-yyyy",CultureInfo.InvariantCulture);
    ToDate.Text=today.ToString("dd-MM-yyyy",CultureInfo.InvariantCulture);
    try{var available=DataStore.GetReportableSources(session,feature);
     available.Insert(0,"(Tất cả)");Source.ItemsSource=available;Source.SelectedIndex=0;
@@ -54,19 +54,27 @@ namespace QLKP.Desktop.Views {
    if(feature!="H05")return;
    try {
     var choose=new SaveFileDialog{Title="Lưu báo cáo tổng hợp",Filter="Sổ Excel (*.xlsx)|*.xlsx|CSV UTF-8 (*.csv)|*.csv",
-     FileName="QLKP_H05_TongHop",AddExtension=true,DefaultExt=".xlsx"};
+     FileName="QLKP_H05_TongHop",AddExtension=true,DefaultExt=".xlsx",OverwritePrompt=false};
     if(choose.ShowDialog(Window.GetWindow(this))!=true)return;
+    bool replaceExisting=File.Exists(choose.FileName);
+    if(replaceExisting&&MessageBox.Show(Window.GetWindow(this),"Thay thế tệp báo cáo đã có?","Xác nhận ghi đè",
+     MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
     string from=DisplayLabels.IsoDate(FromDate.Text),to=DisplayLabels.IsoDate(ToDate.Text);
     string source=Convert.ToString(Source.SelectedItem),status=StatusFilter.Text.Trim();
     string extension=Path.GetExtension(choose.FileName);
     if(extension.Equals(".xlsx",StringComparison.OrdinalIgnoreCase)) {
-     DataStore.ExportReportAggregateXlsx(session,from,to,source,status,choose.FileName);
+     DataStore.ExportReportAggregateXlsx(session,from,to,source,status,choose.FileName,replaceExisting);
     } else if(extension.Equals(".csv",StringComparison.OrdinalIgnoreCase)) {
      string content=DataStore.ExportReportAggregateCsv(session,from,to,source,status);
-     using(var fs=new FileStream(choose.FileName,FileMode.CreateNew,FileAccess.Write,FileShare.None)){
-      byte[] bytes=new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(content)).ToArray();
-      fs.Write(bytes,0,bytes.Length);fs.Flush(true);
-     }
+     string target=Path.GetFullPath(choose.FileName);
+     string temp=Path.Combine(Path.GetDirectoryName(target),".qlkpcsv-"+Guid.NewGuid().ToString("N")+".tmp");
+     try {
+      using(var fs=new FileStream(temp,FileMode.CreateNew,FileAccess.Write,FileShare.None)){
+       byte[] bytes=new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes(content)).ToArray();
+       fs.Write(bytes,0,bytes.Length);fs.Flush(true);
+      }
+      if(replaceExisting)File.Replace(temp,target,null);else File.Move(temp,target);
+     } finally {if(File.Exists(temp))File.Delete(temp);}
     } else throw new InvalidDataException("Chọn phần mở rộng .xlsx hoặc .csv.");
     DataStore.LogReportExport(session);
     Notice.Text="Đã xuất báo cáo tổng hợp. Đường dẫn: "+choose.FileName;

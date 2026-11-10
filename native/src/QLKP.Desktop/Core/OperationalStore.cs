@@ -348,7 +348,7 @@ namespace QLKP.Desktop.Core {
     ModuleCatalog.Get(code);
     Require(c,null,s,code,"read",s==null?null:s.AreaId);
     var list=new List<AccountRow>();
-    using(var cmd=new SQLiteCommand("SELECT id,username,role,area_id,active FROM accounts WHERE area_id=@area AND active=1 ORDER BY username LIMIT 200",c)) {
+    using(var cmd=new SQLiteCommand("SELECT id,username,role,area_id,active FROM accounts WHERE area_id=@area AND active=1 ORDER BY username,id",c)) {
      cmd.Parameters.Add(P("@area",s.AreaId));
      using(var r=cmd.ExecuteReader())while(r.Read())list.Add(new AccountRow{Id=r.GetString(0),Username=r.GetString(1),Role=r.GetString(2),AreaId=r.GetString(3),Status="Hoạt động"});
     }
@@ -361,7 +361,7 @@ namespace QLKP.Desktop.Core {
     var items=new List<ModuleOverview>();
     foreach(var d in ModuleCatalog.Editable) {
      if(!HasPermission(c,tx,s,d.Code,"read",s.AreaId))continue;
-     using(var cmd=new SQLiteCommand("SELECT COUNT(*),SUM(CASE WHEN status NOT IN ('Hoàn thành nội bộ','Đã diễn ra','Ngừng theo dõi','Ngừng hoạt động') THEN 1 ELSE 0 END) FROM module_records WHERE area_id=@area AND feature=@f",c,tx)) {
+     using(var cmd=new SQLiteCommand("SELECT COUNT(*),SUM(CASE WHEN status NOT IN ('Hoàn thành nội bộ','Đã diễn ra','Ngừng theo dõi','Ngừng hoạt động', 'Hủy','Hủy lịch','Đã bàn giao nội bộ','Đóng theo dõi','Lưu hồ sơ','Đóng nội bộ','Ngừng sử dụng','Đã kết thúc','Kết thúc','Kết thúc đợt','Kết thúc theo dõi') THEN 1 ELSE 0 END) FROM module_records WHERE area_id=@area AND feature=@f",c,tx)) {
       cmd.Parameters.AddRange(new[]{P("@area",s.AreaId),P("@f",d.Code)});
       using(var r=cmd.ExecuteReader())if(r.Read())items.Add(new ModuleOverview{Feature=d.Code,Label=d.Label,Count=r.GetInt64(0),Open=r.IsDBNull(1)?0:r.GetInt64(1)});
      }

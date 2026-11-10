@@ -10,7 +10,12 @@ namespace QLKP.Desktop.Views {
  public partial class DataIntakeWindow : Window {
   internal bool SavedChanges {get;private set;}
   readonly Session session;IntakePreview approved;WorkbookIntakePreview workbook;
-  public DataIntakeWindow(Session account) {InitializeComponent();WindowLayout.FitInitialSize(this);session=account;ResultStatus.Text="Chưa kiểm tra hoặc ghi dữ liệu.";}
+  public DataIntakeWindow(Session account) {
+   InitializeComponent();WindowLayout.FitInitialSize(this);session=account;
+   foreach(ComboBoxItem mode in IntakeMode.Items)mode.IsEnabled=DataStore.CanUseIntakeMode(session,(string)mode.Tag);
+   IntakeMode.SelectedItem=IntakeMode.Items.OfType<ComboBoxItem>().FirstOrDefault(mode=>mode.IsEnabled);
+   ResultStatus.Text="Chưa kiểm tra hoặc ghi dữ liệu.";
+  }
   string ModeValue {get {return (IntakeMode.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"";} }
   string SourceValue {get {return (SourceKind.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"";} }
   void InputChanged(object sender,RoutedEventArgs e) {
@@ -23,6 +28,8 @@ namespace QLKP.Desktop.Views {
   void ReadCsv_Click(object sender,RoutedEventArgs e) {
    var dialog=new OpenFileDialog {Filter="Bảng dữ liệu (*.csv;*.tsv;*.txt;*.xlsx)|*.csv;*.tsv;*.txt;*.xlsx",CheckFileExists=true,Multiselect=false};
    if(dialog.ShowDialog(this)!=true)return;
+   InputChanged(sender,e);
+   Payload.Clear();
    try {
     var info=new FileInfo(dialog.FileName);
     bool xlsx=String.Equals(Path.GetExtension(dialog.FileName),".xlsx",StringComparison.OrdinalIgnoreCase);
@@ -33,9 +40,9 @@ namespace QLKP.Desktop.Views {
      if(index<0)return;
      string table=XlsxIntakeReader.ReadSheet(dialog.FileName,index);
      switch(sheets[index]) {
-      case "Hộ và chủ hộ": IntakeMode.SelectedIndex=0;break;
-      case "Thêm nhân khẩu": IntakeMode.SelectedIndex=1;break;
-      case "Bổ sung nhân khẩu": IntakeMode.SelectedIndex=2;break;
+      case "Hộ và chủ hộ": SelectImportMode(0);break;
+      case "Thêm nhân khẩu": SelectImportMode(1);break;
+      case "Bổ sung nhân khẩu": SelectImportMode(2);break;
      }
      Payload.Text=table;
     }
@@ -47,6 +54,11 @@ namespace QLKP.Desktop.Views {
     ResultStatus.Text="Đã nhận nội dung tệp, chỉ ở bộ nhớ. Chưa ghi SQLite.";
    }catch(Exception ex){ResultStatus.Text="Không đọc được tệp: "+ex.Message;}
   }
+  void SelectImportMode(int index) {
+   if(!(IntakeMode.Items[index] is ComboBoxItem mode)||!mode.IsEnabled)
+    throw new UnauthorizedAccessException("Tài khoản không có quyền nhập nghiệp vụ của trang tính này.");
+   IntakeMode.SelectedIndex=index;
+  }
   void ReadWorkbook_Click(object sender,RoutedEventArgs e) {
    var picker=new OpenFileDialog{Filter="Sổ Excel (*.xlsx)|*.xlsx",Multiselect=false,CheckFileExists=true};
    if(picker.ShowDialog(this)!=true)return;
@@ -57,7 +69,7 @@ namespace QLKP.Desktop.Views {
     Payload.Text=String.Join(Environment.NewLine,preview.Rows.GroupBy(row=>row.SheetName)
      .Select(group=>group.Key+" · "+group.Count()+" dòng"));
     workbook=preview;
-    PreviewRows.ItemsSource=preview.Rows.Take(100).ToArray();
+    PreviewRows.ItemsSource=preview.Rows.ToArray();
     ResultStatus.Text="Đã kiểm tra "+preview.Count+" dòng. "+(preview.HasCandidateWarnings?
      "Có trường hợp nghi trùng cần đối chiếu. ":"")+"Bấm xác nhận để ghi tất cả các trang trong một lần.";
     CommitButton.IsEnabled=true;
@@ -118,7 +130,7 @@ namespace QLKP.Desktop.Views {
    AcknowledgeCandidates.IsChecked=false;
    try {
     approved=DataStore.PreviewIntake(session,ModeValue,SourceValue,SourceLabel.Text,Payload.Text);
-    PreviewRows.ItemsSource=approved.Rows.Take(100).ToArray();
+    PreviewRows.ItemsSource=approved.Rows;
     ResultStatus.Text="Đã đối chiếu "+approved.Rows.Count+" dòng. "+(approved.HasCandidateWarnings?
       "Có nghi trùng; không tự gộp và cần xác nhận thủ công.":"Chưa tìm thấy xung đột hiện tại.")+" Chưa ghi CSDL.";
     CommitButton.IsEnabled=true;
@@ -126,22 +138,22 @@ namespace QLKP.Desktop.Views {
   }
   void Commit_Click(object sender,RoutedEventArgs e) {
    if(workbook!=null) {CommitWorkbook();return;}
-   CommitButton.IsEnabled=false;
    if(approved==null || approved.Payload!=Payload.Text || approved.Mode!=ModeValue || approved.SourceKind!=SourceValue || approved.SourceLabel!=Path.GetFileName(SourceLabel.Text.Trim())){
-    ResultStatus.Text="Dữ liệu/nguồn đã thay đổi, cần xem trước lại.";return;
+    InputChanged(sender,e);ResultStatus.Text="Dữ liệu/nguồn đã thay đổi, cần xem trước lại.";return;
    }
    if(approved.HasCandidateWarnings && AcknowledgeCandidates.IsChecked!=true){ResultStatus.Text="Chưa xác nhận đã đối chiếu nghi trùng.";return;}
    if(MessageBox.Show("Xác nhận xử lý "+approved.Rows.Count+" dòng ở khu phố hiện tại? Lô sẽ ghi hoặc hoàn tác toàn bộ; không tự hợp nhất người cùng tên.",
-    "Xác nhận ghi dữ liệu",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes){CommitButton.IsEnabled=true;return;}
+    "Xác nhận ghi dữ liệu",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+   CommitButton.IsEnabled=false;
    try {
-    var count=DataStore.CommitIntake(session,approved,AcknowledgeCandidates.IsChecked==true);
+    var count=DataStore.CommitIntake(session,approved,approved.HasCandidateWarnings&&AcknowledgeCandidates.IsChecked==true);
     SavedChanges=true;
     ResultStatus.Text="Đã ghi/xử lý "+count+" dòng. Lô có ID kiểm soát riêng, không ghi lại khi gửi trùng.";
     approved=null;
    }catch(Exception ex){ResultStatus.Text="Không ghi bất kỳ phần nào của lô: "+ex.Message;approved=null;}
   }
   void CommitWorkbook() {
-   bool allow=AcknowledgeCandidates.IsChecked==true;
+   bool allow=workbook.HasCandidateWarnings&&AcknowledgeCandidates.IsChecked==true;
    if(workbook.HasCandidateWarnings&&!allow) {
     ResultStatus.Text="Cần xác nhận đã đối chiếu các trường hợp nghi trùng.";return;
    }

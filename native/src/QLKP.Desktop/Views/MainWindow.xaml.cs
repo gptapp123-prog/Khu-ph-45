@@ -36,7 +36,8 @@ namespace QLKP.Desktop.Views {
    CurrentUser.Visibility=accountAccess?Visibility.Collapsed:Visibility.Visible;
    Status.Text="Phiên bản "+System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
    if(s.Role!="ASSIGNED_USER")Status.ToolTip=DataStore.DatabasePath;
-   IntakeButton.Visibility=DataStore.Can(s,"B01","create")?Visibility.Visible:Visibility.Collapsed;
+   IntakeButton.Visibility=new[]{"CREATE_HOUSEHOLD","ADD_MEMBER","ENRICH_PERSON"}.Any(mode=>DataStore.CanUseIntakeMode(s,mode))
+    ?Visibility.Visible:Visibility.Collapsed;
    MergeWorkspaceButton.Visibility=DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;
    if(s.Role=="ROOT_ADMIN"){AreaSelector.ItemsSource=DataStore.ListWorkAreas(s);AreaSelector.SelectedValue=s.AreaId;ScopePanel.Visibility=Visibility.Visible;}
    scopeReady=true;

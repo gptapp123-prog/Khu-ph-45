@@ -12,7 +12,7 @@ namespace QLKP.Desktop.Core {
   static readonly XNamespace Package="http://schemas.openxmlformats.org/package/2006/relationships";
   static readonly XNamespace Types="http://schemas.openxmlformats.org/package/2006/content-types";
 
-  internal static void Save(string path,IDictionary<string,IEnumerable<object[]>> sheets) {
+  internal static void Save(string path,IDictionary<string,IEnumerable<object[]>> sheets,bool replaceExisting=false) {
    string target=Path.GetFullPath(path);
    string temp=Path.Combine(Path.GetDirectoryName(target),".qlkpxlsx-"+Guid.NewGuid().ToString("N")+".tmp");
    try {
@@ -47,7 +47,7 @@ namespace QLKP.Desktop.Core {
      }
      stream.Flush(true);
     }
-    File.Move(temp,target);
+    if(replaceExisting)File.Replace(temp,target,null);else File.Move(temp,target);
    } finally {if(File.Exists(temp))File.Delete(temp);}
   }
   static XElement Override(string path,string type) {

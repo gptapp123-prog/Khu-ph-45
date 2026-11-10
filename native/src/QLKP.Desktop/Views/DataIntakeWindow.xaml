@@ -50,7 +50,7 @@
   <Button Content="1. Xem trước và kiểm tra" Click="Preview_Click" Padding="14,7"/>
   <TextBlock x:Name="ResultStatus" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#134D89" TextWrapping="Wrap"/>
  </WrapPanel>
- <GroupBox Grid.Row="4" Header="KẾT QUẢ ĐỐI CHIẾU THEO ID/MÃ HỘ · Xem tối đa 100 dòng đầu" Padding="6">
+ <GroupBox Grid.Row="4" Header="KẾT QUẢ ĐỐI CHIẾU THEO ID/MÃ HỘ · Cuộn để xem toàn bộ lô" Padding="6">
   <DataGrid x:Name="PreviewRows" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False">
    <DataGrid.Columns>
     <DataGridTextColumn Header="Trang tính" Binding="{Binding SheetName}" Width="135"/>

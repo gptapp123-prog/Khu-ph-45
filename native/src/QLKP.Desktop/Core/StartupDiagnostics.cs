@@ -61,7 +61,7 @@ namespace QLKP.Desktop.Core {
     try {
      Directory.CreateDirectory(DataStore.DataFolder);
      // Never log passwords, SQL values, paths of citizens' files, or record contents.
-     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.21.3-PILOT"+Environment.NewLine,Encoding.UTF8);
+     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.21.4-PILOT"+Environment.NewLine,Encoding.UTF8);
     } catch { /* Logging failures must not cause data deletion. */ }
    }
   }
