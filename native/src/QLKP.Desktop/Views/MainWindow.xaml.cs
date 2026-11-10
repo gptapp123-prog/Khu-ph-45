@@ -17,6 +17,7 @@ namespace QLKP.Desktop.Views {
     (f.Code=="B01" && DataStore.Can(s,"B01","read")) ||
     (f.Code=="B02" && DataStore.Can(s,"B02","read")) ||
     (f.Code=="B03" && DataStore.Can(s,"B03","read")) ||
+    (f.Code=="F08" && DataStore.Can(s,"F08","read") && DataStore.Can(s,"B02","read")) ||
     (f.Code=="I01" && DataStore.Can(s,"I01","read")) ||
     (f.Code=="I02" && DataStore.Can(s,"I02","read")) ||
     (f.Code=="I03" && DataStore.Can(s,"I03","read")) ||
