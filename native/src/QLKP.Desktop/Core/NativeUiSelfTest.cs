@@ -130,6 +130,51 @@ namespace QLKP.Desktop.Core {
    timer.Start();try{Click(open);}finally{timer.Stop();}
    if(!completed||error!=null)throw new InvalidDataException("Identity UI dialog did not complete.",error);
   }
+  static void ExerciseReadWorkflows(MainWindow main,Session actor,TestRunRecorder run,string sandbox) {
+   run.BeginStep("UI_A01_REFRESH_DASHBOARD");
+   var dashboard=Navigate(main,"A01");
+   Click(Control<Button>(dashboard,"RefreshDashboard"));
+   if(!Control<DataGrid>(dashboard,"Summary").Items.OfType<ModuleOverview>().Any(x=>x.Feature=="F08"&&x.Count>0))
+    throw new InvalidDataException("A01 did not refresh the scoped vehicle count.");
+
+   var task=DataStore.GetModulePage(actor,"A02","UI-A02",0).Items.Single();
+   task=DataStore.GetModuleRecord(actor,"A02",task.Id);
+   task.Fields["deadline"]=DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture);
+   DataStore.SaveModuleRecord(actor,"A02",task,task.Version);
+   foreach(string code in new[]{"H01","H02","H03","H04","H05"}) {
+    run.BeginStep("UI_"+code+"_RUN_REPORT");
+    var report=Navigate(main,code);
+    Control<TextBox>(report,"FromDate").Text=DateTime.Today.AddDays(-2).ToString("dd-MM-yyyy",System.Globalization.CultureInfo.InvariantCulture);
+    Control<TextBox>(report,"ToDate").Text=DateTime.Today.AddDays(1).ToString("dd-MM-yyyy",System.Globalization.CultureInfo.InvariantCulture);
+    Control<ComboBox>(report,"Source").SelectedItem="A02";
+    Click(Control<Button>(report,"RunReport"));
+    var lines=Control<DataGrid>(report,"Results").Items.OfType<ReportLine>().ToArray();
+    bool detail=code=="H02"||code=="H04";
+    if(lines.Length==0||lines.Any(x=>x.Feature!="A02")||
+       (detail?!lines.Any(x=>x.RecordId==task.Id):lines.Any(x=>x.RecordId!=""||x.CountDisplay!="Ẩn (1–4)")))
+     throw new InvalidDataException(code+": report UI returned the wrong scoped data.");
+   }
+   run.BeginStep("UI_I03_REFRESH_AUDIT");
+   var audit=Navigate(main,"I03");
+   Click(Control<Button>(audit,"ReloadAudit"));
+   if(!Control<DataGrid>(audit,"AuditEvents").Items.OfType<AuditRow>().Any())
+    throw new InvalidDataException("I03 did not display audit events.");
+
+   run.BeginStep("UI_I09_VERIFY_HASH");
+   var version=Navigate(main,"I09");
+   string fixture=Path.Combine(sandbox,"checksum.zip");
+   File.WriteAllBytes(fixture,new byte[]{97,98,99});
+   Control<TextBox>(version,"PackagePath").Text=fixture;
+   var reference=Control<TextBox>(version,"ExpectedHash");
+   reference.Text=new string('0',64);
+   Click(Control<Button>(version,"VerifyHash"));
+   var result=Control<TextBox>(version,"HashResult");
+   if(!result.Text.Contains("KHÔNG KHỚP mã băm"))throw new InvalidDataException("I09 accepted a mismatched checksum.");
+   reference.Text="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+   Click(Control<Button>(version,"VerifyHash"));
+   if(!result.Text.Contains("KHỚP mã băm đã nhập"))throw new InvalidDataException("I09 did not recognize a matching checksum.");
+  }
+
   public static void Run() {
    var app=Application.Current;var priorShutdown=app.ShutdownMode;app.ShutdownMode=ShutdownMode.OnExplicitShutdown;
    using(var run=new TestRunRecorder("windows_ui_smoke","ui_e2e")) {
@@ -291,6 +336,7 @@ namespace QLKP.Desktop.Core {
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
       if(new[]{"B01","A02","C01","H03"}.Contains(feature.Code))Snapshot(main,evidence,feature.Code);
      }
+     ExerciseReadWorkflows(main,admin,run,sandbox);
      if(visited.Count!=FeatureCatalog.All.Count)throw new InvalidDataException("Not all routes opened.");
      Console.WriteLine("UI_NAVIGATION_PASS "+visited.Count);Console.WriteLine("UI_MODULE_WRITE_PASS "+ModuleCatalog.Editable.Length);
      run.BeginStep("UI_CREATE_DEFAULT_ORDINARY_ACCOUNT");var accountPanel=Navigate(main,"I01");

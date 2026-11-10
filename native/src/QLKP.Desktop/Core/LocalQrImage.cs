@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ZXing;
@@ -34,6 +35,14 @@ namespace QLKP.Desktop.Core {
     var result=new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source)));
     if(result==null||String.IsNullOrWhiteSpace(result.Text))throw new InvalidDataException("Không đọc được mã QR từ ảnh.");
     return result.Text;
+   }
+  }
+
+  internal static string ReadText(string path) {
+   using(var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read)) {
+    if(stream.Length<1||stream.Length>256)throw new InvalidDataException("Tệp mã QR phải từ 1 đến 256 byte.");
+    using(var reader=new StreamReader(stream,new UTF8Encoding(false,true),false))
+     return reader.ReadToEnd().TrimStart('\ufeff');
    }
   }
 

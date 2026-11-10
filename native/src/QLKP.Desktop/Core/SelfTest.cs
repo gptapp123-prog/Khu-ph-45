@@ -881,6 +881,15 @@ namespace QLKP.Desktop.Core {
     try{DataStore.ParseLocalQrReference(operatorUser,LocalQrImage.Read(externalImage));}
     catch(InvalidDataException){imageLinkBlocked=true;}
     if(!imageLinkBlocked)throw new InvalidDataException("QR từ ảnh được phép mở liên kết ngoài.");
+    string qrTextPath=Path.Combine(sandbox,"qlkp-qr.txt");
+    File.WriteAllText(qrTextPath,decoded);
+    if(DataStore.ParseLocalQrReference(operatorUser,LocalQrImage.ReadText(qrTextPath)).Item2!=linkedQr.Item2)
+     throw new InvalidDataException("Không mở đúng hộ qua tệp TXT từ Android.");
+    File.WriteAllText(qrTextPath,new string('x',257));
+    bool oversizedQrDenied=false;
+    try{LocalQrImage.ReadText(qrTextPath);}catch(InvalidDataException){oversizedQrDenied=true;}
+    if(!oversizedQrDenied)throw new InvalidDataException("Chấp nhận tệp QR quá giới hạn.");
+    Console.WriteLine("REPOSITORY_PASS I05 Android TXT handoff and size limit");
     Console.WriteLine("REPOSITORY_PASS I05 QR PNG encode/decode/authorized target");
     journal.BeginStep("PRIVACY_AND_ARTIFACT_GUARDS");
     // V0.19: small aggregate counts must never leak via H01/H03 UI bindings.

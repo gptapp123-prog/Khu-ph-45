@@ -3,7 +3,7 @@
   <StackPanel DockPanel.Dock="Top">
    <TextBlock Text="I03 · NHẬT KÝ VÀ TRUY VẾT" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
    <TextBlock Text="Nhật ký phân trang theo phạm vi được cấp. Không hiện mật khẩu, CCCD hoặc nội dung hồ sơ." Foreground="#526781" TextWrapping="Wrap"/>
-   <Button Content="Nạp lại nhật ký" HorizontalAlignment="Left" Click="Refresh_Click"/>
+   <Button x:Name="ReloadAudit" Content="Nạp lại nhật ký" HorizontalAlignment="Left" Click="Refresh_Click"/>
    <TextBlock x:Name="Info" Foreground="#A44312"/>
    <WrapPanel><Button x:Name="Previous" Content="◀ Trước" Click="Previous_Click"/><Button x:Name="Next" Content="Sau ▶" Click="Next_Click"/></WrapPanel>
   </StackPanel>

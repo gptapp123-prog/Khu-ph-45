@@ -12,7 +12,7 @@
     <ComboBox x:Name="Source" Width="190" Margin="0,0,12,0"/>
     <TextBlock Text="Trạng thái" VerticalAlignment="Center" Margin="0,0,6,0"/>
     <TextBox x:Name="StatusFilter" Width="145" Margin="0,0,10,0"/>
-    <Button Content="Lấy số liệu" Padding="10,6" Click="Refresh_Click"/>
+    <Button x:Name="RunReport" Content="Lấy số liệu" Padding="10,6" Click="Refresh_Click"/>
     <Button x:Name="ExportButton" Content="Xuất Excel / CSV" Padding="10,6" Margin="8,0,0,0" Click="Export_Click"/>
    </WrapPanel>
   </StackPanel>

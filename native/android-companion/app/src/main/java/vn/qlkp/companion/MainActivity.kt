@@ -77,7 +77,9 @@ class MainActivity : Activity() {
    addView(action("Lưu tệp kết quả để gửi PC") { createResult() })
    addView(action("Đóng nhiệm vụ") { clearTask();taskStatus.text="Đã đóng nhiệm vụ." })
   }
-  wrap.addView(title);wrap.addView(about);wrap.addView(phrase)
+  wrap.addView(title)
+  wrap.addView(action("Đọc ảnh và mã QR") { startActivity(Intent(this,DocumentScanActivity::class.java)) })
+  wrap.addView(about);wrap.addView(phrase)
   wrap.addView(action("Mở nhiệm vụ .qlkptask") { openDocument(requestTask) })
   wrap.addView(taskStatus);wrap.addView(taskActions)
   catalogSearch=EditText(this).apply { hint="Tìm theo mã hoặc nhãn";isSingleLine=true;isSaveEnabled=false }

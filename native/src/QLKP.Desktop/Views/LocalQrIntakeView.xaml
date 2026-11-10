@@ -5,6 +5,7 @@
    <TextBlock Text="Mở hồ sơ" FontWeight="Bold" Margin="0,14,0,4"/>
    <WrapPanel>
     <Button x:Name="OpenQrImage" Content="Mở ảnh QR" Click="OpenImage_Click" Padding="12,6"/>
+    <Button x:Name="OpenQrFile" Content="Mở mã từ TXT" Click="OpenTextFile_Click" Padding="12,6"/>
     <TextBox x:Name="QrPayload" Width="260" MaxLength="128" ToolTip="Dán nội dung QR nội bộ đã quét"/>
     <Button x:Name="OpenQrText" Content="Mở mã đã dán" Click="Qr_Click" Padding="12,6"/>
    </WrapPanel>

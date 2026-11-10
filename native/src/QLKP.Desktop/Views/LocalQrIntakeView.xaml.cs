@@ -91,6 +91,12 @@ namespace QLKP.Desktop.Views {
    try {OpenReference(LocalQrImage.Read(picker.FileName));}
    catch(Exception ex){ResultMessage.Text="Không mở được hồ sơ QR. "+ex.Message;}
   }
+  void OpenTextFile_Click(object sender,RoutedEventArgs e) {
+   var picker=new OpenFileDialog{Filter="Mã QR từ điện thoại (*.txt)|*.txt",CheckFileExists=true};
+   if(picker.ShowDialog(Window.GetWindow(this))!=true)return;
+   try {OpenReference(LocalQrImage.ReadText(picker.FileName));}
+   catch(Exception ex){ResultMessage.Text="Không mở được hồ sơ QR. "+ex.Message;}
+  }
   void Qr_Click(object sender,RoutedEventArgs e) {
    try {OpenReference(QrPayload.Text);}
    catch(Exception ex){ResultMessage.Text="Không mở được hồ sơ QR. "+ex.Message;}
