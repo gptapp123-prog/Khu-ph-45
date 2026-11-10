@@ -517,6 +517,53 @@ namespace QLKP.Desktop.Core {
     catch(InvalidOperationException){workbookReplayBlocked=true;}
     if(!workbookReplayBlocked)throw new InvalidDataException("Sổ đã nhập vẫn được xem trước như một lô mới.");
     Console.WriteLine("REPOSITORY_PASS XLSX workbook/links/atomic rollback/retry");
+    journal.BeginStep("EXCEL_LEGACY_CONVERSION");
+    string legacyWorkbook=Path.Combine(sandbox,"dan-cu-v21.xlsx");
+    string convertedWorkbook=Path.Combine(sandbox,"dan-cu-converted.xlsx");
+    var legacyHead=new object[34];
+    var legacyMember=new object[34];
+    var legacyHeaders=new object[34];
+    for(int column=0;column<legacyHeaders.Length;column++)legacyHeaders[column]="Other_"+column;
+    legacyHeaders[0]="MaNhanKhau";legacyHeaders[1]="HoTen";legacyHeaders[3]="NgaySinh";legacyHeaders[4]="GioiTinh";
+    legacyHeaders[10]="MaHoHienTai";legacyHeaders[13]="SoGiayTo_NHAYCAM";
+    legacyHead[0]="V21-N1";legacyHead[1]="Chủ hộ V21";legacyHead[3]="10-01-1980";legacyHead[4]="Nam";
+    legacyHead[10]="V21-H1";legacyHead[13]="ID_FIXTURE_ONLY";
+    legacyMember[0]="V21-N2";legacyMember[1]="Thành viên V21";legacyMember[3]="2000-01-10";legacyMember[4]="Nữ";
+    legacyMember[10]="V21-H1";
+    var legacyLinks=new System.Collections.Generic.List<object[]>{
+     new object[]{"MaHo","MaNhanKhau","QuanHeVoiChuHo","DenNgay","TrangThaiQuanHe"},
+     new object[]{"V21-H1","V21-N2","Con","","Hiệu lực"},
+     new object[]{"V21-H1","V21-N1","Chủ hộ","","Hiệu lực"},
+     new object[]{"HO-CU","V21-N2","Con","2020-01-01","Đã kết thúc"}
+    };
+    var legacySheets=new System.Collections.Generic.Dictionary<string,System.Collections.Generic.IEnumerable<object[]>>{
+     {"HoGiaDinh",new object[][]{new object[]{"MaHo","MaChuHo","DiaChiDayDu"},new object[]{"V21-H1","V21-N1","Địa chỉ V21"}}},
+     {"NhanKhau",new[]{legacyHeaders,legacyHead,legacyMember}},
+     {"ThanhVienHo",legacyLinks},
+     {"CuTru",new object[][]{new object[]{"MaNhanKhau","LoaiCuTru"},new object[]{"V21-N1","Tạm trú"}}}
+    };
+    XlsxWorkbook.Save(legacyWorkbook,legacySheets);
+    var converted=DataStore.ConvertLegacyResidentWorkbook(legacyWorkbook);
+    converted.Save(convertedWorkbook);
+    if(!converted.Summary.Contains("CuTru")||converted.Summary.Contains("ID_FIXTURE_ONLY")||
+       DataStore.FindHouseholds(user,"V21-H1").Count!=0||XlsxIntakeReader.ReadFirstSheet(convertedWorkbook).Contains("ID_FIXTURE_ONLY"))
+     throw new InvalidDataException("Chuyển mẫu v2.1 ghi sớm vào kho, lộ trường loại trừ hoặc thiếu tóm tắt.");
+    var legacyPreview=DataStore.PreviewWorkbookIntake(user,convertedWorkbook);
+    if(DataStore.CommitWorkbookIntake(user,legacyPreview,false)!=2)
+     throw new InvalidDataException("Sổ sau chuyển đổi không nhập được.");
+    var importedHead=DataStore.FindPeople(user,"Chủ hộ V21")[0];
+    var importedMember=DataStore.FindPeople(user,"Thành viên V21")[0];
+    if(importedHead.BirthDate!="1980-01-10"||importedHead.Gender!="Nam"||importedHead.HouseholdCode!="V21-H1"||
+       importedMember.BirthDate!="2000-01-10"||importedMember.HouseholdCode!="V21-H1")
+     throw new InvalidDataException("Chuyển mẫu v2.1 sai ngày sinh hoặc liên kết hộ.");
+    legacyLinks.Add(new object[]{"V21-H1","V21-N2","Con","","Hiệu lực"});
+    string legacyConflict=Path.Combine(sandbox,"dan-cu-v21-conflict.xlsx");
+    XlsxWorkbook.Save(legacyConflict,legacySheets);
+    bool legacyConflictRejected=false;
+    try{DataStore.ConvertLegacyResidentWorkbook(legacyConflict);}
+    catch(InvalidDataException){legacyConflictRejected=true;}
+    if(!legacyConflictRejected)throw new InvalidDataException("Sổ v2.1 có nhiều liên kết hiện hành cho một người chưa bị chặn.");
+    Console.WriteLine("REPOSITORY_PASS XLSX legacy v2.1 mapping/omissions/import/conflict");
     // V0.17 Windows runtime gate: reports H01–H05 from authorized source records only.
     journal.BeginStep("REPORTS");
     string reportSecret="T-"+Guid.NewGuid().ToString("N")+"!";

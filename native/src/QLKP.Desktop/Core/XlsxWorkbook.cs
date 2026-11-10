@@ -59,7 +59,10 @@ namespace QLKP.Desktop.Core {
     new XAttribute("Type",Document.NamespaceName+"/"+type),new XAttribute("Target",target));
   }
   static XElement Cell(object value,int column,int row) {
-   var position=new XAttribute("r",((char)('A'+column)).ToString()+row);
+   string letters="";
+   for(int valueIndex=column+1;valueIndex>0;valueIndex=(valueIndex-1)/26)
+    letters=(char)('A'+(valueIndex-1)%26)+letters;
+   var position=new XAttribute("r",letters+row);
    if(value is long) return new XElement(Main+"c",position,new XElement(Main+"v",value));
    return new XElement(Main+"c",position,new XAttribute("t","inlineStr"),
     new XElement(Main+"is",new XElement(Main+"t",new XAttribute(XNamespace.Xml+"space","preserve"),value??"")));

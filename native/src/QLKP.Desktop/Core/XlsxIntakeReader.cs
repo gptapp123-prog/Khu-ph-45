@@ -135,7 +135,29 @@ namespace QLKP.Desktop.Core {
     return expected.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name))).ToArray();
    }
   }
-  static string ReadSheet(ZipArchive archive,XDocument workbook,int index) {
+  internal static string[] ReadLegacySheets(string path,string[] required,out string[] otherNames,out string[] populatedOtherNames) {
+   using(var archive=Open(path)) {
+    var workbook=Workbook(archive);
+    var names=SheetNames(workbook);
+    if(names.Length>24||names.Distinct(StringComparer.OrdinalIgnoreCase).Count()!=names.Length||
+       required.Any(name=>!names.Contains(name,StringComparer.Ordinal)))
+     throw new InvalidDataException("Cần các trang HoGiaDinh, NhanKhau và ThanhVienHo của mẫu v2.1.");
+    otherNames=names.Where(name=>!required.Contains(name,StringComparer.Ordinal)).ToArray();
+    var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
+    var dataNames=new List<string>();
+    foreach(string name in otherNames) {
+     if(name=="HuongDan"||name=="DanhMuc"||name=="TongHop")continue;
+     var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels,Array.IndexOf(names,name))),7*1024*1024);
+     var cells=sheet.Descendants(Main+"sheetData").Elements(Main+"row").Skip(1).Elements(Main+"c");
+     if(cells.Any(cell=>cell.Element(Main+"f")!=null||!String.IsNullOrWhiteSpace((string)cell.Element(Main+"v"))||
+         cell.Descendants(Main+"t").Any(text=>!String.IsNullOrWhiteSpace(text.Value))))
+      dataNames.Add(name);
+    }
+    populatedOtherNames=dataNames.ToArray();
+    return required.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name),64)).ToArray();
+   }
+  }
+  static string ReadSheet(ZipArchive archive,XDocument workbook,int index,int maxColumns=20) {
     var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
     var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels,index)),7*1024*1024);
     string dateSystem=(string)workbook.Root.Element(Main+"workbookPr")?.Attribute("date1904");
@@ -154,13 +176,14 @@ namespace QLKP.Desktop.Core {
     int lineNumber=0, headerWidth=0;
     foreach(var row in sheet.Descendants(Main+"sheetData").Elements(Main+"row")){
      if(++lineNumber>5001)throw new InvalidDataException("Chỉ hỗ trợ tối đa 5.000 dòng dữ liệu cộng tiêu đề.");
-     var values=new string[20];int largest=-1;
+     var values=new string[maxColumns];int largest=-1;
      foreach(var cell in row.Elements(Main+"c")){
       int column=ColumnIndex((string)cell.Attribute("r")??"");
-      if(column>=20)throw new InvalidDataException("Chỉ hỗ trợ tối đa 20 cột dữ liệu.");
+      if(column>=maxColumns)throw new InvalidDataException("Trang vượt "+maxColumns+" cột dữ liệu.");
+      if(values[column]!=null)throw new InvalidDataException("Trang có tọa độ ô lặp.");
       values[column]=CellText(cell,shared,dates,date1904);
       if(values[column].Length>300)throw new InvalidDataException("Ô Excel dài trên 300 ký tự.");
-      largest=Math.Max(largest,column);
+      if(!String.IsNullOrWhiteSpace(values[column]))largest=Math.Max(largest,column);
      }
      if(largest<0)continue;
      if(headerWidth==0)headerWidth=largest+1;

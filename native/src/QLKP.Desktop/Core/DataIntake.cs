@@ -36,7 +36,7 @@ namespace QLKP.Desktop.Core {
 
   // Parse quoted CSV/TSV/semicolon including escaped quotes and embedded line breaks.
   // Delimiter is inferred from the HEADER, never from data rows; no spreadsheet formulas are evaluated.
-  static List<string[]> ReadIntakeTable(string input,bool allowHeaderOnly=false) {
+  static List<string[]> ReadIntakeTable(string input,bool allowHeaderOnly=false,int maxColumns=20) {
    if(String.IsNullOrWhiteSpace(input))throw new InvalidDataException("Không có dữ liệu để thu thập.");
    if(input.Length>IntakeMaxChars)throw new InvalidDataException("Nguồn vượt 2 MiB ký tự. Chia thành nhiều lô.");
    string raw=input.TrimStart('\ufeff');
@@ -72,7 +72,7 @@ namespace QLKP.Desktop.Core {
    if(fields.Any(v=>v.Length>0))table.Add(fields.ToArray());
    if(table.Count<(allowHeaderOnly?1:2))throw new InvalidDataException("Cần tiêu đề cột và ít nhất một dòng dữ liệu.");
    int width=table[0].Length;
-   if(width>20 || width<2)throw new InvalidDataException("Số cột nguồn không hợp lệ (2–20). ");
+   if(width>maxColumns || width<2)throw new InvalidDataException("Số cột nguồn không hợp lệ (2–"+maxColumns+").");
    for(int i=1;i<table.Count;i++)if(table[i].Length!=width)
     throw new InvalidDataException("Dòng "+(i+1)+" có "+table[i].Length+" cột; tiêu đề có "+width+" cột.");
    return table;
@@ -114,7 +114,7 @@ namespace QLKP.Desktop.Core {
    throw new InvalidOperationException("Chế độ nhập không hợp lệ.");
   }
   static HashSet<string> ExpectedFields(string mode) {
-   if(mode=="CREATE_HOUSEHOLD")return new HashSet<string>(new[]{"household_code","address","head"});
+   if(mode=="CREATE_HOUSEHOLD")return new HashSet<string>(new[]{"household_code","address","head","birth_date","gender"});
    if(mode=="ADD_MEMBER")return new HashSet<string>(new[]{"household_code","full_name","birth_date","gender","relationship"});
    return new HashSet<string>(new[]{"person_id","expected_version","birth_date","gender"});
   }
@@ -299,7 +299,7 @@ namespace QLKP.Desktop.Core {
     }
     for(int i=0;i<rows.Count;i++){
      var row=rows[i];
-     if(approved.Mode=="CREATE_HOUSEHOLD")CreateHouseholdInTransaction(c,tx,session,row["household_code"],row["address"],row["head"]);
+     if(approved.Mode=="CREATE_HOUSEHOLD")CreateHouseholdInTransaction(c,tx,session,row["household_code"],row["address"],row["head"],GetIntake(row,"birth_date"),GetIntake(row,"gender"));
      else if(approved.Mode=="ADD_MEMBER"){
       string household=ResolveHousehold(c,tx,session,row["household_code"]);
       string name=row["full_name"],birth=GetIntake(row,"birth_date"),gender=GetIntake(row,"gender"),rel=row["relationship"];

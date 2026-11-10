@@ -62,6 +62,22 @@ namespace QLKP.Desktop.Views {
     CommitButton.IsEnabled=true;
    } catch(Exception ex){ResultStatus.Text="Không thể chuẩn bị sổ Excel. "+ex.Message;}
   }
+  void ConvertLegacyWorkbook_Click(object sender,RoutedEventArgs e) {
+   var source=new OpenFileDialog{Filter="Sổ Dân cư v2.1 (*.xlsx)|*.xlsx",CheckFileExists=true,Multiselect=false};
+   if(source.ShowDialog(this)!=true)return;
+   InputChanged(sender,e);
+   Payload.Clear();
+   try {
+    var result=DataStore.ConvertLegacyResidentWorkbook(source.FileName);
+    if(MessageBox.Show(this,result.Summary+"\n\nTạo tệp Excel cục bộ có dữ liệu dân cư? Chưa ghi vào kho.",
+       "Đối chiếu sổ Dân cư v2.1",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+    var target=new SaveFileDialog{Filter="Sổ nhập QLKP (*.xlsx)|*.xlsx",DefaultExt=".xlsx",AddExtension=true,
+     FileName="QLKP_DanCu_DaChuyen.xlsx"};
+    if(target.ShowDialog(this)!=true)return;
+    result.Save(target.FileName);
+    ResultStatus.Text="Đã tạo sổ chuyển đổi. Bấm Kiểm tra sổ Excel để xem trước và nhập tệp mới.";
+   } catch(Exception ex){ResultStatus.Text="Chưa chuyển sổ v2.1. "+ex.Message;}
+  }
   void PasteClipboard_Click(object sender,RoutedEventArgs e) {
    try {
     if(!Clipboard.ContainsText())throw new InvalidOperationException("Clipboard chưa có bảng dạng chữ.");
