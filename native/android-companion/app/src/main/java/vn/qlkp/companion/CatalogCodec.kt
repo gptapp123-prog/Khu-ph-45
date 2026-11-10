@@ -1,14 +1,7 @@
 package vn.qlkp.companion
 
-import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 import java.util.Base64
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.charset.Charset
 
 /** Shared JVM/Android codec; UI never substitutes a successful result for invalid input. */
 internal object CatalogCodec {
@@ -18,22 +11,9 @@ internal object CatalogCodec {
   return (if(group=="LOAI_NHA")housing[code] else if(group=="NHOM_CU_TRU")residency[code] else null)==label
  }
  fun decrypt(bytes:ByteArray,pass:String):List<String> {
-  require(pass.length in 14..128 && pass.all { it.code in 33..126 }) { "Mật khẩu không hợp lệ" }
-  if(bytes.size<56 || bytes.size>524344)error("Độ dài gói không hợp lệ")
-  if(String(bytes,0,8,Charsets.US_ASCII)!="QLKPSY01")error("Sai định dạng")
-  val salt=bytes.copyOfRange(8,24);val nonce=bytes.copyOfRange(24,36)
-  val rounds=ByteBuffer.wrap(bytes,36,4).order(ByteOrder.BIG_ENDIAN).int
-  if(rounds!=310000)error("Thông số khóa không được hỗ trợ")
-  val passChars=pass.toCharArray();val keySpec=PBEKeySpec(passChars,salt,rounds,256)
-  val key=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(keySpec).encoded
-  keySpec.clearPassword();passChars.fill('\u0000')
-  val cipher=Cipher.getInstance("AES/GCM/NoPadding")
-  var plain:ByteArray?=null
+  val plain=PackageCrypto.open("QLKPSY01",bytes,pass,524288)
   try {
-   cipher.init(Cipher.DECRYPT_MODE,SecretKeySpec(key,"AES"),GCMParameterSpec(128,nonce))
-   cipher.updateAAD(bytes.copyOfRange(0,40))
-   plain=cipher.doFinal(bytes.copyOfRange(40,bytes.size))
-   val raw=Charset.forName("UTF-8").newDecoder().decode(ByteBuffer.wrap(plain)).toString()
+   val raw=Charsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(plain)).toString()
    val rows=raw.split('\n');val version=rows.firstOrNull()
    if(version!="QLKP-CATALOG-V1" && version!="QLKP-CATALOG-V2")error("Sai loại gói")
    val result=mutableListOf<String>();val seen=mutableSetOf<String>()
@@ -51,6 +31,6 @@ internal object CatalogCodec {
    }
    if(result.isEmpty())error("Gói không có danh mục")
    return result
-  } finally {plain?.fill(0);key.fill(0);salt.fill(0);nonce.fill(0)}
+  } finally {plain.fill(0)}
  }
 }

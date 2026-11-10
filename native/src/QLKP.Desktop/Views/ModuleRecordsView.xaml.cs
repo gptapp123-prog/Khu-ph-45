@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using QLKP.Desktop.Core;
+using Microsoft.Win32;
 namespace QLKP.Desktop.Views {
  public partial class ModuleRecordsView : UserControl {
   readonly Session session;readonly string moduleCode;readonly bool backlog;
@@ -51,7 +52,40 @@ namespace QLKP.Desktop.Views {
      if(textbox!=null)textbox.IsReadOnly=true;
      if(dropdown!=null)dropdown.IsEnabled=false;
     }}
+   OfflineTaskActions.Visibility=!backlog&&moduleCode=="A02"&&DataStore.Can(s,"I06","export")&&DataStore.Can(s,"A02","update")
+    ?Visibility.Visible:Visibility.Collapsed;
    ResetEditor();Reload();ApplyLayout();
+  }
+  void ExportOfflineTask_Click(object sender,RoutedEventArgs e) {
+   OfflineTaskNotice.Text="";
+   try {
+    if(activeId==null)throw new InvalidOperationException("Chọn một nhiệm vụ đã lưu.");
+    var owner=Window.GetWindow(this);
+    var input=new OfflineTaskDialog(owner,true);
+    if(input.ShowDialog()!=true)return;
+    var picker=new SaveFileDialog{Filter="Gói nhiệm vụ (*.qlkptask)|*.qlkptask",DefaultExt=".qlkptask",AddExtension=true,OverwritePrompt=true};
+    if(picker.ShowDialog(owner)!=true)return;
+    DataStore.ExportOfflineTask(session,activeId,version,input.Briefing,picker.FileName,input.Password);
+    OfflineTaskNotice.Text="Đã xuất gói. Chuyển tệp .qlkptask và gửi mật khẩu qua kênh riêng.";
+   } catch(Exception ex){OfflineTaskNotice.Text="Không xuất được gói. "+ex.Message;}
+  }
+  void ImportOfflineTask_Click(object sender,RoutedEventArgs e) {
+   OfflineTaskNotice.Text="";
+   try {
+    var owner=Window.GetWindow(this);
+    var picker=new OpenFileDialog{Filter="Kết quả Android (*.qlkpresult)|*.qlkpresult",Multiselect=false};
+    if(picker.ShowDialog(owner)!=true)return;
+    var input=new OfflineTaskDialog(owner,false);
+    if(input.ShowDialog()!=true)return;
+    var preview=DataStore.PreviewOfflineTaskResult(session,picker.FileName,input.Password);
+    var answer=MessageBox.Show(owner,preview.Task+"\n\n"+preview.Result+
+     "\n\nXác nhận để ghi kết quả và đánh dấu Hoàn thành nội bộ.", "Đối chiếu kết quả Android",
+     MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No);
+    if(answer!=MessageBoxResult.Yes)return;
+    DataStore.ConfirmOfflineTaskResult(session,preview);
+    Reload();
+    OfflineTaskNotice.Text="Đã xác nhận kết quả và ghi lịch sử nhiệm vụ.";
+   } catch(Exception ex){OfflineTaskNotice.Text="Không nhận được kết quả. "+ex.Message;}
   }
   void Layout_SizeChanged(object sender,SizeChangedEventArgs e){ApplyLayout();}
   void ApplyLayout(){
@@ -72,6 +106,7 @@ namespace QLKP.Desktop.Views {
     if(dropdown!=null)dropdown.SelectedIndex=-1;
    }
    History.ItemsSource=null;
+   ExportTaskButton.IsEnabled=false;
    // Presentation state only; repository authorization is always rechecked on save.
    SaveButton.IsEnabled=!backlog&&NewButton.IsEnabled;
    lastLinkFeature=null;lastLinkKeyword=null;linkPageIndex=0;
@@ -122,6 +157,7 @@ namespace QLKP.Desktop.Views {
     DetailRegion.ScrollToTop();
     AddRelationButton.IsEnabled=!backlog&&moduleCode!="E06"&&moduleCode!="F06"&&DataStore.Can(session,moduleCode,"update");
     SaveButton.IsEnabled=!backlog&&DataStore.Can(session,moduleCode,"update");
+    ExportTaskButton.IsEnabled=value.Status!="Hoàn thành nội bộ"&&value.Status!="Tạm dừng";
     Notice.Text="Đã đọc theo ID: "+activeId+" · Phiên bản "+version;
    }catch(Exception ex){ResetEditor();Notice.Text="Không thể mở hồ sơ: "+ex.Message;}
   }

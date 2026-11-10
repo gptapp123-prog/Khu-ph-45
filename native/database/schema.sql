@@ -504,3 +504,11 @@ CREATE INDEX IF NOT EXISTS ix_data_merge_origin ON data_merge_items(source_table
 
 -- One-time default business policy migration; no password or identity is stored here.
 CREATE TABLE IF NOT EXISTS system_policy_migrations (code TEXT PRIMARY KEY, applied_utc TEXT NOT NULL);
+
+-- V16 – a single-use, opaque token binds each offline package to a saved A02 revision.
+CREATE TABLE IF NOT EXISTS offline_task_dispatches (
+ token TEXT PRIMARY KEY NOT NULL CHECK(length(token)=32),
+ record_id TEXT NOT NULL REFERENCES module_records(id) ON DELETE CASCADE,
+ record_version INTEGER NOT NULL CHECK(record_version>=1)
+);
+CREATE INDEX IF NOT EXISTS idx_offline_task_record ON offline_task_dispatches(record_id);

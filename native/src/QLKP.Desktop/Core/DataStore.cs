@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=15;
+  internal const int SchemaVersion=16;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }

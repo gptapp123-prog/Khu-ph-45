@@ -22,14 +22,41 @@ namespace QLKP.Desktop.Core {
   static readonly byte[] Magic=Encoding.ASCII.GetBytes("QLKPSY01");
   static readonly string[] AllowedGroups={"LOAI_NHA","NHOM_CU_TRU","LOAI_CONG_TRINH","NHOM_HO_SO","LOAI_HOAT_DONG","TRANG_THAI"};
   static byte[] Random(int length) {var b=new byte[length];using(var rng=RandomNumberGenerator.Create())rng.GetBytes(b);return b;}
-  static byte[] Encrypt(byte[] header,byte[] plain,byte[] key) {
+  static byte[] Transform(bool encrypt,byte[] header,byte[] input,byte[] key) {
    var cipher=new GcmBlockCipher(new AesEngine());
    var nonce=new byte[12];Buffer.BlockCopy(header,24,nonce,0,12);
-   cipher.Init(true,new AeadParameters(new KeyParameter(key),128,nonce,header));
-   var outBytes=new byte[cipher.GetOutputSize(plain.Length)];
-   int n=cipher.ProcessBytes(plain,0,plain.Length,outBytes,0);n+=cipher.DoFinal(outBytes,n);
+   cipher.Init(encrypt,new AeadParameters(new KeyParameter(key),128,nonce,header));
+   var outBytes=new byte[cipher.GetOutputSize(input.Length)];
+   int n=cipher.ProcessBytes(input,0,input.Length,outBytes,0);n+=cipher.DoFinal(outBytes,n);
    if(n!=outBytes.Length)Array.Resize(ref outBytes,n);
    return outBytes;
+  }
+  internal static byte[] Seal(byte[] magic,byte[] plain,string phrase) {
+   ValidatePassphrase(phrase);
+   var header=new byte[40];
+   Buffer.BlockCopy(magic,0,header,0,8);
+   Buffer.BlockCopy(Random(16),0,header,8,16);
+   Buffer.BlockCopy(Random(12),0,header,24,12);
+   header[36]=(byte)(Rounds>>24);header[37]=(byte)((Rounds>>16)&255);
+   header[38]=(byte)((Rounds>>8)&255);header[39]=(byte)(Rounds&255);
+   return header.Concat(TransformPackage(true,header,plain,phrase)).ToArray();
+  }
+  internal static byte[] Unseal(byte[] magic,byte[] packet,string phrase,int maxPayload) {
+   ValidatePassphrase(phrase);
+   if(packet.Length<56||packet.Length>maxPayload+56||!packet.Take(8).SequenceEqual(magic)||
+    ((packet[36]<<24)|(packet[37]<<16)|(packet[38]<<8)|packet[39])!=Rounds)
+    throw new InvalidDataException("Sai định dạng hoặc kích thước gói.");
+   try {return TransformPackage(false,packet.Take(40).ToArray(),packet.Skip(40).ToArray(),phrase);}
+   catch(Org.BouncyCastle.Crypto.InvalidCipherTextException) {
+    throw new InvalidDataException("Sai mật khẩu hoặc gói đã bị thay đổi.");
+   }
+  }
+  static byte[] TransformPackage(bool encrypt,byte[] header,byte[] input,string phrase) {
+   byte[] key;
+   using(var derivation=new Rfc2898DeriveBytes(phrase,header.Skip(8).Take(16).ToArray(),Rounds,HashAlgorithmName.SHA256))
+    key=derivation.GetBytes(32);
+   try {return Transform(encrypt,header,input,key);}
+   finally {Array.Clear(key,0,key.Length);}
   }
   static void ValidatePassphrase(string phrase) {
    if(String.IsNullOrWhiteSpace(phrase)||phrase.Length<14||phrase.Length>128 || phrase.Any(ch=>ch<33 || ch>126))
@@ -74,7 +101,7 @@ namespace QLKP.Desktop.Core {
     !String.Equals(Path.GetExtension(fullPath),".qlkpsync",StringComparison.OrdinalIgnoreCase))
     throw new InvalidDataException("Chọn tệp .qlkpsync với đường dẫn đầy đủ.");
    if(File.Exists(fullPath))throw new IOException("Tệp đã tồn tại. Không được ghi đè bản đã xuất.");
-   byte[] plain=null,key=null,encryption=null;
+   byte[] plain=null;
    using(var conn=DataStore.Open()) {
     DataStore.RequireForOfflineTransfer(conn,actor);
     try {
@@ -101,15 +128,11 @@ namespace QLKP.Desktop.Core {
     if(count<1)throw new InvalidOperationException("Chưa có danh mục không nhạy cảm được phép chuyển.");
     plain=Encoding.UTF8.GetBytes(buffer.ToString());
     if(plain.Length>MaxPayload)throw new InvalidDataException("Dữ liệu xuất lớn hơn 512 KB.");
-    byte[] header=new byte[40],salt=Random(16),nonce=Random(12);
-    Buffer.BlockCopy(Magic,0,header,0,8);Buffer.BlockCopy(salt,0,header,8,16);Buffer.BlockCopy(nonce,0,header,24,12);
-    header[36]=(byte)((Rounds>>24)&0xff);header[37]=(byte)((Rounds>>16)&0xff);header[38]=(byte)((Rounds>>8)&0xff);header[39]=(byte)(Rounds&0xff);
-    using(var derivation=new Rfc2898DeriveBytes(phrase,salt,Rounds,HashAlgorithmName.SHA256))key=derivation.GetBytes(32);
-    encryption=Encrypt(header,plain,key);
+    byte[] packet=Seal(Magic,plain,phrase);
     string temp=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(fullPath)),".qlkpsync-"+Guid.NewGuid().ToString("N")+".tmp");
     try {
      using(var output=new FileStream(temp,FileMode.CreateNew,FileAccess.Write,FileShare.None)) {
-      output.Write(header,0,header.Length);output.Write(encryption,0,encryption.Length);output.Flush(true);
+      output.Write(packet,0,packet.Length);output.Flush(true);
      }
      File.Move(temp,fullPath);
     } finally {if(File.Exists(temp))File.Delete(temp);}
@@ -119,8 +142,6 @@ namespace QLKP.Desktop.Core {
     return "Đã xuất "+count+" nhãn danh mục qua gói AES-256-GCM. Chưa đồng bộ hai chiều hoặc kết nối mạng.";
     } finally {
      if(plain!=null)Array.Clear(plain,0,plain.Length);
-     if(key!=null)Array.Clear(key,0,key.Length);
-     if(encryption!=null)Array.Clear(encryption,0,encryption.Length);
     }
    }
   }

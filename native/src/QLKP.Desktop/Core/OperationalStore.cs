@@ -230,6 +230,11 @@ namespace QLKP.Desktop.Core {
   public static string SaveModuleRecord(Session s,string code,ModuleRecord draft,long expectedVersion=0) {
    ModuleCatalog.Get(code);
    using(var c=Open())using(var tx=c.BeginTransaction()) {
+    string id=SaveModuleRecord(c,tx,s,code,draft,expectedVersion);
+    tx.Commit();return id;
+   }
+  }
+  static string SaveModuleRecord(SQLiteConnection c,SQLiteTransaction tx,Session s,string code,ModuleRecord draft,long expectedVersion) {
     Require(c,tx,s,code,expectedVersion==0?"create":"update",s==null?null:s.AreaId);
     CheckModuleDraft(c,tx,s,code,draft);
     var now=Now;string recordId;string oldStatus="";long oldVersion=0;
@@ -270,8 +275,7 @@ namespace QLKP.Desktop.Core {
      Exec(c,tx,"INSERT INTO module_field_values(record_id,field_key,field_value) VALUES(@id,@field,@value)",
       P("@id",recordId),P("@field",f.Key),P("@value",GetField(draft,f.Key)));
     }
-    tx.Commit();return recordId;
-   }
+    return recordId;
   }
   static ModuleRecord ReadModuleRecord(SQLiteDataReader r) {
    return new ModuleRecord {Id=r.GetString(0),Feature=r.GetString(1),Code=r.GetString(2),Title=r.GetString(3),
@@ -281,6 +285,11 @@ namespace QLKP.Desktop.Core {
   public static ModuleRecord GetModuleRecord(Session s,string code,string id) {
    ModuleCatalog.Get(code);
    using(var c=Open())using(var tx=c.BeginTransaction()) {
+    var value=GetModuleRecord(c,tx,s,code,id);
+    tx.Commit();return value;
+   }
+  }
+  static ModuleRecord GetModuleRecord(SQLiteConnection c,SQLiteTransaction tx,Session s,string code,string id) {
     Require(c,tx,s,code,"read",s==null?null:s.AreaId);
     ModuleRecord value;
     using(var cmd=new SQLiteCommand("SELECT "+ModuleColumns+" FROM module_records m WHERE m.feature=@f AND m.id=@id AND m.area_id=@a",c,tx)) {
@@ -290,8 +299,7 @@ namespace QLKP.Desktop.Core {
     using(var cmd=new SQLiteCommand("SELECT field_key,field_value FROM module_field_values WHERE record_id=@id ORDER BY field_key",c,tx)) {
      cmd.Parameters.Add(P("@id",id));using(var r=cmd.ExecuteReader())while(r.Read())value.Fields[r.GetString(0)]=r.GetString(1);
     }
-    tx.Commit();return value;
-   }
+    return value;
   }
   public static RecordPage<ModuleRecord> GetModulePage(Session s,string code,string keyword,int pageIndex,int pageSize=50,bool onlyBacklog=false) {
    ModuleCatalog.Get(code);

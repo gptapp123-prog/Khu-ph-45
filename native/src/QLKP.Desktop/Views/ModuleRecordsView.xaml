@@ -8,6 +8,11 @@
     <TextBlock Text="Tìm mã hoặc tiêu đề: " VerticalAlignment="Center" DockPanel.Dock="Left"/>
     <TextBox x:Name="Search" MinWidth="100" MaxWidth="330" HorizontalAlignment="Stretch" TextChanged="Search_Changed"/>
    </DockPanel>
+   <WrapPanel x:Name="OfflineTaskActions" Visibility="Collapsed" Margin="0,0,0,8">
+    <Button x:Name="ExportTaskButton" Content="Xuất gói giao việc" Padding="10,5" Margin="0,0,8,0" Click="ExportOfflineTask_Click" IsEnabled="False"/>
+    <Button x:Name="ImportTaskButton" Content="Nhận kết quả Android" Padding="10,5" Click="ImportOfflineTask_Click"/>
+   </WrapPanel>
+   <TextBlock x:Name="OfflineTaskNotice" TextWrapping="Wrap" Foreground="#9E4A14"/>
   </StackPanel>
   <Grid Grid.Row="1" x:Name="RecordsLayout">
    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="0"/></Grid.RowDefinitions>

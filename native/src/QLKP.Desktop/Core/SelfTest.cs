@@ -9,6 +9,66 @@ namespace QLKP.Desktop.Core {
     catch(Exception ex){journal.Complete("FAIL",ex.GetType().Name);throw;}
    }
   }
+  static void TestOfflineTaskExchange(Session root,Session admin,Session denied,string adminSecret,string folder) {
+   DataStore.SetAccountRights(root,admin.Id,new[]{"A02:read","A02:create","A02:update","I06:read","I06:export"});
+   admin=DataStore.Login("test_admin",adminSecret);
+   const string password="TaskFixture_2026!";
+   var utf8=System.Text.Encoding.UTF8;
+   var resultMagic=utf8.GetBytes("QLKPTR01");
+   var fixture=Convert.FromBase64String("UUxLUFRSMDEAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobAAS68Gikn9CL+bSFKwQvg1jgHnX3eK91woBVNqyiA4Dupaz/rO327gaGCSFgBzv4cV89WYQXgt9zsHw7ja62bnb3RkmRDbYmdDlhAUs=");
+   string expectedResult="Đã kiểm tra.";
+   string packed=Convert.ToBase64String(utf8.GetBytes(expectedResult));
+   var fixturePlain=OfflineCatalogTransfer.Unseal(resultMagic,fixture,password,16384);
+   if(utf8.GetString(fixturePlain)!="1234567890124abc8abc123456789012\n"+packed)
+    throw new InvalidDataException("A02 đọc sai định dạng kết quả Android.");
+   var draft=new ModuleRecord{Code="TASK-EXCHANGE",Title="Nhiệm vụ giả lập",Status="Mới",Notes="Nội dung chỉ ở PC"};
+   draft.Fields["assignee_id"]=admin.Id;
+   draft.Fields["deadline"]="2026-11-10";
+   string id=DataStore.SaveModuleRecord(admin,"A02",draft);
+   var task=DataStore.GetModuleRecord(admin,"A02",id);
+   string dispatch=Path.Combine(folder,"test.qlkptask");
+   string resultPath=Path.Combine(folder,"test.qlkpresult");
+   DataStore.ExportOfflineTask(admin,id,task.Version,"Kiểm tra đèn đường.",dispatch,password);
+   var packet=File.ReadAllBytes(dispatch);
+   string[] fields=utf8.GetString(OfflineCatalogTransfer.Unseal(utf8.GetBytes("QLKPTD01"),packet,password,16384)).Split('\n');
+   if(fields.Length!=4||utf8.GetString(Convert.FromBase64String(fields[1]))!=draft.Code||
+      utf8.GetString(Convert.FromBase64String(fields[2]))!="10-11-2026"||
+      utf8.GetString(Convert.FromBase64String(fields[3]))!="Kiểm tra đèn đường.")
+    throw new InvalidDataException("A02 xuất thừa hoặc thiếu dữ liệu giao việc.");
+   var result=OfflineCatalogTransfer.Seal(resultMagic,utf8.GetBytes(fields[0]+"\n"+packed),password);
+   File.WriteAllBytes(resultPath,result);
+   RequireTaskRejection<UnauthorizedAccessException>(()=>DataStore.PreviewOfflineTaskResult(denied,resultPath,password));
+   RequireTaskRejection<InvalidDataException>(()=>DataStore.PreviewOfflineTaskResult(admin,resultPath,"wrong_password_123"));
+   var changed=(byte[])result.Clone();changed[changed.Length-1]^=1;
+   File.WriteAllBytes(resultPath,changed);
+   RequireTaskRejection<InvalidDataException>(()=>DataStore.PreviewOfflineTaskResult(admin,resultPath,password));
+   File.WriteAllBytes(resultPath,result);
+   var preview=DataStore.PreviewOfflineTaskResult(admin,resultPath,password);
+   if(preview.Result!=expectedResult||DataStore.GetModuleRecord(admin,"A02",id).Status!="Mới")
+    throw new InvalidDataException("A02 chưa đối chiếu đúng nội dung hoặc xem trước đã ghi dữ liệu.");
+   task.Title="Nhiệm vụ đã chỉnh";
+   DataStore.SaveModuleRecord(admin,"A02",task,task.Version);
+   RequireTaskRejection<InvalidOperationException>(()=>DataStore.ConfirmOfflineTaskResult(admin,preview));
+
+   task=DataStore.GetModuleRecord(admin,"A02",id);
+   File.Delete(dispatch);
+   DataStore.ExportOfflineTask(admin,id,task.Version,"Kiểm tra đèn đường.",dispatch,password);
+   string token=utf8.GetString(OfflineCatalogTransfer.Unseal(utf8.GetBytes("QLKPTD01"),File.ReadAllBytes(dispatch),password,16384)).Split('\n')[0];
+   File.WriteAllBytes(resultPath,OfflineCatalogTransfer.Seal(resultMagic,utf8.GetBytes(token+"\n"+packed),password));
+   preview=DataStore.PreviewOfflineTaskResult(admin,resultPath,password);
+   DataStore.ConfirmOfflineTaskResult(admin,preview);
+   RequireTaskRejection<InvalidOperationException>(()=>DataStore.ConfirmOfflineTaskResult(admin,preview));
+   var completed=DataStore.GetModuleRecord(admin,"A02",id);
+   if(completed.Status!="Hoàn thành nội bộ"||completed.Fields["result"]!=expectedResult||
+      completed.Fields["progress"]!="100"||completed.Notes!=draft.Notes||completed.Version!=task.Version+1||
+      DataStore.GetModuleHistory(admin,"A02",id).Count!=2)
+    throw new InvalidDataException("A02 không ghi đúng kết quả, trạng thái hoặc lịch sử.");
+   Console.WriteLine("REPOSITORY_PASS A02 offline dispatch/result/preview/stale/replay");
+  }
+  static void RequireTaskRejection<T>(Action action) where T:Exception {
+   try {action();}catch(T){return;}
+   throw new InvalidDataException("A02 chấp nhận gói đáng lẽ phải từ chối.");
+  }
   static void RunIsolated(TestRunRecorder journal) {
    string sandbox=DataStore.BeginIsolatedSelfTest();
    try {
@@ -649,6 +709,8 @@ namespace QLKP.Desktop.Core {
     finally{File.Delete(leftover);}
     if(!leftoversBlocked)throw new InvalidDataException("Khởi chạy không phát hiện tệp bảo trì chưa mã hóa.");
     StartupDiagnostics.CheckPlaintextMaintenanceArtifacts();
+    journal.BeginStep("A02_OFFLINE_TASK_EXCHANGE");
+    TestOfflineTaskExchange(root,admin,user,adminSecret,sandbox);
     StartupDiagnostics.CheckDatabase(DataStore.DatabasePath);
    } catch(Exception ex){journal.EndStep("FAIL",ex.GetType().Name);throw;}
    finally {
