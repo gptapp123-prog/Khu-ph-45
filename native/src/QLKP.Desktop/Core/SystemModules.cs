@@ -97,10 +97,9 @@ namespace QLKP.Desktop.Core {
     string schema=Convert.ToString(Scalar(c,null,"PRAGMA user_version;"),CultureInfo.InvariantCulture);
     string integrity=Convert.ToString(Scalar(c,null,"PRAGMA quick_check;"));
     long bytes=File.Exists(DatabasePath)?new FileInfo(DatabasePath).Length:0;
-    return "Phiên bản nguồn: "+app+" (PILOT)\nLược đồ SQLite: "+schema+
+    return "Phiên bản ứng dụng: "+app+"\nLược đồ SQLite: "+schema+
       "\nKho: AES-256 / HMAC-SHA512 · Khóa Windows DPAPI"+
-      "\nKiểm tra SQLite: "+integrity+"\nDung lượng kho (byte): "+bytes.ToString(CultureInfo.InvariantCulture)+
-      "\nCập nhật: chỉ kiểm tra gói. Chưa có cơ chế cài bản cập nhật đã ký số.";
+      "\nKiểm tra SQLite: "+integrity+"\nDung lượng kho (byte): "+bytes.ToString(CultureInfo.InvariantCulture);
    }
   }
   public static string VerifyPackageSha256(Session s,string file,string expected) {

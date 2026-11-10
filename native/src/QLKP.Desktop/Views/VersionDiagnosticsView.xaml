@@ -1,5 +1,5 @@
 <UserControl x:Class="QLKP.Desktop.Views.VersionDiagnosticsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#F8FBFF">
- <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="18"><TextBlock Text="I09 · Phiên bản và kiểm tra gói cập nhật" FontSize="23" FontWeight="Bold" Foreground="#102D59"/><TextBlock Text="Đọc trạng thái và kiểm tra SHA-256 thủ công; KHÔNG tự cài hoặc chạy tệp chưa xác thực." Foreground="#A33E12" Margin="0,8,0,14"/>
+ <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="18"><TextBlock Text="I09 · Phiên bản và kiểm tra gói" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
   <Button Content="Kiểm tra phiên bản và kho dữ liệu" Click="Status_Click" Width="240" HorizontalAlignment="Left" Padding="10,7"/>
   <Button Content="Lịch sử kiểm thử" Click="History_Click" HorizontalAlignment="Left"/>
   <TextBox x:Name="Diagnostics" Height="135" IsReadOnly="True" TextWrapping="Wrap" Margin="0,12,0,10"/>
@@ -8,6 +8,6 @@
   <TextBlock Text="Mã SHA-256 tham chiếu từ nhà phát hành (64 ký tự hex)"/><TextBox x:Name="ExpectedHash" Margin="0,6,0,10"/>
   <Button Content="Tính và đối chiếu SHA-256" Click="Hash_Click" HorizontalAlignment="Left" Padding="14,7"/>
   <TextBox x:Name="HashResult" IsReadOnly="True" Height="120" TextWrapping="Wrap" Margin="0,12,0,0"/>
-  <TextBlock Text="Dù mã băm trùng, cần xác minh chữ ký và nhà phát hành trước khi cài đặt. Chức năng tự cập nhật chưa được triển khai." TextWrapping="Wrap" Foreground="#8B3D16" Margin="0,12,0,0"/>
+  <TextBlock Text="Xác minh chữ ký và nhà phát hành trước khi cài đặt." TextWrapping="Wrap" Foreground="#8B3D16" Margin="0,12,0,0"/>
  </StackPanel></ScrollViewer>
 </UserControl>

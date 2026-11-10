@@ -38,18 +38,19 @@ namespace QLKP.Desktop.Views {
   void Households_SelectionChanged(object sender,SelectionChangedEventArgs e) {
    InvalidateMemberBatchPreview();
    if(EditHousehold!=null)EditHousehold.IsEnabled=false;
-   var h=Households.SelectedItem as HouseholdRow;if(h==null){Members.ItemsSource=null;MembersNotice.Text="";SelectedDetail.Text="Chọn hộ từ danh sách.";return;}
+   var h=Households.SelectedItem as HouseholdRow;if(h==null){HouseholdDetails.IsExpanded=false;Members.ItemsSource=null;MembersNotice.Text="";SelectedDetail.Text="Chọn hộ từ danh sách.";return;}
    try{
     var current=DataStore.GetHousehold(session,h.Id);
+    HouseholdDetails.IsExpanded=true;
     EditHousehold.IsEnabled=DataStore.Can(session,"B01","update");
     EditHousehold.Visibility=EditHousehold.IsEnabled?Visibility.Visible:Visibility.Collapsed;
     SelectedDetail.Text="Mã hộ: "+current.Code+"\nChủ hộ: "+current.Head+"\nĐịa chỉ: "+current.Address+"\nSố thành viên: "+current.MemberCount;
     if(DataStore.Can(session,"B02","read")){
      Members.ItemsSource=DataStore.HouseholdMembers(session,current.Id);
-     MembersNotice.Text="Thành viên được tải theo quyền B01 + B02.";
+     MembersNotice.Text="";
     }else{
      Members.ItemsSource=null;
-     MembersNotice.Text="Chỉ hiển thị thông tin hộ; tài khoản chưa được cấp quyền xem nhân khẩu B02.";
+     MembersNotice.Text="Tài khoản chưa có quyền xem nhân khẩu."
     }
    }
    catch(Exception ex){SelectedDetail.Text="Không thể đọc hồ sơ: "+ex.Message;Members.ItemsSource=null;}

@@ -7,7 +7,7 @@ namespace QLKP.Desktop.Core {
  public sealed class WorkArea {public string Id {get;set;} public string Name {get;set;} public string Code {get;set;} public string Display {get{return Code+" · "+Name;}}}
  public sealed class WorkspaceSummary {
   public long Households,People,Records,Catalog;
-  public string Display {get{return Households+" hộ · "+People+" nhân khẩu · "+Records+" hồ sơ nghiệp vụ · "+Catalog+" danh mục"+(Households+People+Records==0?". Kho chưa có hồ sơ: chọn Nhập dữ liệu hoặc Hợp nhất kho.":".");}}
+  public string Display {get{return Households+" hộ · "+People+" nhân khẩu · "+Records+" hồ sơ nghiệp vụ · "+Catalog+" danh mục";}}
  }
  public static partial class DataStore {
   const string DefaultPolicyCode="BUSINESS_DEFAULTS_P9_V1";

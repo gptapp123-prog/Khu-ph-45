@@ -139,7 +139,7 @@ namespace QLKP.Desktop.Core {
     // Scope-only audit entry: never log labels, IDs, passphrase or file path.
     try {DataStore.AuditOfflineCatalogTransfer(conn,actor.Id);}
     catch {if(File.Exists(fullPath))File.Delete(fullPath);throw;}
-    return "Đã xuất "+count+" nhãn danh mục qua gói AES-256-GCM. Chưa đồng bộ hai chiều hoặc kết nối mạng.";
+    return "Đã xuất "+count+" nhãn danh mục.";
     } finally {
      if(plain!=null)Array.Clear(plain,0,plain.Length);
     }

@@ -14,7 +14,7 @@ namespace QLKP.Desktop.Core {
    if(!File.Exists(Path.Combine(root,"System.Data.SQLite.dll")))throw new FileNotFoundException("System.Data.SQLite.dll");
    if(!File.Exists(Path.Combine(root,"e_sqlite3.dll")))throw new FileNotFoundException("e_sqlite3.dll");
    if(Environment.OSVersion.Platform!=PlatformID.Win32NT)throw new PlatformNotSupportedException("Cần Windows.");
-   if(IntPtr.Size!=8)throw new PlatformNotSupportedException("Bản thử nghiệm chỉ hỗ trợ Windows x64.");
+   if(IntPtr.Size!=8)throw new PlatformNotSupportedException("Ứng dụng yêu cầu Windows x64.");
    // Version 6.1 SP1 is the compatibility target. Do not present Windows 7 as a secure OS.
    if(Environment.OSVersion.Version.Major<6)throw new PlatformNotSupportedException("Phiên bản Windows quá cũ.");
   }
@@ -61,7 +61,7 @@ namespace QLKP.Desktop.Core {
     try {
      Directory.CreateDirectory(DataStore.DataFolder);
      // Never log passwords, SQL values, paths of citizens' files, or record contents.
-     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.20.9-PILOT"+Environment.NewLine,Encoding.UTF8);
+     File.AppendAllText(LogPath,DateTime.UtcNow.ToString("o")+" | "+code+" | 0.21.0-PILOT"+Environment.NewLine,Encoding.UTF8);
     } catch { /* Logging failures must not cause data deletion. */ }
    }
   }

@@ -11,7 +11,7 @@ namespace QLKP.Desktop.Core {
    F("F01","An ninh, trật tự"),F("F02","Phòng cháy chữa cháy"),F("F03","Thiên tai và cứu nạn"),F("F04","Môi trường"),F("F05","Hạ tầng và công trình công cộng"),F("F06","Nghĩa vụ quân sự"),F("F07","Văn hóa và phong trào"),F("F08","Phương tiện"),
    F("G01","Tiếp nhận phản ánh"),F("G02","Hòa giải cơ sở"),F("G03","Tuyên truyền và vận động"),F("G04","Phối hợp phường/cơ quan"),
    F("H01","Báo cáo định kỳ"),F("H02","Báo cáo đột xuất"),F("H03","Thống kê nhiều chiều"),F("H04","Tổng hợp tiến độ"),F("H05","Xuất biểu mẫu"),
-   F("I01","Tài khoản"),F("I02","Vai trò và phạm vi quyền"),F("I03","Nhật ký và truy vết"),F("I04","Sao lưu/khôi phục"),F("I05","OCR và QR"),F("I06","Đồng bộ PC–Android"),F("I07","Danh mục dùng chung"),F("I08","Chất lượng dữ liệu"),F("I09","Cập nhật/phiên bản")
+   F("I01","Tài khoản"),F("I02","Vai trò và phạm vi quyền"),F("I03","Nhật ký và truy vết"),F("I04","Sao lưu/khôi phục"),F("I05","Mã QR hồ sơ"),F("I06","Chuyển danh mục Android"),F("I07","Danh mục dùng chung"),F("I08","Chất lượng dữ liệu"),F("I09","Phiên bản và kiểm tra gói")
   };
   private static Feature F(string code,string name){return new Feature {Code=code,Name=name};}
  }

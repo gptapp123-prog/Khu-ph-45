@@ -823,7 +823,7 @@ namespace QLKP.Desktop.Core {
     if(!DataStore.VersionDiagnostics(root).Contains("Lược đồ SQLite: "+DataStore.SchemaVersion))
      throw new InvalidDataException("I09 không hiển thị đúng phiên bản schema.");
     journal.BeginStep("QR_REFERENCE");
-    // I05 uses a fake QR payload with the household's exact GUID; no external URL.
+    // I05 generates and reopens real PNGs using isolated fixture IDs.
     var householdForQr=DataStore.GetHouseholdsPage(user,"",0,50);
     if(householdForQr.Items.Count==0)throw new InvalidDataException("Thiếu hộ thử I05.");
     bool missingQrRightDenied=false;
@@ -834,6 +834,20 @@ namespace QLKP.Desktop.Core {
     try{DataStore.ParseLocalQrReference(operatorUser,"https://invalid.example/redirect");}
     catch(InvalidDataException){externalQrDenied=true;}
     if(!externalQrDenied)throw new InvalidDataException("I05 chấp nhận URL ngoài danh mục.");
+    string qrPath=Path.Combine(sandbox,"household-qr.png");
+    string qrPayload="QLKP1|B01|"+householdForQr.Items[0].Id;
+    LocalQrImage.Save(LocalQrImage.Create(qrPayload),qrPath);
+    string decoded=LocalQrImage.Read(qrPath);
+    var linkedQr=DataStore.ParseLocalQrReference(operatorUser,decoded);
+    if(decoded!=qrPayload||linkedQr.Item2!=householdForQr.Items[0].Id)
+     throw new InvalidDataException("Ảnh QR không trỏ đến đúng hồ sơ hộ.");
+    string externalImage=Path.Combine(sandbox,"external-qr.png");
+    LocalQrImage.Save(LocalQrImage.Create("https://example.invalid/qr"),externalImage);
+    bool imageLinkBlocked=false;
+    try{DataStore.ParseLocalQrReference(operatorUser,LocalQrImage.Read(externalImage));}
+    catch(InvalidDataException){imageLinkBlocked=true;}
+    if(!imageLinkBlocked)throw new InvalidDataException("QR từ ảnh được phép mở liên kết ngoài.");
+    Console.WriteLine("REPOSITORY_PASS I05 QR PNG encode/decode/authorized target");
     journal.BeginStep("PRIVACY_AND_ARTIFACT_GUARDS");
     // V0.19: small aggregate counts must never leak via H01/H03 UI bindings.
     if(new ReportLine{Feature="H03",RecordId="",Count=2}.CountDisplay!="Ẩn (1–4)" ||

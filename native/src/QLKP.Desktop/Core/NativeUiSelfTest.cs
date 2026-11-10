@@ -267,6 +267,25 @@ namespace QLKP.Desktop.Core {
      if(selectedVehicle==null||selectedVehicle.Plate!="00QA01234")
       throw new InvalidDataException("Vehicle UI did not reload the saved record.");
      Snapshot(main,evidence,"F08-vehicles");
+     run.BeginStep("UI_I05_QR_CREATE_OPEN");
+     var qrPanel=Navigate(main,"I05");
+     Control<TextBox>(qrPanel,"Keyword").Text="MERGE-DIALOG";
+     Click(Control<Button>(qrPanel,"SearchTargets"));
+     var qrTargets=Control<ListBox>(qrPanel,"Targets");
+     if(qrTargets.Items.Count!=1)throw new InvalidDataException("QR household search returned the wrong count.");
+     qrTargets.SelectedIndex=0;
+     Click(Control<Button>(qrPanel,"CreateQr"));
+     var qrImage=Control<Image>(qrPanel,"PreviewQr").Source as BitmapSource;
+     if(qrImage==null||!Control<Button>(qrPanel,"SaveQr").IsEnabled)throw new InvalidDataException("QR preview did not render.");
+     Snapshot(main,evidence,"I05-qr");
+     var qrHousehold=DataStore.FindHouseholds(admin,"MERGE-DIALOG").Single();
+     Control<TextBox>(qrPanel,"QrPayload").Text="QLKP1|B01|"+qrHousehold.Id;
+     Click(Control<Button>(qrPanel,"OpenQrText"));
+     var qrDestination=Control<ContentControl>(main,"FeatureContent").Content as HouseholdView;
+     if(qrDestination==null||(Control<DataGrid>(qrDestination,"Households").SelectedItem as HouseholdRow)?.Id!=qrHousehold.Id)
+      throw new InvalidDataException("QR open did not navigate to the selected household.");
+     Console.WriteLine("UI_QR_PASS create and navigate");
+
      foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}

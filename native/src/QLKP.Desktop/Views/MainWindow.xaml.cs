@@ -39,14 +39,14 @@ namespace QLKP.Desktop.Views {
    IntakeButton.Visibility=DataStore.Can(s,"B01","create")?Visibility.Visible:Visibility.Collapsed;
    MergeWorkspaceButton.Visibility=DataStore.Can(s,"I08","merge")?Visibility.Visible:Visibility.Collapsed;
    if(s.Role=="ROOT_ADMIN"){AreaSelector.ItemsSource=DataStore.ListWorkAreas(s);AreaSelector.SelectedValue=s.AreaId;ScopePanel.Visibility=Visibility.Visible;}
-   scopeReady=true;RefreshWorkspace();
+   scopeReady=true;
    Groups.ItemsSource=visibleGroups;
    if(visibleGroups.Count>0)Groups.SelectedIndex=0;
    else FeatureContent.Content=new NoticeView("Tài khoản chưa được cấp quyền sử dụng chức năng. Liên hệ quản trị khu phố.");
   }
-  void RefreshWorkspace(){try{WorkspaceState.Text=DataStore.GetWorkspaceSummary(session).Display;}catch(Exception ex){StartupDiagnostics.WriteException("WORKSPACE_SUMMARY_FAIL",ex);WorkspaceState.Text="Chưa đọc được trạng thái kho. Xem nhật ký tại I09.";}}
-  void Intake_Click(object sender,RoutedEventArgs e){try{new DataIntakeWindow(session){Owner=this}.ShowDialog();RefreshWorkspace();}catch(Exception ex){StartupDiagnostics.WriteException("INTAKE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được nhập dữ liệu.";}}
-  void MergeWorkspace_Click(object sender,RoutedEventArgs e){try{new DataMergeWindow(session){Owner=this}.ShowDialog();RefreshWorkspace();}catch(Exception ex){StartupDiagnostics.WriteException("MERGE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được hợp nhất dữ liệu.";}}
+  void RefreshOpenFeature(){WorkspaceState.Text="";ShowFeature(Features.SelectedItem as Feature);}
+  void Intake_Click(object sender,RoutedEventArgs e){try{new DataIntakeWindow(session){Owner=this}.ShowDialog();RefreshOpenFeature();}catch(Exception ex){StartupDiagnostics.WriteException("INTAKE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được nhập dữ liệu.";}}
+  void MergeWorkspace_Click(object sender,RoutedEventArgs e){try{new DataMergeWindow(session){Owner=this}.ShowDialog();RefreshOpenFeature();}catch(Exception ex){StartupDiagnostics.WriteException("MERGE_OPEN_FAIL",ex);WorkspaceState.Text="Không mở được hợp nhất dữ liệu.";}}
   void Area_Changed(object sender,SelectionChangedEventArgs e){if(!scopeReady||AreaSelector.SelectedValue==null||Convert.ToString(AreaSelector.SelectedValue)==session.AreaId)return;try{var next=new MainWindow(DataStore.SwitchWorkArea(session,Convert.ToString(AreaSelector.SelectedValue)));Application.Current.MainWindow=next;next.Show();Close();}catch(Exception ex){StartupDiagnostics.WriteException("AREA_SWITCH_FAIL",ex);WorkspaceState.Text="Không chuyển được khu phố làm việc.";}}
   void Account_Click(object sender,RoutedEventArgs e){
    if(!DataStore.Can(session,"I01","read")){FeatureContent.Content=new NoticeView("Phiên không có quyền quản trị tài khoản.");return;}
@@ -87,8 +87,9 @@ namespace QLKP.Desktop.Views {
    Features.SelectedItem=authorized.First(f=>f.Code==feature);
    FeatureContent.Content=new ModuleRecordsView(session,feature,NavigateToLinked,id);
   }
-  void Features_SelectionChanged(object sender,SelectionChangedEventArgs e){
-   if(FeatureContent==null)return;var f=Features.SelectedItem as Feature;if(f==null)return;
+  void Features_SelectionChanged(object sender,SelectionChangedEventArgs e){ShowFeature(Features.SelectedItem as Feature);}
+  void ShowFeature(Feature f){
+   if(FeatureContent==null||f==null)return;
    try {
    if(f.Code.Length==3 && f.Code[0]=='H')FeatureContent.Content=DataStore.Can(session,f.Code,"read")?new ReportsView(session,f.Code,NavigateToLinked):(UserControl)new NoticeView("Không có quyền báo cáo.");
    else if(f.Code=="A01")FeatureContent.Content=DataStore.Can(session,"A01","read")?new OperationsDashboardView(session):(UserControl)new NoticeView("Không có quyền xem bàn điều hành.");

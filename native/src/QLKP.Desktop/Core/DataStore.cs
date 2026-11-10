@@ -585,7 +585,7 @@ namespace QLKP.Desktop.Core {
   }
   static string CreateHouseholdInTransaction(SQLiteConnection c,SQLiteTransaction tx,Session s,string code,string address,string owner,string birth="",string gender="") {
    if(String.IsNullOrWhiteSpace(code)||String.IsNullOrWhiteSpace(address)||String.IsNullOrWhiteSpace(owner))throw new InvalidOperationException("Thiếu mã hộ, địa chỉ hoặc họ tên chủ hộ.");
-   if(code.Trim().Length>40 || address.Trim().Length>300 || owner.Trim().Length>200)throw new InvalidOperationException("Mã hộ, địa chỉ hoặc họ tên vượt giới hạn thử nghiệm.");
+   if(code.Trim().Length>40 || address.Trim().Length>300 || owner.Trim().Length>200)throw new InvalidOperationException("Mã hộ, địa chỉ hoặc họ tên vượt giới hạn cho phép.");
    string household=Id(),person=Id(),membership=Id(),now=Now;
    Exec(c,tx,"INSERT INTO households(id,area_id,code,address,search_address,created_utc,updated_utc) VALUES(@i,@a,@c,@d,@search,@t,@t)",P("@i",household),P("@a",s.AreaId),P("@c",code.Trim()),P("@d",address.Trim()),P("@search",NormalizeSearch(address)),P("@t",now));
    Exec(c,tx,"INSERT INTO people(id,area_id,full_name,search_name,date_of_birth,gender,created_utc,updated_utc) VALUES(@i,@a,@n,@search,@dob,@gender,@t,@t)",P("@i",person),P("@a",s.AreaId),P("@n",owner.Trim()),P("@search",NormalizeSearch(owner)),P("@dob",birth.Length==0?null:birth),P("@gender",gender.Length==0?null:gender),P("@t",now));
@@ -635,7 +635,7 @@ namespace QLKP.Desktop.Core {
   }
   static List<MemberDraft> ParseMemberBatch(string input) {
    if(String.IsNullOrWhiteSpace(input))throw new InvalidOperationException("Chưa có dữ liệu nhân khẩu.");
-   if(input.Length>256*1024)throw new InvalidOperationException("Lô vượt giới hạn ký tự thử nghiệm.");
+   if(input.Length>256*1024)throw new InvalidOperationException("Lô vượt giới hạn dữ liệu cho phép.");
    var result=new List<MemberDraft>();int lineNo=0;
    foreach(var raw in input.Split(new[]{"\r\n","\n"},StringSplitOptions.None)) {
     lineNo++;if(String.IsNullOrWhiteSpace(raw))continue;
@@ -646,7 +646,7 @@ namespace QLKP.Desktop.Core {
        && col[3].Equals("Quan hệ",StringComparison.OrdinalIgnoreCase))continue;
     var draft=new MemberDraft {Name=col[0],DateOfBirth=col[1],Gender=col[2],Relationship=col[3]};
     ValidateMemberDraft(draft,lineNo);result.Add(draft);
-    if(result.Count>1000)throw new InvalidOperationException("Một lô thử nghiệm tối đa 1000 người.");
+    if(result.Count>1000)throw new InvalidOperationException("Một lô tối đa 1.000 người.");
    }
    if(result.Count==0)throw new InvalidOperationException("Chưa có bản ghi cần nhập.");
    // Do not deduplicate by matching names: people with the same name may be different.
@@ -885,7 +885,7 @@ namespace QLKP.Desktop.Core {
     list.Add(cols);
    }
    if(list.Count==0)throw new InvalidOperationException("Chưa có dòng dữ liệu.");
-   if(list.Count>1000)throw new InvalidOperationException("Một lô thử nghiệm tối đa 1000 dòng.");
+   if(list.Count>1000)throw new InvalidOperationException("Một lô tối đa 1.000 dòng.");
    return list;
   }
   public static int CheckBatch(Session s,string input) {

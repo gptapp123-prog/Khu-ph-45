@@ -1,5 +1,5 @@
 ﻿#define MyAppName "Quản lý Khu phố"
-#define MyAppVersion "0.20.9-PILOT"
+#define MyAppVersion "0.21.0"
 [Setup]
 AppId={{8E73A39E-D3C2-417E-987C-83C4D105A2CD}
 AppName={#MyAppName}
@@ -22,13 +22,16 @@ UninstallDisplayName={#MyAppName} - {#MyAppVersion}
 AppMutex=Local\QLKP-DESKTOP-7DF94E5B-B7D8-4972-A93B-68F1818733E7
 [Files]
 Source: "..\build-output\Release\x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
+[InstallDelete]
+Type: files; Name: "{autoprograms}\Quản lý Khu phố PILOT.lnk"
+Type: files; Name: "{autodesktop}\Quản lý Khu phố PILOT.lnk"
 [Icons]
-Name: "{autoprograms}\Quản lý Khu phố PILOT"; Filename: "{app}\QLKP.Desktop.exe"
-Name: "{autodesktop}\Quản lý Khu phố PILOT"; Filename: "{app}\QLKP.Desktop.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Quản lý Khu phố"; Filename: "{app}\QLKP.Desktop.exe"
+Name: "{autodesktop}\Quản lý Khu phố"; Filename: "{app}\QLKP.Desktop.exe"; Tasks: desktopicon
 [Tasks]
 Name: "desktopicon"; Description: "Tạo biểu tượng Desktop"; GroupDescription: "Biểu tượng bổ sung:"
 [Run]
-Filename: "{app}\QLKP.Desktop.exe"; Description: "Khởi chạy bản thử nghiệm"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\QLKP.Desktop.exe"; Description: "Khởi chạy Quản lý Khu phố"; Flags: nowait postinstall skipifsilent
 [Code]
 function HasNet48: Boolean;
 var
