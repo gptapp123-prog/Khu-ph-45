@@ -36,7 +36,7 @@ try {
  Start-QlkpStage $run 'INSTALLED_SELF_TEST'
  $installedExe=Join-Path $target 'QLKP.Desktop.exe'
  if(-not(Test-Path $installedExe)){throw 'Installed executable missing'}
- if((Get-Item $installedExe).VersionInfo.FileVersion -ne '0.20.6.0'){throw 'Installed version mismatch'}
+ if((Get-Item $installedExe).VersionInfo.FileVersion -ne '0.20.7.0'){throw 'Installed version mismatch'}
  $env:QLKP_TEST_PARENT_ID=$run.report.session_id
  Invoke-QlkpProcess -File $installedExe -Arguments '--self-test' -WorkingDirectory $target -Stdout (Join-Path $PSScriptRoot 'build-logs\installed-self-test.stdout.log') -Stderr (Join-Path $PSScriptRoot 'build-logs\installed-self-test.stderr.log')
  Start-QlkpStage $run 'UNINSTALL_SILENT'

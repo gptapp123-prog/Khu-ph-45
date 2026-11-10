@@ -487,6 +487,36 @@ namespace QLKP.Desktop.Core {
        DataStore.FindHouseholds(user,"EXCEL-01").Count!=1)
      throw new InvalidDataException("Đọc trang XLSX được chọn hoặc nhập lô vào kho thất bại.");
     Console.WriteLine("REPOSITORY_PASS XLSX template/selected sheet/preview/commit");
+    journal.BeginStep("EXCEL_WORKBOOK_ATOMIC_INTAKE");
+    string unifiedWorkbook=Path.Combine(sandbox,"unified.xlsx");
+    XlsxWorkbook.Save(unifiedWorkbook,new System.Collections.Generic.Dictionary<string,System.Collections.Generic.IEnumerable<object[]>>{
+     {"Thêm nhân khẩu",new object[][]{DataStore.IntakeHeaders("ADD_MEMBER"),new object[]{"XL-ATOMIC","Thành viên Excel","2000-01-01","Nữ","Con"}}},
+     {"Bổ sung nhân khẩu",new object[][]{DataStore.IntakeHeaders("ENRICH_PERSON")}},
+     {"Hộ và chủ hộ",new object[][]{DataStore.IntakeHeaders("CREATE_HOUSEHOLD"),new object[]{"XL-ATOMIC","Địa chỉ sổ Excel","Chủ hộ Excel"}}}
+    });
+    var workbookPreview=DataStore.PreviewWorkbookIntake(user,unifiedWorkbook);
+    if(workbookPreview.Count!=2||DataStore.FindHouseholds(user,"XL-ATOMIC").Count!=0)
+     throw new InvalidDataException("Xem trước sổ Excel chưa kiểm đúng liên kết hoặc đã ghi dữ liệu.");
+    // Force an error on the second sheet after the first sheet has already written.
+    using(var conn=DataStore.Open())using(var command=new System.Data.SQLite.SQLiteCommand(
+     "CREATE TRIGGER test_workbook_abort BEFORE INSERT ON people WHEN NEW.full_name='Thành viên Excel' BEGIN SELECT RAISE(ABORT,'TEST_WORKBOOK_ROLLBACK'); END;",conn))
+     command.ExecuteNonQuery();
+    bool workbookRolledBack=false;
+    try{DataStore.CommitWorkbookIntake(user,workbookPreview,false);}
+    catch(System.Data.SQLite.SQLiteException){workbookRolledBack=true;}
+    finally {
+     using(var conn=DataStore.Open())using(var command=new System.Data.SQLite.SQLiteCommand("DROP TRIGGER test_workbook_abort;",conn))
+      command.ExecuteNonQuery();
+    }
+    if(!workbookRolledBack||DataStore.FindHouseholds(user,"XL-ATOMIC").Count!=0||
+       DataStore.CommitWorkbookIntake(user,workbookPreview,false)!=2||DataStore.CommitWorkbookIntake(user,workbookPreview,false)!=2||
+       DataStore.FindPeople(user,"Thành viên Excel").Count!=1||DataStore.FindPeople(user,"Thành viên Excel")[0].HouseholdCode!="XL-ATOMIC")
+     throw new InvalidDataException("Sổ Excel không hoàn tác toàn bộ, ghi sai liên kết hoặc bị nhân đôi.");
+    bool workbookReplayBlocked=false;
+    try{DataStore.PreviewWorkbookIntake(user,unifiedWorkbook);}
+    catch(InvalidOperationException){workbookReplayBlocked=true;}
+    if(!workbookReplayBlocked)throw new InvalidDataException("Sổ đã nhập vẫn được xem trước như một lô mới.");
+    Console.WriteLine("REPOSITORY_PASS XLSX workbook/links/atomic rollback/retry");
     // V0.17 Windows runtime gate: reports H01–H05 from authorized source records only.
     journal.BeginStep("REPORTS");
     string reportSecret="T-"+Guid.NewGuid().ToString("N")+"!";

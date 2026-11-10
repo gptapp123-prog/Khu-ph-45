@@ -37,6 +37,7 @@
     <Button Content="Đọc CSV/TSV/XLSX" Click="ReadCsv_Click" Margin="0,0,8,0" Padding="12,5"/>
     <Button Content="Dán từ Clipboard" Click="PasteClipboard_Click" Margin="0,0,8,0" Padding="12,5"/>
     <Button Content="Chèn tiêu đề cột" Click="Template_Click" Padding="12,5"/>
+    <Button Content="Kiểm tra sổ Excel" Click="ReadWorkbook_Click" Margin="8,0,0,0" Padding="12,5"/>
     <Button Content="Tải mẫu Excel" Click="SaveTemplate_Click" Margin="0,0,8,0" Padding="12,5"/>
     <TextBlock Text="Tối đa 5.000 bản ghi/lô · Dữ liệu có dấu được giữ nguyên" Foreground="#506982" Margin="16,0,0,0" VerticalAlignment="Center"/>
    </WrapPanel>
@@ -51,6 +52,7 @@
  <GroupBox Grid.Row="4" Header="KẾT QUẢ ĐỐI CHIẾU THEO ID/MÃ HỘ · Xem tối đa 100 dòng đầu" Padding="6">
   <DataGrid x:Name="PreviewRows" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False">
    <DataGrid.Columns>
+    <DataGridTextColumn Header="Trang tính" Binding="{Binding SheetName}" Width="135"/>
     <DataGridTextColumn Header="Dòng nguồn" Binding="{Binding LineNumber}" Width="95"/>
     <DataGridTextColumn Header="ID hoặc mã hộ đích" Binding="{Binding TargetKey}" Width="240"/>
     <DataGridTextColumn Header="Thao tác" Binding="{Binding Operation}" Width="250"/>

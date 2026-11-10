@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title QLKP PILOT V0.20.6 - XAY DUNG SETUP
+title QLKP PILOT V0.20.7 - XAY DUNG SETUP
 if /I not "%PROCESSOR_ARCHITECTURE%"=="AMD64" if /I not "%PROCESSOR_ARCHITEW6432%"=="AMD64" (
  echo Can he dieu hanh Windows x64 de build ban nay.
  pause

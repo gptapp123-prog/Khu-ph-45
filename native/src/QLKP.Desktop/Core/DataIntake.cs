@@ -11,6 +11,7 @@ namespace QLKP.Desktop.Core {
  // Uncommitted information remains in memory. A preview is not an authorization token.
  public sealed class IntakePreviewRow {
   public int LineNumber {get;set;}
+  public string SheetName {get;set;}
   public string TargetKey {get;set;}
   public string Operation {get;set;}
   public string Notice {get;set;}
@@ -35,7 +36,7 @@ namespace QLKP.Desktop.Core {
 
   // Parse quoted CSV/TSV/semicolon including escaped quotes and embedded line breaks.
   // Delimiter is inferred from the HEADER, never from data rows; no spreadsheet formulas are evaluated.
-  static List<string[]> ReadIntakeTable(string input) {
+  static List<string[]> ReadIntakeTable(string input,bool allowHeaderOnly=false) {
    if(String.IsNullOrWhiteSpace(input))throw new InvalidDataException("Không có dữ liệu để thu thập.");
    if(input.Length>IntakeMaxChars)throw new InvalidDataException("Nguồn vượt 2 MiB ký tự. Chia thành nhiều lô.");
    string raw=input.TrimStart('\ufeff');
@@ -69,7 +70,7 @@ namespace QLKP.Desktop.Core {
    if(quoted)throw new InvalidDataException("CSV có trường đặt trong nháy kép chưa đóng.");
    fields.Add(cell.ToString().Trim());
    if(fields.Any(v=>v.Length>0))table.Add(fields.ToArray());
-   if(table.Count<2)throw new InvalidDataException("Cần tiêu đề cột và ít nhất một dòng dữ liệu.");
+   if(table.Count<(allowHeaderOnly?1:2))throw new InvalidDataException("Cần tiêu đề cột và ít nhất một dòng dữ liệu.");
    int width=table[0].Length;
    if(width>20 || width<2)throw new InvalidDataException("Số cột nguồn không hợp lệ (2–20). ");
    for(int i=1;i<table.Count;i++)if(table[i].Length!=width)
@@ -111,13 +112,6 @@ namespace QLKP.Desktop.Core {
    if(mode=="ADD_MEMBER")return new[]{"Mã hộ","Họ tên","Ngày sinh","Giới tính","Quan hệ"};
    if(mode=="ENRICH_PERSON")return new[]{"Mã hồ sơ","Phiên bản","Ngày sinh","Giới tính"};
    throw new InvalidOperationException("Chế độ nhập không hợp lệ.");
-  }
-  internal static void SaveIntakeTemplate(string path) {
-   XlsxWorkbook.Save(path,new Dictionary<string,IEnumerable<object[]>>{
-    {"Hộ và chủ hộ",new[]{IntakeHeaders("CREATE_HOUSEHOLD")}},
-    {"Thêm nhân khẩu",new[]{IntakeHeaders("ADD_MEMBER")}},
-    {"Bổ sung nhân khẩu",new[]{IntakeHeaders("ENRICH_PERSON")}}
-   });
   }
   static HashSet<string> ExpectedFields(string mode) {
    if(mode=="CREATE_HOUSEHOLD")return new HashSet<string>(new[]{"household_code","address","head"});
@@ -237,12 +231,18 @@ namespace QLKP.Desktop.Core {
    return changed?"Bổ sung trường trống":"Không thay đổi (đã có cùng dữ liệu)";
   }
   public static IntakePreview PreviewIntake(Session session,string mode,string sourceKind,string sourceLabel,string payload) {
+   using(var c=Open())using(var tx=c.BeginTransaction()){
+    var preview=PreviewIntake(c,tx,session,mode,sourceKind,sourceLabel,payload,null);
+    tx.Commit();return preview;
+   }
+  }
+  static IntakePreview PreviewIntake(SQLiteConnection c,SQLiteTransaction tx,Session session,string mode,
+   string sourceKind,string sourceLabel,string payload,HashSet<string> plannedHouseholds) {
    if(!IntakeKinds.Contains(sourceKind))throw new InvalidDataException("Nguồn thu chưa được hỗ trợ.");
    var source=IntakeSourceLabel(sourceLabel);
    var rows=ParseIntakeRows(mode,payload);
    var preview=new IntakePreview {RequestId=Guid.NewGuid().ToString("N"),Mode=mode,SourceKind=sourceKind,
     SourceLabel=source,Payload=payload,Digest=IntakeDigest(mode,sourceKind,payload),ActorId=session==null?null:session.Id,AreaId=session==null?null:session.AreaId};
-   using(var c=Open())using(var tx=c.BeginTransaction()){
     RequireIntakeMode(c,tx,session,mode);
     var seenPersonCandidates=new HashSet<string>(StringComparer.Ordinal);
     for(int i=0;i<rows.Count;i++){
@@ -254,14 +254,15 @@ namespace QLKP.Desktop.Core {
       if(row["address"].Length>300||row["head"].Length>200||key.Length>40)throw new InvalidDataException("Dòng "+(i+2)+": trường vượt giới hạn.");
      }else if(mode=="ADD_MEMBER"){
       key=row["household_code"];operation="Bổ sung người vào hộ";
-      string h=ResolveHousehold(c,tx,session,key);
+      bool planned=plannedHouseholds!=null&&plannedHouseholds.Contains(WorkbookHouseholdKey(key));
+      string h=planned?"new:"+WorkbookHouseholdKey(key):ResolveHousehold(c,tx,session,key);
       var draft=new MemberDraft{Name=row["full_name"],DateOfBirth=GetIntake(row,"birth_date"),Gender=GetIntake(row,"gender"),Relationship=row["relationship"]};
       ValidateMemberDraft(draft,i+2);
-      if(draft.Relationship=="Chủ hộ" && Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM household_memberships WHERE household_id=@h AND relationship='Chủ hộ' AND end_utc IS NULL",P("@h",h)))>0)
+      if(draft.Relationship=="Chủ hộ" && (planned || Convert.ToInt32(Scalar(c,tx,"SELECT COUNT(*) FROM household_memberships WHERE household_id=@h AND relationship='Chủ hộ' AND end_utc IS NULL",P("@h",h)))>0))
        throw new InvalidDataException("Dòng "+(i+2)+": hộ đã có chủ hộ.");
       string candidateKey=h+"|"+NormalizeSearch(draft.Name)+"|"+draft.DateOfBirth;
       bool sameInBatch=draft.DateOfBirth.Length>0 && !seenPersonCandidates.Add(candidateKey);
-      if(SuspectedDuplicateCount(c,tx,h,draft.Name,draft.DateOfBirth)>0 || sameInBatch){
+      if(sameInBatch || (!planned&&SuspectedDuplicateCount(c,tx,h,draft.Name,draft.DateOfBirth)>0)){
        preview.HasCandidateWarnings=true;
        notice="Nghi trùng họ tên + ngày sinh trong hộ hoặc lô; cần xác minh";
       }
@@ -271,11 +272,15 @@ namespace QLKP.Desktop.Core {
      }
      preview.Rows.Add(new IntakePreviewRow{LineNumber=i+2,TargetKey=key,Operation=operation,Notice=notice});
     }
-    tx.Commit();
-   }
    return preview;
   }
   public static int CommitIntake(Session session,IntakePreview approved,bool allowCandidateDuplicates) {
+   using(var c=Open())using(var tx=c.BeginTransaction()){
+    int count=CommitIntake(c,tx,session,approved,allowCandidateDuplicates);
+    tx.Commit();return count;
+   }
+  }
+  static int CommitIntake(SQLiteConnection c,SQLiteTransaction tx,Session session,IntakePreview approved,bool allowCandidateDuplicates) {
    if(session==null || approved==null || approved.Payload==null || approved.ActorId!=session.Id || approved.AreaId!=session.AreaId)
     throw new UnauthorizedAccessException("Bản xem trước không thuộc phiên và khu phố hiện tại.");
    if(approved.HasCandidateWarnings && !allowCandidateDuplicates)throw new InvalidOperationException("Có nghi trùng: cần người có quyền đối chiếu và xác nhận trước khi ghi.");
@@ -283,7 +288,6 @@ namespace QLKP.Desktop.Core {
    if(approved.Digest!=IntakeDigest(approved.Mode,approved.SourceKind,approved.Payload))throw new InvalidDataException("Nguồn đã thay đổi sau xem trước.");
    Guid id;
    if(!Guid.TryParseExact(approved.RequestId,"N",out id))throw new InvalidDataException("Mã lần thu không hợp lệ.");
-   using(var c=Open())using(var tx=c.BeginTransaction()){
     RequireIntakeMode(c,tx,session,approved.Mode);
     using(var cmd=new SQLiteCommand("SELECT actor_id,area_id,mode,source_kind,payload_sha256,row_count FROM intake_batches WHERE request_id=@id",c,tx)) {
      cmd.Parameters.Add(P("@id",approved.RequestId));
@@ -318,8 +322,7 @@ namespace QLKP.Desktop.Core {
      P("@id",approved.RequestId),P("@actor",session.Id),P("@area",session.AreaId),P("@mode",approved.Mode),P("@kind",approved.SourceKind),
      P("@label",approved.SourceLabel),P("@sha",approved.Digest),P("@count",rows.Count),P("@utc",Now));
     Audit(c,tx,session.Id,"INTAKE_BATCH_APPROVED","intake_batch",approved.RequestId);
-    tx.Commit();return rows.Count;
-   }
+    return rows.Count;
   }
  }
 }

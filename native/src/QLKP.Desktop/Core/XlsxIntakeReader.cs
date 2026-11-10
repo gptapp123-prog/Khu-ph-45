@@ -84,11 +84,14 @@ namespace QLKP.Desktop.Core {
   }
   internal static string[] SheetNames(string path) {
    using(var archive=Open(path)) {
-    var names=Workbook(archive).Descendants(Main+"sheet").Select(x=>(string)x.Attribute("name")).ToArray();
+    return SheetNames(Workbook(archive));
+   }
+  }
+  static string[] SheetNames(XDocument workbook) {
+    var names=workbook.Descendants(Main+"sheet").Select(x=>(string)x.Attribute("name")).ToArray();
     if(names.Length<1||names.Length>100||names.Any(String.IsNullOrWhiteSpace))
      throw new InvalidDataException("Tệp cần từ 1 đến 100 trang tính có tên.");
     return names;
-   }
   }
   static ZipArchive Open(string path) {
    if(String.IsNullOrWhiteSpace(path)||!File.Exists(path))throw new FileNotFoundException("Không tìm thấy tệp Excel.");
@@ -120,7 +123,19 @@ namespace QLKP.Desktop.Core {
   internal static string ReadSheet(string path,int index) {
    if(index<0||index>=100)throw new InvalidDataException("Chọn trang tính hợp lệ.");
    using(var archive=Open(path)) {
+    return ReadSheet(archive,Workbook(archive),index);
+   }
+  }
+  internal static string[] ReadWorkbook(string path,string[] expected) {
+   using(var archive=Open(path)) {
     var workbook=Workbook(archive);
+    var names=SheetNames(workbook);
+    if(names.Length!=expected.Length||expected.Any(name=>!names.Contains(name,StringComparer.Ordinal)))
+     throw new InvalidDataException("Sổ không đúng mẫu ba trang của QLKP. Mẫu Dân cư v2.1 cần chuyển cột trước khi nhập.");
+    return expected.Select(name=>ReadSheet(archive,workbook,Array.IndexOf(names,name))).ToArray();
+   }
+  }
+  static string ReadSheet(ZipArchive archive,XDocument workbook,int index) {
     var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
     var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels,index)),7*1024*1024);
     string dateSystem=(string)workbook.Root.Element(Main+"workbookPr")?.Attribute("date1904");
@@ -155,7 +170,6 @@ namespace QLKP.Desktop.Core {
     string raw=String.Join("\n",lines);
     if(raw.Length>2*1024*1024)throw new InvalidDataException("Bảng Excel quá lớn sau giải nén.");
     return raw;
-   }
   }
  }
 }
