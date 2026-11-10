@@ -15,8 +15,14 @@ Kỳ mới phải nối tiếp các kỳ cùng loại. Kỳ để trống mốc 
 - Sao lưu dùng chung cơ chế kho hiện có. Hợp nhất I08 nhận kỳ địa chỉ theo phạm vi, bảo toàn địa chỉ/ngày, chặn chèn ngược làm thay đổi lịch sử đích và giữ dấu vết tài khoản gốc trong sổ hợp nhất. Kho nguồn cũ có thể chưa có bảng mới.
 - Android tiếp tục dùng định dạng danh mục hiện có. Luồng kỳ địa chỉ chạy trên PC. Chưa triển khai đính chính lịch sử, xác minh giấy tờ hoặc nhập hồ sơ lịch sử từ dữ liệu web.
 
-## Kết quả tại môi trường phát triển
+## Kết quả kiểm thử
 
 Năm ca riêng chạy đạt bằng SQLite và kiểm tra XAML. Các ca dùng schema thật và truy vấn SQL lấy từ C#. Bộ kiểm thử nguồn chung chạy 64 ca, 60 đạt. Bốn ca còn lỗi cũng tái hiện trên P9 gốc, liên quan fixture cũ bị thiếu và các kiểm tra nguồn quyền cũ. Đã sửa riêng kiểm tra đồng bộ phiên bản Windows cho bản này.
 
-Đã nối ca C# vào self-test kho cô lập và mở rộng hồi quy hợp nhất. Môi trường hiện tại chưa chạy WPF, SQLite3MC/DPAPI hoặc bộ cài. Trên Windows, chạy `build-on-windows.ps1 -Installer -SmokeTest`, kiểm tra nhật ký bước `B03_RESIDENCE_PERIODS` và chạy `test-windows-install.ps1` trước khi phát hành. Dùng hồ sơ giả để thử thao tác trực tiếp với tài khoản có quyền và bị từ chối.
+Lượt Windows 42752092025 đã biên dịch WPF, chạy self-test 82/82 bước trước và sau khi cài, chạy giao diện 257/257 bước, và cài/chạy kiểm tra/gỡ 4/4 bước. Ca WPF mới mở lịch sử từ đúng nhân khẩu, thử địa chỉ rỗng, ghi địa chỉ hợp lệ và đọc lại. SHA-256 setup đã đối chiếu với bản kê trong artifact.
+
+Bản build xác minh từ `fff5c1886d4d5e3749437059f2a530fcad10d457`, có cùng mã ứng dụng với `f725a45881d76be6887ccc6ec37560bc868721aa`. Hai lượt trước đã phát hiện lỗi cú pháp C# và ca I09 còn so với schema 12. Đã sửa cả hai trước lượt đạt.
+
+[Bằng chứng Windows](https://github.com/gptapp123-prog/Khu-ph-45/actions/runs/42752092025)
+
+Chưa thử nâng cấp trên kho thật của người dùng hoặc trên Windows 7. Bộ cài chưa ký nhà phát hành.
