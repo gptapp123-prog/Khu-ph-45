@@ -2,8 +2,6 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/native-fix-0214-verify]
 
 permissions:
   contents: read
