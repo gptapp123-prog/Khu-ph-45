@@ -2,6 +2,8 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['qa/native-0207-once-20261110']
 
 permissions:
   contents: read
