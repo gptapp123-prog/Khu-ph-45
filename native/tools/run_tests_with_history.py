@@ -62,7 +62,7 @@ def source_hash(root):
  h=hashlib.sha256()
  for top in ('src','database','tests','tools','android-companion'):
   for f in sorted((root/top).rglob('*')):
-   if f.is_file() and '__pycache__' not in f.parts and f.suffix in ('.cs','.xaml','.csproj','.sql','.py','.kt','.kts','.xml'):
+   if f.is_file() and '__pycache__' not in f.parts and f.suffix in ('.cs','.xaml','.csproj','.sql','.py','.kt','.kts','.xml','.xz'):
     h.update(f.relative_to(root).as_posix().encode());h.update(b'\0');h.update(f.read_bytes())
  for f in sorted(root.glob('*.ps1')):h.update(f.name.encode());h.update(f.read_bytes())
  return h.hexdigest()

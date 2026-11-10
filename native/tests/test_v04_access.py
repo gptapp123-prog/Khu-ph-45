@@ -68,9 +68,17 @@ class SourceTest(unittest.TestCase):
         self.assertIn('role=="ASSIGNED_USER" && area==actor.AreaId',core)
         self.assertIn('SetAccountRights',core)
         self.assertIn('SetAccountStatus',core)
-    def test_no_root_implicit_citizen_read(self):
-        s=re.search(r'if\(s.Role=="ROOT_ADMIN"\)return (.*?);',core).group(1)
-        self.assertNotIn('B01',s);self.assertNotIn('B02',s)
+    def test_root_default_citizen_read_requires_current_work_area(self):
+        authorization=core.split('static bool HasPermission(',1)[1].split('static void Require(',1)[0]
+        root=authorization.split('if(s.Role=="ROOT_ADMIN") {',1)[1].split('if(feature=="I04"',1)[0]
+        scope='if(String.IsNullOrEmpty(areaId)||areaId!=s.AreaId||Convert.ToInt32(Scalar(c,tx,"SELECT count(*) FROM areas WHERE id=@a",P("@a",areaId)))!=1)return false;'
+        before_scope, after_scope=root.split(scope,1)
+        # The early administrative exceptions must not grant citizen reads.
+        self.assertNotRegex(before_scope,r'"B0[12]"')
+        self.assertIn('BusinessDefaultRights().Contains(feature+":"+action)',after_scope)
+        defaults=read('src/QLKP.Desktop/Core/BusinessDefaults.cs').split('public static List<string> BusinessDefaultRights()',1)[1].split('static void GrantBusinessDefaults(',1)[0]
+        for right in ('B01:read','B02:read'):
+            self.assertIn(f'"{right}"',defaults)
     def test_new_screens_xaml_valid_and_codebehind(self):
         for name in ['AccessControlView','AuditTrailView']:
             xaml=read(f'src/QLKP.Desktop/Views/{name}.xaml')

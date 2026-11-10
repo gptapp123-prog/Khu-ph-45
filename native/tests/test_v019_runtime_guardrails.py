@@ -1,6 +1,7 @@
 """V0.19 focused regressions. SQLite executes; WPF source invariants are static until Windows compile."""
+from hashlib import sha256
 from pathlib import Path
-import re, sqlite3, tempfile, unittest
+import lzma, re, shutil, sqlite3, tempfile, unittest
 from xml.etree import ElementTree as ET
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -78,14 +79,21 @@ class V019GuardrailTests(unittest.TestCase):
     def test_11_xaml_parses_after_binding_update(self):
         for path in ROOT.glob('src/**/*.xaml'):ET.parse(path)
     def test_12_real_fixture_has_zero_foreign_key_violations(self):
-        path=ROOT/'demo/qlkp_demo_fictional_v016_G.sqlite'
-        con=sqlite3.connect(f'file:{path.as_posix()}?mode=ro',uri=True)
-        try:
-            self.assertEqual(con.execute('PRAGMA quick_check').fetchone()[0],'ok')
-            self.assertEqual(con.execute('PRAGMA foreign_key_check').fetchall(),[])
-            self.assertEqual(con.execute('SELECT COUNT(*) FROM households').fetchone()[0],2120)
-            self.assertEqual(con.execute('SELECT COUNT(*) FROM people').fetchone()[0],9540)
-        finally:con.close()
+        fixture=ROOT/'tests/fixtures/qlkp_demo_fictional_v016_G.sqlite.xz'
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'fixture.sqlite'
+            with lzma.open(fixture,'rb') as source, path.open('wb') as target:
+                shutil.copyfileobj(source,target)
+            self.assertEqual(sha256(path.read_bytes()).hexdigest(),
+                'e59114aba8fae1b7526854bac2c8e3bb73df8e1f3066e842dcbabdc5d53a783e')
+            con=sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)
+            try:
+                self.assertEqual(con.execute('PRAGMA quick_check').fetchone()[0],'ok')
+                self.assertEqual(con.execute('PRAGMA foreign_key_check').fetchall(),[])
+                self.assertEqual(con.execute('SELECT COUNT(*) FROM households').fetchone()[0],2120)
+                self.assertEqual(con.execute('SELECT COUNT(*) FROM people').fetchone()[0],9540)
+                self.assertEqual(con.execute('SELECT COUNT(*) FROM module_records').fetchone()[0],24050)
+            finally:con.close()
     def test_13_group_privacy_low_count_1_to_4_is_nonempty(self):
         # Real SQLite query determines threshold cases; C# masking is validated structurally above.
         con=sqlite3.connect(':memory:')

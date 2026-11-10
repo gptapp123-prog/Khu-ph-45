@@ -168,12 +168,21 @@ class SecurityAndPackaging(unittest.TestCase):
             self.assertIn(token,code)
         self.assertIn('Require(c,null,actor,"I08","read"',code)
 
-    def test_i08_only_explicitly_granted_and_no_auto_root_access(self):
-        self.assertIn('"I08:read"',STORE)
-        self.assertIn('Grant(c,tx,target,"I08","read",area,actor.Id)',STORE)
-        self.assertIn('new DataQualityView(session,NavigateToHousehold,NavigateToPerson)',MAIN)
-        root_rule=STORE[STORE.index('if(s.Role=="ROOT_ADMIN")return'):STORE.index('if(String.IsNullOrEmpty(areaId)',STORE.index('if(s.Role=="ROOT_ADMIN")return'))]
-        self.assertNotIn('I08',root_rule)
+    def test_i08_default_read_is_scoped_and_checked_at_service_and_ui(self):
+        policy=(ROOT/'src/QLKP.Desktop/Core/BusinessDefaults.cs').read_text(encoding='utf-8')
+        defaults, grant=policy.split('public static List<string> BusinessDefaultRights()',1)[1].split('static void GrantBusinessDefaults(',1)
+        self.assertIn('"I08:read"',defaults)
+        self.assertIn('foreach(string right in BusinessDefaultRights())',grant)
+        self.assertIn('Grant(c,tx,id,p[0],p[1],area,root)',grant)
+        root_create=clip('if(actor.Role=="ROOT_ADMIN") {','} else if(actor.Role=="KP_ADMIN")')
+        self.assertIn('GrantBusinessDefaults(c,tx,target,area,actor.Id,true)',root_create)
+        root_rule=clip('if(s.Role=="ROOT_ADMIN") {','if(feature=="I04"')
+        before_scope,after_scope=root_rule.split('areaId!=s.AreaId',1)
+        self.assertNotIn('"I08"',before_scope)
+        self.assertIn('BusinessDefaultRights().Contains(feature+":"+action)',after_scope)
+        service=clip('public static List<DataQualityIssue> ListDataQualityIssues(', 'var result=new List<DataQualityIssue>();')
+        self.assertIn('Require(c,null,actor,"I08","read",actor==null?null:actor.AreaId)',service)
+        self.assertIn('DataStore.Can(session,"I08","read")?new DataQualityView(session,NavigateToHousehold,NavigateToPerson)',MAIN)
 
     def test_schema_v4_and_existing_migration_contract(self):
         self.assertIn('if(installed>SchemaVersion)',STORE)
