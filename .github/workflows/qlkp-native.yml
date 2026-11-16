@@ -2,67 +2,13 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
+  push:
+    branches: [qa/android-0218-fixed-nav-once-20261116]
 
 permissions:
   contents: read
 
 jobs:
-  windows:
-    runs-on: windows-2022
-    timeout-minutes: 35
-    defaults:
-      run:
-        working-directory: native
-        shell: powershell
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Prepare installer compiler
-        run: |
-          $ErrorActionPreference='Stop'
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
-            choco install innosetup -y --no-progress
-            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
-          }
-      - name: Compile WPF, run isolated self-test, create setup
-        run: ./build-on-windows.ps1 -Installer -SmokeTest
-      - name: Install, test installed application and uninstall
-        run: ./test-windows-install.ps1
-      - name: Record pinned SQLite public serialization API
-        if: always()
-        run: |
-          New-Item -ItemType Directory -Force 'build-logs\native-runtime' | Out-Null
-          Copy-Item 'build-output\Release\x64\e_sqlite3.dll' 'build-logs\native-runtime\' -ErrorAction Stop
-          $dll=Join-Path (Get-Location) 'build-output\Release\x64\System.Data.SQLite.dll'
-          if(Test-Path $dll){
-            $assembly=[Reflection.Assembly]::LoadFrom($dll)
-            $assembly.GetType('System.Data.SQLite.SQLiteConnection').GetMethods() | Where-Object {$_.Name -match 'Serialize|Deserialize|Handle'} | ForEach-Object {$_.ToString()} | Out-File 'build-logs\sqlite-public-api.txt' -Encoding utf8
-          }
-      - name: Collect test history
-        if: always()
-        run: |
-          $history=Join-Path $env:LOCALAPPDATA 'QLKP-V2-PILOT\test-runs'
-          if(Test-Path $history){Copy-Item $history 'build-logs\test-runs' -Recurse -Force}
-      - uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: QLKP-native-Windows-PILOT-unsigned
-          path: |
-            native/dist/QLKP-PILOT-SETUP-X64-UNSIGNED.exe
-            native/dist/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: QLKP-native-Windows-build-evidence
-          path: native/build-logs/
-          if-no-files-found: warn
-          retention-days: 14
-
-
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -78,7 +24,7 @@ jobs:
       - name: Compile, test and lint Android
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug --no-daemon
+          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug lintRelease assembleRelease --no-daemon
       - name: Verify and stage standalone test APK
         run: |
           mkdir -p native/dist/android
@@ -104,5 +50,44 @@ jobs:
           path: |
             native/android-companion/app/build/reports/
             native/android-companion/app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Validate and stage Android release for offline signing
+        run: |
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          apk=native/android-companion/app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p native/dist/release-unsigned
+          "$tools/aapt" dump badging "$apk" > native/dist/release-unsigned/metadata.txt
+          grep -Fq "name='vn.qlkp.companion' versionCode='31' versionName='0.21.8'" native/dist/release-unsigned/metadata.txt
+          if grep -q application-debuggable native/dist/release-unsigned/metadata.txt; then exit 1; fi
+          "$tools/zipalign" -P 16 -f 4 "$apk" native/dist/release-unsigned/QLKP_Mobile_0.21.8_UNSIGNED.apk
+          "$tools/zipalign" -c -P 16 4 native/dist/release-unsigned/QLKP_Mobile_0.21.8_UNSIGNED.apk
+          cp "$tools/lib/apksigner.jar" native/dist/release-unsigned/
+          (cd native/dist/release-unsigned && sha256sum *.apk *.jar > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QLKP-Android-0218-unsigned-for-offline-signing
+          path: native/dist/release-unsigned/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Android 15 compact UI and rotation smoke test
+        run: |
+          if test -e /dev/kvm; then sudo chmod a+rw /dev/kvm; fi
+          export ANDROID_USER_HOME="$RUNNER_TEMP/qlkp-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" emulator 'system-images;android-35;google_apis;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n qlkp_smoke -p "$ANDROID_AVD_HOME/qlkp_smoke.avd" -k 'system-images;android-35;google_apis;x86_64' -f
+          if ! test -f "$ANDROID_AVD_HOME/qlkp_smoke.ini" && test -f "$ANDROID_AVD_HOME/qlkp_smoke.avd/config.ini"; then
+            printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/qlkp_smoke.avd" > "$ANDROID_AVD_HOME/qlkp_smoke.ini"
+          fi
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx qlkp_smoke
+          QLKP_SMOKE_APP=vn.qlkp.companion.test QLKP_SMOKE_APK=native/android-companion/app/build/outputs/apk/debug/app-debug.apk python native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-Android-0218-device-evidence
+          path: native/build-logs/android/
           if-no-files-found: warn
           retention-days: 14
