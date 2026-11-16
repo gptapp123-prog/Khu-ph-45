@@ -2,6 +2,8 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
+  push:
+    branches: [qa/native-0218-stability-once-20261116]
 
 permissions:
   contents: read
@@ -78,7 +80,7 @@ jobs:
       - name: Compile, test and lint Android
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug --no-daemon
+          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug lintRelease assembleRelease --no-daemon
       - name: Verify and stage standalone test APK
         run: |
           mkdir -p native/dist/android
@@ -104,5 +106,37 @@ jobs:
           path: |
             native/android-companion/app/build/reports/
             native/android-companion/app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Validate and stage Android release for offline signing
+        run: |
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          apk=native/android-companion/app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p native/dist/release-unsigned
+          "$tools/aapt" dump badging "$apk" > native/dist/release-unsigned/metadata.txt
+          grep -Fq "name='vn.qlkp.companion' versionCode='31' versionName='0.21.8'" native/dist/release-unsigned/metadata.txt
+          if grep -q application-debuggable native/dist/release-unsigned/metadata.txt; then exit 1; fi
+          "$tools/zipalign" -P 16 -f 4 "$apk" native/dist/release-unsigned/QLKP_Mobile_0.21.8_UNSIGNED.apk
+          "$tools/zipalign" -c -P 16 4 native/dist/release-unsigned/QLKP_Mobile_0.21.8_UNSIGNED.apk
+          cp "$tools/lib/apksigner.jar" native/dist/release-unsigned/
+          (cd native/dist/release-unsigned && sha256sum *.apk *.jar > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QLKP-Android-0218-unsigned-for-offline-signing
+          path: native/dist/release-unsigned/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Android 15 compact UI and rotation smoke test
+        run: |
+          if test -e /dev/kvm; then sudo chmod a+rw /dev/kvm; fi
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" emulator 'system-images;android-35;google_apis;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n qlkp_smoke -k 'system-images;android-35;google_apis;x86_64' -f
+          QLKP_SMOKE_APP=vn.qlkp.companion.test QLKP_SMOKE_APK=native/android-companion/app/build/outputs/apk/debug/app-debug.apk python native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-Android-0218-device-evidence
+          path: native/build-logs/android/
           if-no-files-found: warn
           retention-days: 14
