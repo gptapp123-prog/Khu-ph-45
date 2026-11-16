@@ -59,7 +59,6 @@ class DocumentScanActivity : Activity() {
    orientation=LinearLayout.VERTICAL
   }
   page.addView(TextView(this).apply { text="Đọc ảnh và mã QR";textSize=23f })
-  page.addView(button("Quay lại") { finish() })
   val ocrOption=RadioButton(this).apply { id=View.generateViewId();text="Văn bản OCR" }
   qrOption=RadioButton(this).apply { id=View.generateViewId();text="QR hồ sơ" }
   modes=RadioGroup(this).apply {
@@ -80,7 +79,7 @@ class DocumentScanActivity : Activity() {
   modes.setOnCheckedChangeListener { _,checked -> qr=checked==qrOption.id;result.text.clear();save.isEnabled=false }
   page.addView(modes);page.addView(photo);page.addView(pick)
   page.addView(status);page.addView(result);page.addView(save)
-  showCompanionPage(page)
+  showCompanionPage(page,button("Quay lại") { finish() })
  }
 
  override fun onSaveInstanceState(state:Bundle) {
