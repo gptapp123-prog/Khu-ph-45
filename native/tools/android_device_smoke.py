@@ -10,7 +10,7 @@ OUT.mkdir(parents=True,exist_ok=True)
 SDK=Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])
 ADB=SDK/'platform-tools/adb'
 SERIAL='emulator-5554'
-APP='vn.qlkp.companion'
+APP=os.environ.get('QLKP_SMOKE_APP','vn.qlkp.companion')
 APK=Path(os.environ.get('QLKP_SMOKE_APK') or ROOT/'dist/android/QLKP-Mobile-0.20.0-PILOT-debug.apk').resolve()
 journal=Journal(OUT,kind='android_release_smoke' if os.environ.get('QLKP_SMOKE_APK') else 'android_debug_smoke',layer='device',source_hash=hashlib.sha256(APK.read_bytes()).hexdigest())
 report=journal.report;report['hash_kind']='apk_sha256'
@@ -50,6 +50,35 @@ def chooser():
         time.sleep(0.5)
     call('shell','input','keyevent','4')
     if not call('shell','pidof',APP).strip():raise RuntimeError('Application stopped after chooser')
+def tap_text(screen,label):
+    node=next(n for n in screen.iter() if n.attrib.get('text')==label and n.attrib.get('clickable')=='true')
+    x1,y1,x2,y2=map(int,re.findall(r'\d+',node.attrib['bounds']))
+    if x2-x1<24 or y2-y1<24:raise RuntimeError('Action is clipped')
+    call('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
+
+def compact_rotate_back():
+    call('shell','wm','size','720x1280')
+    call('shell','wm','density','320')
+    call('shell','settings','put','system','font_scale','1.3')
+    call('shell','cmd','window','user-rotation','lock','0')
+    call('shell','am','start','-W','-n',APP+'/.MainActivity')
+    tap_text(snapshot('compact-home'),'Đọc ảnh và mã QR')
+    tap_text(snapshot('compact-scan'),'Văn bản OCR')
+    tap_text(snapshot('scan-mode'),'QR hồ sơ')
+    call('shell','cmd','window','user-rotation','lock','1')
+    deadline=time.monotonic()+15
+    while True:
+        rotated=snapshot('landscape-scan')
+        if any(n.attrib.get('text')=='QR hồ sơ' and n.attrib.get('checked')=='true' for n in rotated.iter()):
+            size=(OUT/'landscape-scan.png').read_bytes()[16:24]
+            if int.from_bytes(size[:4],'big')>int.from_bytes(size[4:],'big'):break
+        if time.monotonic()>=deadline:raise RuntimeError('Rotation lost the selected scanning mode')
+        time.sleep(0.5)
+    tap_text(rotated,'Quay lại')
+    call('shell','cmd','window','user-rotation','lock','0')
+    home=snapshot('return-from-scanner')
+    if not any(n.attrib.get('text')=='QUẢN LÝ KHU PHỐ' for n in home.iter()):
+        raise RuntimeError('Could not return to companion home')
 log=(OUT/'emulator.log').open('wb')
 emulator=None
 save()
@@ -74,6 +103,7 @@ try:
     step('APK_INSTALL',lambda:call('install','-r',str(APK),timeout=90))
     step('ACTIVITY_LAUNCH_AND_NATIVE_SCREEN',launch)
     step('FILE_CHOOSER_BUTTON',chooser)
+    step('COMPACT_LARGE_FONT_ROTATION_AND_BACK',compact_rotate_back)
     step('APK_UNINSTALL',lambda:call('uninstall',APP))
     journal.finish('PASS')
 except BaseException:

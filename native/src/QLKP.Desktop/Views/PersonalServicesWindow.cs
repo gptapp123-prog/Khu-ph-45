@@ -21,6 +21,7 @@ namespace QLKP.Desktop.Views {
    Title="Hồ sơ cá nhân theo nhóm nghiệp vụ";
    Width=570;Height=620;MinWidth=420;MinHeight=380;
    WindowStartupLocation=WindowStartupLocation.CenterOwner;
+   WindowLayout.FitInitialSize(this);
    var root=new DockPanel {Margin=new Thickness(18)};
    var header=new StackPanel();
    header.Children.Add(new TextBlock{Text=person.FullName+" · "+person.BirthDateDisplay,FontSize=18,FontWeight=FontWeights.Bold,TextWrapping=TextWrapping.Wrap});

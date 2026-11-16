@@ -19,6 +19,7 @@ namespace QLKP.Desktop.Views {
    this.session=session;
    Title="Theo dõi hạn bảo hiểm y tế";Width=690;Height=460;MinWidth=485;MinHeight=360;
    WindowStartupLocation=WindowStartupLocation.CenterOwner;
+   WindowLayout.FitInitialSize(this);
    var layout=new DockPanel {Margin=new Thickness(16)};
    var toolbar=new WrapPanel {Margin=new Thickness(0,0,0,10)};
    toolbar.Children.Add(filter);

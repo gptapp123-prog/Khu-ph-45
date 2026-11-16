@@ -216,6 +216,18 @@ namespace QLKP.Desktop.Core {
      Click(mode);
      if(DisplayMode.Depth||!Object.Equals(mode.Content,"Giao diện 2D"))throw new InvalidDataException("Could not restore 2D appearance.");
      Snapshot(rootWindow,evidence,"giao-dien-2d");
+     run.BeginStep("UI_COMPACT_WINDOW_NAVIGATION");
+     rootWindow.WindowState=WindowState.Normal;
+     rootWindow.Width=760;rootWindow.Height=540;
+     var compactPeople=Navigate(rootWindow,"B02");
+     Drain();
+     var details=Control<ScrollViewer>(compactPeople,"PeopleDetails");
+     if(Grid.GetRow(details)!=1||details.ActualHeight<60)
+      throw new InvalidDataException("Compact people editor must appear below the list.");
+     if(Control<ListBox>(rootWindow,"Groups").ActualHeight<20)
+      throw new InvalidDataException("Group navigation is unavailable in the compact window.");
+     rootWindow.WindowState=WindowState.Maximized;
+     Drain();
      run.BeginStep("UI_ACCOUNT_HEADER_BUTTON");Click(Control<Button>(rootWindow,"AccountButton"));
      if(!(Control<ContentControl>(rootWindow,"FeatureContent").Content is AccountsView))throw new InvalidDataException("Account header route failed.");
      run.BeginStep("UI_CREATE_ADMIN");var accounts=Navigate(rootWindow,"I01");

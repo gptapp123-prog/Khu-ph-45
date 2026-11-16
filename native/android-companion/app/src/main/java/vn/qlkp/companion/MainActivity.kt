@@ -15,7 +15,6 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import java.io.ByteArrayOutputStream
 
@@ -46,11 +45,8 @@ class MainActivity : Activity() {
   pendingResult=savedInstanceState?.getByteArray("pendingResult")
   val wrap=LinearLayout(this).apply {
    orientation=LinearLayout.VERTICAL
-   setPadding(30,65,30,30)
-   setBackgroundColor(Color.rgb(244,247,252))
   }
   val title=TextView(this).apply { text="QUẢN LÝ KHU PHỐ";textSize=23f;setTextColor(Color.rgb(16,45,89)) }
-  val about=TextView(this).apply { text="Nhập mật khẩu rồi chọn gói nhận từ máy tính.";textSize=15f }
   phrase=EditText(this).apply {
    id=R.id.package_password
    hint="Mật khẩu giải mã gói (≥14 ký tự)"
@@ -81,10 +77,12 @@ class MainActivity : Activity() {
   }
   wrap.addView(title)
   wrap.addView(action("Đọc ảnh và mã QR") { startActivity(Intent(this,DocumentScanActivity::class.java)) })
-  wrap.addView(about);wrap.addView(phrase)
+  wrap.addView(phrase)
   wrap.addView(action("Mở nhiệm vụ .qlkptask") { openDocument(requestTask) })
   retryResult=action("Lưu lại tệp kết quả") { chooseResultLocation() }.apply { visibility=View.GONE }
   if(pendingResult!=null)retryResult.visibility=View.VISIBLE
+  if(savedInstanceState?.getBoolean("hadTask")==true && pendingResult==null)
+   taskStatus.text="Mở lại gói nhiệm vụ để tiếp tục."
   wrap.addView(taskStatus);wrap.addView(retryResult);wrap.addView(taskActions)
   catalogSearch=EditText(this).apply { hint="Tìm theo mã hoặc nhãn";isSingleLine=true;isSaveEnabled=false }
   catalogRows=TextView(this).apply { textSize=15f;setTextColor(Color.DKGRAY) }
@@ -92,7 +90,8 @@ class MainActivity : Activity() {
   catalogNext=action("Trang sau") { catalogIndex++;showCatalog() }
   val paging=LinearLayout(this).apply {
    orientation=LinearLayout.HORIZONTAL
-   addView(catalogPrevious);addView(catalogNext)
+   addView(catalogPrevious,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+   addView(catalogNext,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
   }
   catalogActions=LinearLayout(this).apply {
    orientation=LinearLayout.VERTICAL;visibility=View.GONE
@@ -105,11 +104,11 @@ class MainActivity : Activity() {
    override fun afterTextChanged(s:Editable?) {}
   })
   wrap.addView(catalogButton);wrap.addView(status);wrap.addView(catalogActions)
-  setContentView(ScrollView(this).apply { isFillViewport=true;addView(wrap) })
+  showCompanionPage(wrap)
  }
 
  private fun action(label:String,click:()->Unit)=Button(this).apply {
-  text=label;isAllCaps=false;setOnClickListener { click() }
+  text=label;isAllCaps=false;minHeight=dp(48);setOnClickListener { click() }
  }
 
  @Suppress("DEPRECATION")
@@ -127,6 +126,7 @@ class MainActivity : Activity() {
   super.onSaveInstanceState(state)
   // Only the encrypted PC exchange package is saved across activity recreation.
   state.putByteArray("pendingResult",pendingResult)
+  state.putBoolean("hadTask",task!=null)
  }
 
  private fun createResult() {

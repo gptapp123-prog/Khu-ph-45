@@ -17,7 +17,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
@@ -58,13 +57,13 @@ class DocumentScanActivity : Activity() {
   if(capture==null)File(cacheDir,"scan-images").listFiles()?.forEach { it.delete() }
   val page=LinearLayout(this).apply {
    orientation=LinearLayout.VERTICAL
-   setPadding(24,54,24,28)
   }
   page.addView(TextView(this).apply { text="Đọc ảnh và mã QR";textSize=23f })
+  page.addView(button("Quay lại") { finish() })
   val ocrOption=RadioButton(this).apply { id=View.generateViewId();text="Văn bản OCR" }
   qrOption=RadioButton(this).apply { id=View.generateViewId();text="QR hồ sơ" }
   modes=RadioGroup(this).apply {
-   orientation=LinearLayout.HORIZONTAL
+   orientation=LinearLayout.VERTICAL
    addView(ocrOption);addView(qrOption)
    check(if(qr)qrOption.id else ocrOption.id)
   }
@@ -78,11 +77,10 @@ class DocumentScanActivity : Activity() {
    isSaveEnabled=false
    hint="Kết quả nhận dạng"
   }
-  modes.setOnCheckedChangeListener { _,_ -> result.text.clear();save.isEnabled=false }
+  modes.setOnCheckedChangeListener { _,checked -> qr=checked==qrOption.id;result.text.clear();save.isEnabled=false }
   page.addView(modes);page.addView(photo);page.addView(pick)
   page.addView(status);page.addView(result);page.addView(save)
-  page.addView(button("Quay lại") { finish() })
-  setContentView(ScrollView(this).apply { addView(page) })
+  showCompanionPage(page)
  }
 
  override fun onSaveInstanceState(state:Bundle) {
@@ -99,7 +97,7 @@ class DocumentScanActivity : Activity() {
  }
 
  private fun button(label:String, action:()->Unit)=Button(this).apply {
-  text=label;isAllCaps=false;setOnClickListener { action() }
+  text=label;isAllCaps=false;minHeight=dp(48);setOnClickListener { action() }
  }
 
  @Suppress("DEPRECATION")
