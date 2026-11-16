@@ -50,6 +50,14 @@ def chooser():
         time.sleep(0.5)
     call('shell','input','keyevent','4')
     if not call('shell','pidof',APP).strip():raise RuntimeError('Application stopped after chooser')
+def wait_for_text(name,label,timeout=15):
+    deadline=time.monotonic()+timeout
+    while True:
+        screen=snapshot(name)
+        if any(n.attrib.get('text')==label for n in screen.iter()):return screen
+        if time.monotonic()>=deadline:raise RuntimeError('Missing screen element: '+label)
+        time.sleep(0.5)
+
 def tap_text(screen,label):
     node=next(n for n in screen.iter() if n.attrib.get('text')==label and n.attrib.get('clickable')=='true')
     x1,y1,x2,y2=map(int,re.findall(r'\d+',node.attrib['bounds']))
@@ -62,9 +70,8 @@ def compact_rotate_back():
     call('shell','settings','put','system','font_scale','1.3')
     call('shell','cmd','window','user-rotation','lock','0')
     call('shell','am','start','-W','-n',APP+'/vn.qlkp.companion.MainActivity')
-    tap_text(snapshot('compact-home'),'Đọc ảnh và mã QR')
-    tap_text(snapshot('compact-scan'),'Văn bản OCR')
-    tap_text(snapshot('scan-mode'),'QR hồ sơ')
+    tap_text(wait_for_text('compact-home','Đọc ảnh và mã QR'),'Đọc ảnh và mã QR')
+    tap_text(wait_for_text('compact-scan','QR hồ sơ'),'QR hồ sơ')
     call('shell','cmd','window','user-rotation','lock','1')
     deadline=time.monotonic()+15
     while True:
