@@ -23,7 +23,9 @@ namespace QLKP.Desktop.Core {
   }
   public static readonly ModuleDefinition[] Editable = {
    new ModuleDefinition("A02","Nhiệm vụ và tiến độ",new[]{"Mới","Đang xử lý","Chờ xác nhận","Hoàn thành nội bộ","Tạm dừng"},
-    F("deadline","Hạn thực hiện (yyyy-MM-dd)","date"), F("progress","Tiến độ 0–100 (%)","percentage"), F("assignee_id","ID tài khoản phụ trách","account"),F("result","Kết quả xử lý")),
+    F("deadline","Hạn thực hiện (yyyy-MM-dd)","date"), F("progress","Tiến độ 0–100 (%)","percentage"), F("assignee_id","ID tài khoản phụ trách","account"),F("result","Kết quả xử lý"),
+    F("assigned_on","Ngày giao","date"), F("work_category","Lĩnh vực"), F("source_area","Địa bàn ghi trên nguồn"),
+    F("source_assignee","Người phụ trách ghi trên nguồn"), F("priority","Mức độ ưu tiên","choice:Thấp|Trung bình|Cao")),
    new ModuleDefinition("A03","Kế hoạch và chỉ tiêu",new[]{"Dự thảo","Đang triển khai","Đã rà soát","Tạm dừng"},
     F("metric","Chỉ tiêu / tiêu chí", "text",true),F("target","Mục tiêu (số)","number"),F("actual","Kết quả đã ghi nhận (số)","number"), F("unit","Đơn vị"),F("deadline","Mốc thời gian (yyyy-MM-dd)","date")),
    new ModuleDefinition("A04","Lịch công tác",new[]{"Dự kiến","Đã xác nhận lịch","Đã diễn ra","Hủy"},
@@ -33,7 +35,10 @@ namespace QLKP.Desktop.Core {
    new ModuleDefinition("B04","Địa bàn và địa chỉ",new[]{"Mới","Đang rà soát","Đã kiểm tra nội bộ"},
     F("house_number","Số nhà"),F("street","Đường / lối đi", "text",true),F("locality","Khu vực / phường"),F("address_kind","Loại địa chỉ")),
    new ModuleDefinition("B05","Nhà ở và công trình",new[]{"Mới","Đang kiểm tra","Đã cập nhật","Ngừng theo dõi"},
-    F("construction_kind","Loại công trình","text",true),F("current_use","Mục đích sử dụng"),F("structure_notes","Thông tin công trình")),
+    F("construction_kind","Loại công trình","text",true),F("current_use","Mục đích sử dụng"),F("structure_notes","Thông tin công trình"),
+    F("site_address","Địa chỉ ghi trên nguồn"), F("project_owner","Chủ đầu tư"),
+    F("started_on","Ngày khởi công","date"), F("planned_end","Dự kiến hoàn thành","date"),
+    F("progress","Tiến độ 0–100 (%)","percentage"), F("site_status","Tình trạng thi công")),
    new ModuleDefinition("B06","Nhà trọ và cơ sở lưu trú",new[]{"Mới","Đang theo dõi","Tạm ngừng","Ngừng theo dõi"},
     F("lodging_kind","Loại hình lưu trú","text",true),F("rooms","Số phòng","nonnegative"),F("contact_note","Thông tin liên hệ do người dùng khai")),
    new ModuleDefinition("B07","Cơ sở kinh doanh",new[]{"Mới","Đang hoạt động","Tạm ngừng","Ngừng hoạt động"},

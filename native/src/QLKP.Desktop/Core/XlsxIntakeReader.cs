@@ -119,6 +119,16 @@ namespace QLKP.Desktop.Core {
    return cells==null?new HashSet<int>():new HashSet<int>(cells.Elements(Main+"xf")
     .Select((x,i)=>new {Index=i,Format=(int?)x.Attribute("numFmtId")}).Where(x=>formats.Contains(x.Format??-1)).Select(x=>x.Index));
   }
+  internal static string ReadNamedSheet(string path,string name,ISet<int> ignoredDataColumns=null) {
+   using(var archive=Open(path)) {
+    var workbook=Workbook(archive);
+    var names=SheetNames(workbook);
+    int index=Array.IndexOf(names,name);
+    if(index<0||names.Count(value=>String.Equals(value,name,StringComparison.OrdinalIgnoreCase))!=1)
+     throw new InvalidDataException("Không xác định được trang Excel: "+name);
+    return ReadSheet(archive,workbook,index,20,ignoredDataColumns);
+   }
+  }
   public static string ReadFirstSheet(string path) {return ReadSheet(path,0);}
   internal static string ReadSheet(string path,int index) {
    if(index<0||index>=100)throw new InvalidDataException("Chọn trang tính hợp lệ.");
@@ -160,7 +170,7 @@ namespace QLKP.Desktop.Core {
      ReadSheet(archive,workbook,Array.IndexOf(names,name),64):null).ToArray();
    }
   }
-  static string ReadSheet(ZipArchive archive,XDocument workbook,int index,int maxColumns=20) {
+  static string ReadSheet(ZipArchive archive,XDocument workbook,int index,int maxColumns=20,ISet<int> ignoredDataColumns=null) {
     var rels=SafeXml(archive.GetEntry("xl/_rels/workbook.xml.rels"),2*1024*1024);
     var sheet=SafeXml(archive.GetEntry(SafeSheetPath(workbook,rels,index)),7*1024*1024);
     string dateSystem=(string)workbook.Root.Element(Main+"workbookPr")?.Attribute("date1904");
@@ -184,7 +194,8 @@ namespace QLKP.Desktop.Core {
       int column=ColumnIndex((string)cell.Attribute("r")??"");
       if(column>=maxColumns)throw new InvalidDataException("Trang vượt "+maxColumns+" cột dữ liệu.");
       if(values[column]!=null)throw new InvalidDataException("Trang có tọa độ ô lặp.");
-      values[column]=CellText(cell,shared,dates,date1904);
+      values[column]=headerWidth>0&&ignoredDataColumns!=null&&ignoredDataColumns.Contains(column)
+       ?"":CellText(cell,shared,dates,date1904);
       if(values[column].Length>300)throw new InvalidDataException("Ô Excel dài trên 300 ký tự.");
       if(!String.IsNullOrWhiteSpace(values[column]))largest=Math.Max(largest,column);
      }

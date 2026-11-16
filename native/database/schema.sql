@@ -516,3 +516,26 @@ CREATE TABLE IF NOT EXISTS offline_task_dispatches (
  record_version INTEGER NOT NULL CHECK(record_version>=1)
 );
 CREATE INDEX IF NOT EXISTS idx_offline_task_record ON offline_task_dispatches(record_id);
+
+-- Restricted personal registers. The person and area must agree on every insert.
+CREATE TABLE IF NOT EXISTS personal_service_records (
+ person_id TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+ area_id TEXT NOT NULL REFERENCES areas(id),
+ feature TEXT NOT NULL CHECK(feature IN ('E02','E04','E06','F06')),
+ payload TEXT NOT NULL,
+ version INTEGER NOT NULL CHECK(version>=1),
+ updated_utc TEXT NOT NULL,
+ PRIMARY KEY(person_id,feature)
+);
+CREATE TRIGGER IF NOT EXISTS personal_service_area_insert
+BEFORE INSERT ON personal_service_records
+WHEN NOT EXISTS (SELECT 1 FROM people WHERE id=NEW.person_id AND area_id=NEW.area_id)
+BEGIN SELECT RAISE(ABORT,'personal_service_area_mismatch'); END;
+CREATE TRIGGER IF NOT EXISTS personal_service_area_update
+BEFORE UPDATE OF person_id,area_id ON personal_service_records
+WHEN NOT EXISTS (SELECT 1 FROM people WHERE id=NEW.person_id AND area_id=NEW.area_id)
+BEGIN SELECT RAISE(ABORT,'personal_service_area_mismatch'); END;
+CREATE TRIGGER IF NOT EXISTS personal_service_person_area_update
+BEFORE UPDATE OF area_id ON people
+WHEN NEW.area_id<>OLD.area_id AND EXISTS (SELECT 1 FROM personal_service_records WHERE person_id=OLD.id)
+BEGIN SELECT RAISE(ABORT,'personal_service_area_mismatch'); END;

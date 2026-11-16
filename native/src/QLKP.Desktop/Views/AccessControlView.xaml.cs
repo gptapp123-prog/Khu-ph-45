@@ -10,6 +10,10 @@ namespace QLKP.Desktop.Views {
    foreach(var right in ModuleCatalog.AdditionalRights())AdditionalRights.Children.Add(new CheckBox{Content=right,Tag=right,Margin=new Thickness(4,3,4,3)});
    AdditionalRights.Children.Add(new CheckBox{Content="Tra cứu CCCD chính xác",Tag="B02:identity_lookup",Margin=new Thickness(4,3,4,3)});
    AdditionalRights.Children.Add(new CheckBox{Content="Ghi hoặc sửa CCCD",Tag="B02:identity_write",Margin=new Thickness(4,3,4,3)});
+   foreach(var service in DataStore.PersonalServices) {
+    AdditionalRights.Children.Add(new CheckBox{Content="Xem hồ sơ cá nhân · "+service.Label,Tag=service.Feature+":personal_read",Margin=new Thickness(4,3,4,3)});
+    AdditionalRights.Children.Add(new CheckBox{Content="Sửa hồ sơ cá nhân · "+service.Label,Tag=service.Feature+":personal_write",Margin=new Thickness(4,3,4,3)});
+   }
    Reload(); }
   AccountRow Selected { get { return Accounts.SelectedItem as AccountRow; } }
   void Reload() {try{ Accounts.ItemsSource=DataStore.ListAccounts(session);Info.Text=""; }

@@ -13,6 +13,13 @@ namespace QLKP.Desktop.Core {
   public string Status {get;set;}
   public string DueDate {get;set;}
   public string DueDateDisplay {get{return DisplayLabels.Date(DueDate);}}
+  public string TaskDueState {get {
+   if(Feature!="A02")return "";
+   if(Status=="Hoàn thành nội bộ")return "Hoàn thành";
+   if(String.IsNullOrWhiteSpace(DueDate))return "Chưa đặt hạn";
+   return String.CompareOrdinal(DueDate,ReportDateKey())<0?"Quá hạn":"Trong hạn";
+  }}
+  static string ReportDateKey(){return DataStore.ReportLocalToday.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);}
   public string RelatedFeature {get;set;}
   public string RelatedId {get;set;}
   public long Version {get;set;}
@@ -76,6 +83,8 @@ namespace QLKP.Desktop.Core {
      throw new InvalidOperationException("Thiếu trường: "+fld.Label);
    }
    var due=DueField(code,draft);
+   if(code=="A02") CheckDateOrder(GetField(draft,"assigned_on"),due,"Hạn thực hiện phải từ ngày giao trở đi.");
+   if(code=="B05") CheckDateOrder(GetField(draft,"started_on"),GetField(draft,"planned_end"),"Dự kiến hoàn thành phải từ ngày khởi công trở đi.");
    if(code=="A02"&&draft.Status=="Hoàn thành nội bộ"&&String.IsNullOrWhiteSpace(GetField(draft,"result")))
     throw new InvalidOperationException("Cần nhập kết quả công việc trước khi đánh dấu hoàn thành nội bộ.");
    if(code=="A06"&&draft.Status=="Đã bàn giao nội bộ" && (String.IsNullOrWhiteSpace(GetField(draft,"incoming"))||String.IsNullOrWhiteSpace(GetField(draft,"outgoing"))))
@@ -218,7 +227,7 @@ namespace QLKP.Desktop.Core {
   }
   static string DueField(string code,ModuleRecord r){
    return new[]{"A02","A03","C01","C03"}.Contains(code)?GetField(r,"deadline"):
-    code=="A04"?GetField(r,"event_date"):code=="C04"?GetField(r,"meeting_date"):"";
+    code=="A04"?GetField(r,"event_date"):code=="C04"?GetField(r,"meeting_date"):code=="B05"?GetField(r,"planned_end"):"";
   }
   static string SearchModuleRecord(ModuleRecord r) {
    // Deterministic index; no automatic identity merging.
@@ -312,7 +321,7 @@ namespace QLKP.Desktop.Core {
     }
     string filter="m.area_id=@area AND m.feature=@f AND (m.record_code LIKE @q ESCAPE '\\' OR m.search_title LIKE @q ESCAPE '\\')";
     if(onlyBacklog)filter+=" AND m.due_date<>'' AND m.due_date < @today AND m.status NOT IN ('Hoàn thành nội bộ')";
-    string q=SearchPattern(NormalizeSearch(keyword));string today=DateTime.Today.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);
+    string q=SearchPattern(NormalizeSearch(keyword));string today=ReportLocalToday.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);
     long total=Convert.ToInt64(Scalar(c,tx,"SELECT COUNT(*) FROM module_records m WHERE "+filter,
      P("@area",s.AreaId),P("@f",code),P("@q",q),P("@today",today)));
     long pages=total==0?0:((total-1)/pageSize)+1;

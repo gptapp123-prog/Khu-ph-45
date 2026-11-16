@@ -19,6 +19,7 @@ namespace QLKP.Desktop.Views {
    FeatureTitle.Text=(backlog?"A05 · Công việc tồn đọng":moduleCode+" · "+spec.Label);
    Guidance.Text=backlog?"Chọn nhiệm vụ rồi bấm Mở nhiệm vụ để xử lý.":"Chọn hồ sơ để cập nhật hoặc tạo hồ sơ mới.";
    RecordStatus.ItemsSource=spec.Statuses;
+   if(moduleCode=="A02")Records.Columns.Insert(4,new DataGridTextColumn {Header="Tình trạng hạn",Binding=new System.Windows.Data.Binding("TaskDueState"),Width=105});
    AssigneePicker.Visibility=spec.Fields.Any(x=>x.Type=="account")?Visibility.Visible:Visibility.Collapsed;
    foreach(var f in spec.Fields){
     string label=f.Type=="date"?f.Label.Replace(" (yyyy-MM-dd)","")+" (dd-MM-yyyy)":f.Label;
@@ -54,7 +55,53 @@ namespace QLKP.Desktop.Views {
     }}
    OfflineTaskActions.Visibility=!backlog&&moduleCode=="A02"&&DataStore.Can(s,"I06","export")&&DataStore.Can(s,"A02","update")
     ?Visibility.Visible:Visibility.Collapsed;
+   TrackPublicProjectButton.Visibility=moduleCode=="B05"&&navigateTo!=null&&DataStore.Can(s,"F05","read")&&DataStore.Can(s,"F05","create")
+    ?Visibility.Visible:Visibility.Collapsed;
+   NeighborhoodImport.Visibility=!backlog&&(moduleCode=="A02"||moduleCode=="B05")&&NewButton.IsEnabled
+    ?Visibility.Visible:Visibility.Collapsed;
    ResetEditor();Reload();ApplyLayout();
+  }
+  void TrackPublicProject_Click(object sender,RoutedEventArgs e) {
+   if(String.IsNullOrWhiteSpace(activeId))return;
+   var owner=Window.GetWindow(this);
+   if(MessageBox.Show(owner,"Xác nhận đây là công trình công cộng cần theo dõi tại F05?","Theo dõi công trình",
+    MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+   try {navigateTo("F05",DataStore.TrackPublicProject(session,activeId));}
+   catch(Exception ex) {Notice.Text="Không mở được hồ sơ theo dõi. "+ex.Message;}
+  }
+  void NeighborhoodImport_Click(object sender,RoutedEventArgs e) {
+   var owner=Window.GetWindow(this);
+   var picker=new OpenFileDialog{Filter="Tệp Excel (*.xlsx)|*.xlsx",Multiselect=false};
+   if(picker.ShowDialog(owner)!=true)return;
+   try {
+    const string unclassified="Chưa phân loại";
+    var rows=DataStore.ParseNeighborhoodWorkbook(moduleCode,picker.FileName,unclassified);
+    DataStore.CheckOrCommitNeighborhoodWorkbook(session,moduleCode,rows,false);
+    var panel=new DockPanel {Margin=new Thickness(16)};
+    var description=new TextBlock {TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12),
+     Text=rows.Count+" hồ sơ mới vào "+DataStore.AreaName(session)+". "+(moduleCode=="A02"
+      ?"Tên người phụ trách và địa bàn từ Excel được giữ để đối chiếu. Chọn tài khoản phụ trách trong từng hồ sơ sau khi nhập."
+      :"Công trình được ghi vào địa bàn đang mở với loại Chưa phân loại. Giữ địa chỉ nguồn. Bỏ qua cột ngân sách, đã chi và các trang quản lý nhà thầu.")};
+    DockPanel.SetDock(description,Dock.Top);panel.Children.Add(description);
+    var buttons=new StackPanel {Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,12,0,0)};
+    DockPanel.SetDock(buttons,Dock.Bottom);panel.Children.Add(buttons);
+    var confirm=new Button {Content="Xác nhận nhập",Padding=new Thickness(12,5,12,5),Margin=new Thickness(8,0,0,0)};
+    buttons.Children.Add(new Button {Content="Hủy",IsCancel=true,Padding=new Thickness(12,5,12,5)});buttons.Children.Add(confirm);
+    var grid=new DataGrid {ItemsSource=rows,IsReadOnly=true,AutoGenerateColumns=false,CanUserAddRows=false};
+    grid.Columns.Add(new DataGridTextColumn {Header="Mã",Binding=new System.Windows.Data.Binding("Code")});
+    grid.Columns.Add(new DataGridTextColumn {Header="Tên hồ sơ",Binding=new System.Windows.Data.Binding("Title"),Width=new DataGridLength(1,DataGridLengthUnitType.Star)});
+    grid.Columns.Add(new DataGridTextColumn {Header="Địa bàn / địa chỉ nguồn",Binding=new System.Windows.Data.Binding("Area")});
+    grid.Columns.Add(new DataGridTextColumn {Header="Trạng thái",Binding=new System.Windows.Data.Binding("Status")});
+    grid.Columns.Add(new DataGridTextColumn {Header="Hạn / ngày dự kiến",Binding=new System.Windows.Data.Binding("Date")});
+    panel.Children.Add(grid);
+    var dialogue=new Window {Title="Đối chiếu trước khi nhập Excel",Owner=owner,Content=panel,Width=780,Height=470,
+     WindowStartupLocation=WindowStartupLocation.CenterOwner};
+    confirm.Click+=(_,args)=>dialogue.DialogResult=true;
+    if(dialogue.ShowDialog()!=true)return;
+    DataStore.CheckOrCommitNeighborhoodWorkbook(session,moduleCode,rows,true);
+    pageIndex=0;Search.Clear();Reload();
+    Notice.Text="Đã lưu "+rows.Count+" hồ sơ từ Excel.";
+   } catch(Exception ex) {Notice.Text="Không nhập được Excel. "+ex.Message;}
   }
   void ExportOfflineTask_Click(object sender,RoutedEventArgs e) {
    OfflineTaskNotice.Text="";
@@ -107,6 +154,7 @@ namespace QLKP.Desktop.Views {
    }
    History.ItemsSource=null;
    ExportTaskButton.IsEnabled=false;
+   TrackPublicProjectButton.IsEnabled=false;
    // Presentation state only; repository authorization is always rechecked on save.
    SaveButton.IsEnabled=!backlog&&NewButton.IsEnabled;
    lastLinkFeature=null;lastLinkKeyword=null;linkPageIndex=0;
@@ -157,6 +205,7 @@ namespace QLKP.Desktop.Views {
     DetailRegion.ScrollToTop();
     AddRelationButton.IsEnabled=!backlog&&moduleCode!="E06"&&moduleCode!="F06"&&DataStore.Can(session,moduleCode,"update");
     SaveButton.IsEnabled=!backlog&&DataStore.Can(session,moduleCode,"update");
+    TrackPublicProjectButton.IsEnabled=TrackPublicProjectButton.Visibility==Visibility.Visible;
     ExportTaskButton.IsEnabled=value.Status!="Hoàn thành nội bộ"&&value.Status!="Tạm dừng";
     Notice.Text="Đã đọc theo ID: "+activeId+" · Phiên bản "+version;
    }catch(Exception ex){ResetEditor();Notice.Text="Không thể mở hồ sơ: "+ex.Message;}

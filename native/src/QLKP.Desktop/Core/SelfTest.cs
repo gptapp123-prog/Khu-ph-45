@@ -728,6 +728,7 @@ namespace QLKP.Desktop.Core {
      throw new InvalidDataException("Báo cáo không chặn nguồn thiếu quyền hoặc sai danh sách nguồn H04.");
     Console.WriteLine("REPOSITORY_PASS A01 H01 H03 H05 native source counts/scope/privacy");
     OperationalSelfTest.Run(admin,expiredRoot,journal);
+    NeighborhoodRegression.Run(root,admin,expiredRoot,verified.Id,sandbox,journal);
     journal.BeginStep("PROFILE_WRITES");
     string incomingTask=DataStore.CreateTaskFromIncoming(clerk,incomingId);
     if(DataStore.CreateTaskFromIncoming(clerk,incomingId)!=incomingTask||DataStore.GetModuleRecord(clerk,"A02",incomingTask).RelatedId!=incomingId)

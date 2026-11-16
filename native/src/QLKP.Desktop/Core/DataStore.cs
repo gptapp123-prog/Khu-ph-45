@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=17;
+  internal const int SchemaVersion=18;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -202,7 +202,7 @@ namespace QLKP.Desktop.Core {
    if(s.Role=="ROOT_ADMIN") {
     if(((feature=="I01"||feature=="I02"||feature=="I04"||feature=="I07")&&action=="manage")||((feature=="I03"||feature=="I07"||feature=="I09")&&action=="read")||(feature=="I09"&&(action=="test"||action=="export")))return true;
     if(String.IsNullOrEmpty(areaId)||areaId!=s.AreaId||Convert.ToInt32(Scalar(c,tx,"SELECT count(*) FROM areas WHERE id=@a",P("@a",areaId)))!=1)return false;
-    return (action=="read"&&new[]{"I01","I02","I04"}.Contains(feature))||BusinessDefaultRights().Contains(feature+":"+action);
+    return (action=="read"&&new[]{"I01","I02","I04"}.Contains(feature))||BusinessDefaultRights().Contains(feature+":"+action)||PersonalServiceRights.Contains(feature+":"+action);
    }
    if(feature=="I04"&&action=="manage")return false;
    if((feature=="I01"||feature=="I02")&&action=="manage"&&s.Role!="KP_ADMIN")return false;
@@ -270,6 +270,7 @@ namespace QLKP.Desktop.Core {
      var unique=new HashSet<string>(requestedRights??OrdinaryAccountDefaults().Where(delegatable.Contains).ToList());
      valid.UnionWith(ModuleCatalog.AdditionalRights());
      valid.UnionWith(PersonIdentityRights);
+     valid.UnionWith(PersonalServiceRights);
      if(unique.Count==0)throw new InvalidOperationException("Chưa có quyền nghiệp vụ được phép cấp.");
      foreach(var perm in unique) {
       if(!valid.Contains(perm))throw new UnauthorizedAccessException("Quyền không hợp lệ: "+perm);
@@ -319,6 +320,7 @@ namespace QLKP.Desktop.Core {
    var result=new HashSet<string>(rights??Enumerable.Empty<string>(),StringComparer.Ordinal);
    allowed.UnionWith(ModuleCatalog.AdditionalRights());
    allowed.UnionWith(PersonIdentityRights);
+   allowed.UnionWith(PersonalServiceRights);
    if(result.Any(x=>!allowed.Contains(x)))throw new UnauthorizedAccessException("Danh sách quyền ngoài danh mục đã duyệt.");
    return result;
   }
