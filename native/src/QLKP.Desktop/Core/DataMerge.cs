@@ -124,6 +124,17 @@ namespace QLKP.Desktop.Core {
     Audit(target,tx,actor.Id,"DATA_MERGE_APPLIED","data_merge",plan.RunId);tx.Commit();
    }VaultStorage.Check(target);
   }
+  static void RejectDemoMergeSource(SQLiteConnection source,string sourceArea) {
+   const string sql=@"SELECT EXISTS (
+    SELECT 1 FROM household_profiles hp JOIN households h ON h.id=hp.household_id
+      WHERE h.area_id=@area AND (hp.source_kind='SYNTHETIC_DEMO' OR hp.review_status='DEMO_ONLY')
+    UNION ALL
+    SELECT 1 FROM person_profiles pp JOIN people p ON p.id=pp.person_id
+      WHERE p.area_id=@area AND (pp.source_kind='SYNTHETIC_DEMO' OR pp.review_status='DEMO_ONLY')
+   )";
+   if(Convert.ToInt32(Scalar(source,null,sql,P("@area",sourceArea)))!=0)
+    throw new InvalidOperationException("Kho nguồn có hồ sơ được đánh dấu là dữ liệu mẫu. Hãy chọn kho dữ liệu nghiệp vụ.");
+  }
   public static MergePlan PreviewMerge(Session actor,string sourcePath,string phrase) {
    using(var c=Open())RequireMerge(c,null,actor);
    string path=Path.GetFullPath(sourcePath??"");VaultStorage.GuardFile(path);
@@ -152,6 +163,7 @@ namespace QLKP.Desktop.Core {
      if(Convert.ToInt32(Scalar(source,null,"SELECT count(*) FROM areas WHERE code=@code COLLATE NOCASE",P("@code",plan.AreaCode)))!=1)throw new InvalidOperationException("Nguồn phải có đúng một khu phố khớp mã đang quản lý.");
      string sourceArea=Convert.ToString(Scalar(source,null,"SELECT id FROM areas WHERE code=@code COLLATE NOCASE",P("@code",plan.AreaCode)));
      if(String.IsNullOrEmpty(sourceArea))throw new InvalidOperationException("Mã khu phố của nguồn không trùng khu phố đang quản lý. Không hợp nhất khác phạm vi.");
+     RejectDemoMergeSource(source,sourceArea);
      BuildMerge(source,target,actor,sourceArea,plan);plan.CandidateHash=VaultStorage.Fingerprint(target);
     }
     return plan;

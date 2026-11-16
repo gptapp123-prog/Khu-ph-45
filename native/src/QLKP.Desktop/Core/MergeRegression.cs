@@ -41,6 +41,23 @@ namespace QLKP.Desktop.Core {
    run.BeginStep("MERGE_PERMISSION_AND_SCOPE_DENIED");
    foreach(var actor in new[]{new Session{Id=root.Id,Role=root.Role,AreaId=root.AreaId,PolicyVersion=root.PolicyVersion,ExpiresUtc=DateTime.UtcNow.AddMinutes(-1)},limited}){bool denied=false;try{using(var plan=PreviewMerge(actor,path,"")){} }catch(UnauthorizedAccessException){denied=true;}if(!denied)throw new InvalidDataException("Unapproved merger accepted.");}
    string wrong=CreateMergeFixture(admin,"OTHER","OTHER-AREA");bool rejected=false;try{using(var plan=PreviewMerge(admin,wrong,"")){} }catch(InvalidOperationException){rejected=true;}if(!rejected)throw new InvalidDataException("Cross-area source accepted.");
+   run.BeginStep("MERGE_DEMO_SOURCE_REJECTED");
+   foreach(bool personProfile in new[]{false,true}) {
+    string demo=CreateMergeFixture(admin,personProfile?"DEMO-PERSON":"DEMO-HOUSEHOLD");
+    using(var c=VaultStorage.OpenPlain(demo,false)) {
+     if(personProfile)
+      Exec(c,null,@"INSERT INTO person_profiles(person_id,residency_group,occupation_group,source_kind,review_status)
+        SELECT id,'chua_xac_minh','chua_khai_bao','SYNTHETIC_DEMO','DEMO_ONLY' FROM people");
+     else
+      Exec(c,null,@"INSERT INTO household_profiles(household_id,housing_type,residency_context,source_kind,review_status)
+        SELECT id,'chua_xac_minh','chua_doi_chieu','SYNTHETIC_DEMO','DEMO_ONLY' FROM households");
+    }
+    string cleanFingerprint=CurrentFingerprint();rejected=false;
+    try{using(var plan=PreviewMerge(admin,demo,"")){}}
+    catch(InvalidOperationException ex){rejected=ex.Message.Contains("đánh dấu là dữ liệu mẫu");}
+    if(!rejected||CurrentFingerprint()!=cleanFingerprint)
+     throw new InvalidDataException("Demo merge source was accepted or changed current data.");
+   }
    run.BeginStep("MERGE_PREVIEW_DOES_NOT_CHANGE_CURRENT_DATA");
    string before=CurrentFingerprint();
    using(var plan=PreviewMerge(admin,path,"")) {
