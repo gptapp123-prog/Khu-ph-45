@@ -27,9 +27,16 @@
     <WrapPanel>
      <Button x:Name="IntakeButton" Content="Nhập dữ liệu" Click="Intake_Click" Style="{StaticResource PrimaryAction}"/>
      <Button x:Name="MergeWorkspaceButton" Content="Hợp nhất kho" Click="MergeWorkspace_Click"/>
-     <TextBlock x:Name="WorkspaceState" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="570"/>
+     <WrapPanel x:Name="ScopePanel" Visibility="Collapsed">
+      <TextBlock Text="Khu phố" Margin="12,4,4,4" VerticalAlignment="Center"/>
+      <ComboBox x:Name="AreaSelector" DisplayMemberPath="Display" SelectedValuePath="Id" SelectionChanged="Area_Changed" Width="225"/>
+     </WrapPanel>
     </WrapPanel>
-    <WrapPanel x:Name="ScopePanel" Visibility="Collapsed"><TextBlock Text="Khu phố đang làm việc" VerticalAlignment="Center"/><ComboBox x:Name="AreaSelector" DisplayMemberPath="Display" SelectedValuePath="Id" SelectionChanged="Area_Changed" MinWidth="270"/></WrapPanel>
+    <TextBlock x:Name="WorkspaceState" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="570">
+     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
+     </Style></TextBlock.Style>
+    </TextBlock>
    </StackPanel>
   </Border>
   <Border DockPanel.Dock="Bottom" Background="#E6ECEE" Padding="8,2">

@@ -8,8 +8,11 @@ namespace QLKP.Desktop.Views {
   readonly Session session;readonly Action<string> navigateHousehold;string preselectId;bool pendingPreselection;const int PageSize=50;int pageIndex;
   public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();InsuranceDeadlines.Visibility=DataStore.AllowsPersonalService(s,"E06",false)?Visibility.Visible:Visibility.Collapsed;LookupIdentity.Visibility=DataStore.Can(s,"B02","identity_lookup")?Visibility.Visible:Visibility.Collapsed;OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
   void PeopleLayout_SizeChanged(object sender,SizeChangedEventArgs e) {
-   if(PeopleLayout!=null&&PeopleDetails!=null)
-    WindowLayout.ArrangeMasterDetail(PeopleLayout,PeopleDetails,e.NewSize.Width<790,64,36);
+   if(PeopleLayout==null||PeopleDetails==null)return;
+   bool stacked=e.NewSize.Width<790;
+   PeopleDetailViewport.VerticalScrollBarVisibility=stacked?ScrollBarVisibility.Auto:ScrollBarVisibility.Disabled;
+   PeopleLayout.Height=stacked?Math.Max(240,e.NewSize.Height):Double.NaN;
+   WindowLayout.ArrangeMasterDetail(PeopleLayout,PeopleDetails,stacked,64,36);
   }
   internal void Reload(){try{
    var previous=People.SelectedItem as PersonRow;
