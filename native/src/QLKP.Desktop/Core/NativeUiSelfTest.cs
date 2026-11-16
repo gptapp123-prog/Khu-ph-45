@@ -219,11 +219,12 @@ namespace QLKP.Desktop.Core {
      run.BeginStep("UI_COMPACT_WINDOW_NAVIGATION");
      rootWindow.WindowState=WindowState.Normal;
      rootWindow.Width=760;rootWindow.Height=540;
+     Drain();rootWindow.UpdateLayout();
      var compactPeople=Navigate(rootWindow,"B02");
      Drain();
      var details=Control<ScrollViewer>(compactPeople,"PeopleDetails");
      if(Grid.GetRow(details)!=1||details.ActualHeight<60)
-      throw new InvalidDataException("Compact people editor must appear below the list.");
+      throw new InvalidDataException("Compact people editor must appear below the list. Width="+compactPeople.ActualWidth+", height="+details.ActualHeight+", row="+Grid.GetRow(details));
      if(Control<ListBox>(rootWindow,"Groups").ActualHeight<20)
       throw new InvalidDataException("Group navigation is unavailable in the compact window.");
      rootWindow.WindowState=WindowState.Maximized;
