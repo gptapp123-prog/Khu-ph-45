@@ -75,10 +75,13 @@ def compact_rotate_back():
         if time.monotonic()>=deadline:raise RuntimeError('Rotation lost the selected scanning mode')
         time.sleep(0.5)
     tap_text(rotated,'Quay lại')
+    deadline=time.monotonic()+12
+    while True:
+        home=snapshot('return-from-scanner')
+        if any(n.attrib.get('text')=='QUẢN LÝ KHU PHỐ' for n in home.iter()):break
+        if time.monotonic()>=deadline:raise RuntimeError('Could not return to companion home')
+        time.sleep(0.5)
     call('shell','cmd','window','user-rotation','lock','0')
-    home=snapshot('return-from-scanner')
-    if not any(n.attrib.get('text')=='QUẢN LÝ KHU PHỐ' for n in home.iter()):
-        raise RuntimeError('Could not return to companion home')
 log=(OUT/'emulator.log').open('wb')
 emulator=None
 save()
