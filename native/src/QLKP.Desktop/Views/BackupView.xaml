@@ -6,7 +6,7 @@
   <StackPanel Margin="22" MaxWidth="780" HorizontalAlignment="Left">
    <TextBlock Text="I04 · SAO LƯU VÀ KHÔI PHỤC KHO DỮ LIỆU" Foreground="#102D59" FontSize="23" FontWeight="Bold"/>
    <TextBlock Margin="0,10,0,18" TextWrapping="Wrap" Foreground="#AB4316" FontWeight="SemiBold"
-     Text="Dùng .qlkpbak và mật khẩu sao lưu để chuyển máy. Tệp .qlkpvault cần khóa Windows hiện tại."/>
+     Text="Kho đang dùng và bản sao đều được mã hóa. Dùng .qlkpbak và mật khẩu sao lưu để chuyển máy. Tệp .qlkpvault cần khóa Windows hiện tại."/>
    <Border x:Name="BackupActions" BorderBrush="#D2DFEC" BorderThickness="1" Padding="16" CornerRadius="8">
     <StackPanel>
      <TextBlock Text="BẢN SAO LƯU MỚI" FontWeight="Bold" FontSize="17" Foreground="#16487F"/>
