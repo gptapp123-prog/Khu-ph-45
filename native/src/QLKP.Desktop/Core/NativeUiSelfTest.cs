@@ -351,6 +351,12 @@ namespace QLKP.Desktop.Core {
      foreach(var feature in FeatureCatalog.All) {
       run.BeginStep("UI_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);visited.Add(feature.Code);
       if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_WRITE_"+feature.Code);ExerciseModule(admin,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code));}
+      if(feature.Code=="A02") {
+       run.BeginStep("UI_A02_VISIBLE_EDITOR");
+       Drain();
+       if(Control<ScrollViewer>(panel,"DetailRegion").ActualHeight<100)
+        throw new InvalidDataException("A02 editor has insufficient visible height.");
+      }
       if(new[]{"B01","A02","C01","H03"}.Contains(feature.Code))Snapshot(main,evidence,feature.Code);
      }
      ExerciseReadWorkflows(main,admin,run,sandbox);
