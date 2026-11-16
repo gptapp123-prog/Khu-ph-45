@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 namespace QLKP.Desktop.Core {
  public static partial class DataStore {
-  internal const int SchemaVersion=18;
+  internal const int SchemaVersion=19;
   private static readonly string DefaultDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QLKP-V2-PILOT");
   private static string _dataFolder = DefaultDataFolder;
   public static string DataFolder { get { return _dataFolder; } }
@@ -80,11 +80,14 @@ namespace QLKP.Desktop.Core {
        Exec(c,tx,"DROP TABLE module_records");
        Exec(c,tx,"ALTER TABLE module_records_rebuild RENAME TO module_records");
       }
+      if(installed<19&&Convert.ToInt64(Scalar(c,tx,"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='personal_service_records'"))!=0)
+       EnsureSearchColumn(c,tx,"personal_service_records","expiry_date");
       using(var cmd=new SQLiteCommand(sql,c,tx))cmd.ExecuteNonQuery();
       EnsureSearchColumn(c,tx,"people","search_name");
       EnsureSearchColumn(c,tx,"households","search_address");
       EnsureSearchColumn(c,tx,"residency_changes","search_reason");
       BackfillSearchKeys(c,tx);
+      if(installed<19)BackfillInsuranceExpiry(c,tx);
       if(installed<15)UpgradeVehicleRights(c,tx);
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_people_search_area ON people(area_id,search_name)");
       Exec(c,tx,"CREATE INDEX IF NOT EXISTS idx_households_search_area ON households(area_id,search_address)");

@@ -105,10 +105,10 @@ namespace QLKP.Desktop.Core {
      data.Add(new XElement("field",new XAttribute("key",field.Key),value));
     }
     if(!data.HasElements&&record.Version==0)throw new InvalidOperationException("Nhập ít nhất một thông tin trước khi lưu.");
-    var arguments=new[]{P("@person",personId),P("@area",session.AreaId),P("@feature",feature),P("@payload",data.ToString(SaveOptions.DisableFormatting)),P("@utc",Now),P("@version",record.Version)};
+    var arguments=new[]{P("@person",personId),P("@area",session.AreaId),P("@feature",feature),P("@payload",data.ToString(SaveOptions.DisableFormatting)),P("@utc",Now),P("@version",record.Version),P("@expiry",feature=="E06"?InsuranceExpiry(data):"")};
     string sql=record.Version==0
-     ?"INSERT INTO personal_service_records(person_id,area_id,feature,payload,version,updated_utc) SELECT @person,@area,@feature,@payload,1,@utc WHERE @version=0 AND NOT EXISTS(SELECT 1 FROM personal_service_records WHERE person_id=@person AND feature=@feature)"
-     :"UPDATE personal_service_records SET payload=@payload,version=version+1,updated_utc=@utc WHERE person_id=@person AND area_id=@area AND feature=@feature AND version=@version";
+     ?"INSERT INTO personal_service_records(person_id,area_id,feature,payload,version,updated_utc,expiry_date) SELECT @person,@area,@feature,@payload,1,@utc,@expiry WHERE @version=0 AND NOT EXISTS(SELECT 1 FROM personal_service_records WHERE person_id=@person AND feature=@feature)"
+     :"UPDATE personal_service_records SET payload=@payload,version=version+1,updated_utc=@utc,expiry_date=@expiry WHERE person_id=@person AND area_id=@area AND feature=@feature AND version=@version";
     using(var q=new SQLiteCommand(sql,c,tx)) {
      q.Parameters.AddRange(arguments);
      if(q.ExecuteNonQuery()!=1)throw new InvalidOperationException("Hồ sơ đã thay đổi. Mở lại để đối chiếu trước khi lưu.");

@@ -12,6 +12,7 @@ namespace QLKP.Desktop.Core {
   public string Code {get{return Record.Code;}}
   public string Title {get{return Record.Title;}}
   public string Status {get{return Record.Status;}}
+  public string SourceStatus {get{return Record.Fields.TryGetValue("site_status",out string status)?status:"";}}
   public string Date {get{return DisplayLabels.Date(Record.Fields.TryGetValue("deadline",out string date)?date:Record.Fields["planned_end"]);}}
   public string Area {get{return Record.Fields.TryGetValue("source_area",out string area)?area:Record.Fields["site_address"];}}
  }
@@ -89,7 +90,8 @@ namespace QLKP.Desktop.Core {
    bool tasks=feature=="A02";
    if(!tasks&&feature!="B05")throw new InvalidOperationException("Chỉ hỗ trợ nhập công việc hoặc công trình địa bàn.");
    var columns=tasks?NeighborhoodTaskColumns:NeighborhoodProjectColumns;
-   var table=ReadIntakeTable(XlsxIntakeReader.ReadNamedSheet(path,tasks?"Công việc":"Du an-cong trinh"));
+   var table=ReadIntakeTable(XlsxIntakeReader.ReadNamedSheet(path,tasks?"Công việc":"Du an-cong trinh",
+    tasks?null:new HashSet<int>{7,8}));
    if(!table[0].Select(NormalizeSearch).SequenceEqual(columns.Select(NormalizeSearch)))
     throw new InvalidDataException("Tiêu đề hoặc thứ tự cột khác mẫu Excel đã chọn.");
    var rows=new List<NeighborhoodWorkbookRow>();
@@ -141,12 +143,20 @@ namespace QLKP.Desktop.Core {
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     var source=GetModuleRecord(c,tx,session,"B05",projectId);
     Require(c,tx,session,"F05","read",session.AreaId);
-    Require(c,tx,session,"F05","create",session.AreaId);
-    string code="HT-"+source.Id;
-    var linked=Convert.ToString(Scalar(c,tx,
-     "SELECT id FROM module_records WHERE area_id=@area AND feature='F05' AND record_code=@code AND related_feature='B05' AND related_id=@source",
-     P("@area",session.AreaId),P("@code",code),P("@source",source.Id)));
-    if(String.IsNullOrEmpty(linked)) {
+    var matches=new List<string>();
+    using(var query=new System.Data.SQLite.SQLiteCommand(
+     @"SELECT m.id FROM module_records m WHERE m.area_id=@area AND m.feature='F05' AND
+       ((m.related_feature='B05' AND m.related_id=@source)
+        OR EXISTS(SELECT 1 FROM module_relations l WHERE l.area_id=m.area_id AND l.source_id=m.id
+         AND l.target_feature='B05' AND l.target_id=@source)) LIMIT 2",c,tx)) {
+     query.Parameters.AddRange(new[]{P("@area",session.AreaId),P("@source",source.Id)});
+     using(var reader=query.ExecuteReader())while(reader.Read())matches.Add(reader.GetString(0));
+    }
+    if(matches.Count>1)throw new InvalidOperationException("Công trình đã có nhiều hồ sơ theo dõi. Mở F05 để chọn hồ sơ phù hợp.");
+    string linked=matches.SingleOrDefault();
+    if(linked==null) {
+     Require(c,tx,session,"F05","create",session.AreaId);
+     string code="HT-"+source.Id;
      var draft=new ModuleRecord {Code=code,Title=source.Title,Status="Ghi nhận",RelatedFeature="B05",RelatedId=source.Id};
      draft.Fields["asset_kind"]="Công trình công cộng";
      draft.Fields["location_note"]=GetField(source,"site_address");

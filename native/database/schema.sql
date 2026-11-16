@@ -525,8 +525,11 @@ CREATE TABLE IF NOT EXISTS personal_service_records (
  payload TEXT NOT NULL,
  version INTEGER NOT NULL CHECK(version>=1),
  updated_utc TEXT NOT NULL,
+ expiry_date TEXT NOT NULL DEFAULT '',
  PRIMARY KEY(person_id,feature)
 );
+CREATE INDEX IF NOT EXISTS idx_personal_service_expiry
+ ON personal_service_records(area_id,expiry_date,person_id) WHERE feature='E06' AND expiry_date<>'';
 CREATE TRIGGER IF NOT EXISTS personal_service_area_insert
 BEFORE INSERT ON personal_service_records
 WHEN NOT EXISTS (SELECT 1 FROM people WHERE id=NEW.person_id AND area_id=NEW.area_id)

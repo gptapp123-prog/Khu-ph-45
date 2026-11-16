@@ -6,7 +6,7 @@ using QLKP.Desktop.Core;
 namespace QLKP.Desktop.Views {
  public partial class PeopleView : UserControl {
   readonly Session session;readonly Action<string> navigateHousehold;string preselectId;bool pendingPreselection;const int PageSize=50;int pageIndex;
-  public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();LookupIdentity.Visibility=DataStore.Can(s,"B02","identity_lookup")?Visibility.Visible:Visibility.Collapsed;OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
+  public PeopleView(Session s,Action<string> openHousehold=null,string personId=null){InitializeComponent();session=s;navigateHousehold=openHousehold;preselectId=personId;pendingPreselection=(personId!=null);Reload();InsuranceDeadlines.Visibility=DataStore.AllowsPersonalService(s,"E06",false)?Visibility.Visible:Visibility.Collapsed;LookupIdentity.Visibility=DataStore.Can(s,"B02","identity_lookup")?Visibility.Visible:Visibility.Collapsed;OpenHousehold.IsEnabled=DataStore.Can(s,"B01","read");OpenHistoryHousehold.IsEnabled=DataStore.Can(s,"B01","read") && DataStore.Can(s,"B03","read");}
   internal void Reload(){try{
    var previous=People.SelectedItem as PersonRow;
    if(pendingPreselection)pageIndex=DataStore.GetPersonPageIndexById(session,preselectId,PageSize);
@@ -93,6 +93,9 @@ namespace QLKP.Desktop.Views {
     new Window {Title="Đối chiếu danh sách dân cư",Content=panel,Owner=owner,Width=760,Height=470,
      WindowStartupLocation=WindowStartupLocation.CenterOwner}.ShowDialog();
    } catch(Exception ex) {MessageBox.Show("Không đọc được mẫu dân cư. "+ex.Message);}
+  }
+  void InsuranceDeadlines_Click(object sender,RoutedEventArgs e) {
+   new InsuranceDeadlinesWindow(session){Owner=Window.GetWindow(this)}.ShowDialog();
   }
   void PersonalServices_Click(object sender,RoutedEventArgs e) {
    var selected=People.SelectedItem as PersonRow;

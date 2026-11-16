@@ -21,7 +21,7 @@ class NeighborhoodServicesTests(unittest.TestCase):
         """)
 
     def insert(self, person, area, feature):
-        self.db.execute("INSERT INTO personal_service_records VALUES(?,?,?,'<record/>',1,'2026')",
+        self.db.execute("INSERT INTO personal_service_records(person_id,area_id,feature,payload,version,updated_utc) VALUES(?,?,?,'<record/>',1,'2026')",
                         (person, area, feature))
 
     def test_each_service_may_be_recorded_once_for_the_same_person(self):
@@ -50,9 +50,29 @@ class NeighborhoodServicesTests(unittest.TestCase):
         self.assertEqual(self.db.execute("SELECT feature,version FROM personal_service_records").fetchall(),
                          [("E06", 1)])
 
+    def test_deadline_query_filters_scope_and_inclusive_boundaries(self):
+        self.db.executemany("INSERT INTO people(id,area_id,full_name,created_utc,updated_utc) VALUES(?,?,'QA','2026','2026')",
+                            [(person, "a") for person in ("past", "today", "edge", "later", "blank", "other")])
+        for person, area, feature, date in (
+            ("past", "a", "E06", "2026-11-15"), ("today", "a", "E06", "2026-11-16"),
+            ("edge", "a", "E06", "2026-12-16"), ("later", "a", "E06", "2026-12-17"),
+            ("blank", "a", "E06", ""), ("other", "a", "F06", "2026-11-16"),
+            ("q", "b", "E06", "2026-11-16"),
+        ):
+            self.insert(person, area, feature)
+            self.db.execute("UPDATE personal_service_records SET expiry_date=? WHERE person_id=? AND feature=?",
+                            (date, person, feature))
+        source = (VIEWS.parent / "Core/InsuranceDeadlines.cs").read_text(encoding="utf-8")
+        base = source.split('const string listSql=@"', 1)[1].split('";', 1)[0]
+        expired, upcoming = source.split('string filter=expired?', 1)[1].splitlines()[0].split('"')[1::2]
+        parameters = {"area": "a", "today": "2026-11-16", "last": "2026-12-16"}
+        ids = lambda condition: [row[0] for row in self.db.execute(base + condition + " ORDER BY 4,1", parameters)]
+        self.assertEqual(ids(expired), ["past"])
+        self.assertEqual(ids(upcoming), ["today", "edge"])
+
     def test_excel_and_personal_record_handlers_are_connected(self):
-        cases = {"PeopleView": {"ReviewResidentWorkbook_Click", "PersonalServices_Click"},
-                 "ModuleRecordsView": {"NeighborhoodImport_Click"}}
+        cases = {"PeopleView": {"ReviewResidentWorkbook_Click", "PersonalServices_Click", "InsuranceDeadlines_Click"},
+                 "ModuleRecordsView": {"NeighborhoodImport_Click", "TrackPublicProject_Click"}}
         for view, required in cases.items():
             xaml = VIEWS / (view + ".xaml")
             code = xaml.with_suffix(".xaml.cs").read_text(encoding="utf-8")

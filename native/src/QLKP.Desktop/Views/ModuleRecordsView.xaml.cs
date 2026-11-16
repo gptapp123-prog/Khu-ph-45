@@ -92,6 +92,7 @@ namespace QLKP.Desktop.Views {
     grid.Columns.Add(new DataGridTextColumn {Header="Tên hồ sơ",Binding=new System.Windows.Data.Binding("Title"),Width=new DataGridLength(1,DataGridLengthUnitType.Star)});
     grid.Columns.Add(new DataGridTextColumn {Header="Địa bàn / địa chỉ nguồn",Binding=new System.Windows.Data.Binding("Area")});
     grid.Columns.Add(new DataGridTextColumn {Header="Trạng thái",Binding=new System.Windows.Data.Binding("Status")});
+    if(moduleCode=="B05")grid.Columns.Add(new DataGridTextColumn {Header="Tình trạng thi công",Binding=new System.Windows.Data.Binding("SourceStatus")});
     grid.Columns.Add(new DataGridTextColumn {Header="Hạn / ngày dự kiến",Binding=new System.Windows.Data.Binding("Date")});
     panel.Children.Add(grid);
     var dialogue=new Window {Title="Đối chiếu trước khi nhập Excel",Owner=owner,Content=panel,Width=780,Height=470,

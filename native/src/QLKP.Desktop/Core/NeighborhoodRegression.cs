@@ -50,7 +50,11 @@ namespace QLKP.Desktop.Core {
    if(project.Fields["progress"]!="45"||project.DueDate!="2026-12-01"||project.Fields["site_address"]!="Địa chỉ nguồn")
     throw new InvalidDataException("B05 không lưu đúng tiến độ, mốc hoặc địa chỉ nguồn.");
    Reject<UnauthorizedAccessException>(()=>DataStore.TrackPublicProject(denied,projectId));
+   var oldFollowup=new ModuleRecord {Code="LEGACY-F05",Title="Theo dõi đã có",Status="Ghi nhận",RelatedFeature="B05",RelatedId=projectId};
+   oldFollowup.Fields["asset_kind"]="Công trình công cộng";
+   string previousId=DataStore.SaveModuleRecord(admin,"F05",oldFollowup);
    string monitoringId=DataStore.TrackPublicProject(admin,projectId);
+   if(monitoringId!=previousId)throw new InvalidDataException("F05 bỏ qua hồ sơ theo dõi đã liên kết.");
    if(DataStore.TrackPublicProject(admin,projectId)!=monitoringId||
     DataStore.GetModuleRecord(admin,"F05",monitoringId).RelatedId!=projectId)
     throw new InvalidDataException("F05 không giữ đúng hồ sơ B05 hoặc đã tạo trùng theo dõi.");
@@ -63,6 +67,12 @@ namespace QLKP.Desktop.Core {
    Reject<UnauthorizedAccessException>(()=>DataStore.WritePersonalService(admin,personId,"E06",card));
    Reject<UnauthorizedAccessException>(()=>DataStore.ReadPersonalService(root,"wrong-person","E06"));
    DataStore.WritePersonalService(root,personId,"E06",card);
+   Reject<UnauthorizedAccessException>(()=>DataStore.GetInsuranceDeadlines(admin,new DateTime(2026,11,16),false,0));
+   if(DataStore.GetInsuranceDeadlines(root,new DateTime(2026,10,26),false,0).Items.Single().PersonId!=personId||
+    DataStore.GetInsuranceDeadlines(root,new DateTime(2026,10,25),false,0).TotalCount!=0||
+    DataStore.GetInsuranceDeadlines(root,new DateTime(2026,11,25),true,0).TotalCount!=0||
+    DataStore.GetInsuranceDeadlines(root,new DateTime(2026,11,26),true,0).Items.Single().PersonId!=personId)
+    throw new InvalidDataException("Danh sách BHYT phân loại sai biên 30 ngày hoặc ngày hết hạn.");
    var stored=DataStore.ReadPersonalService(root,personId,"E06");
    if(stored.Version!=1||DataStore.PersonalInsuranceState(stored,new DateTime(2026,11,16))!="Sắp hết hạn (9 ngày)"||
     DataStore.PersonalInsuranceState(stored,new DateTime(2026,11,26))!="Hết hạn")
@@ -71,6 +81,8 @@ namespace QLKP.Desktop.Core {
    stored.Values["expires_on"]="2027-11-25";
    DataStore.WritePersonalService(root,personId,"E06",stored);
    Reject<InvalidOperationException>(()=>DataStore.WritePersonalService(root,personId,"E06",stored));
+   if(DataStore.GetInsuranceDeadlines(root,new DateTime(2026,11,26),true,0).TotalCount!=0)
+    throw new InvalidDataException("Danh sách BHYT vẫn giữ ngày cũ sau khi gia hạn.");
    Console.WriteLine("REPOSITORY_PASS PERSONAL_SERVICE_PERMISSIONS_AND_VERSION");
   }
 

@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
@@ -74,6 +75,7 @@ namespace QLKP.Desktop.Core {
       if(table=="module_relations")Require(target,tx,actor,Text(original,"target_feature"),"read",actor.AreaId);
       if(table=="module_record_history"&&(Convert.ToInt64(original["old_version"])<1||Convert.ToInt64(original["new_version"])>Convert.ToInt64(Scalar(target,tx,"SELECT version FROM module_records WHERE id=@id",P("@id",Text(original,"record_id"))))))throw new InvalidOperationException("Lịch sử không khớp phiên bản hồ sơ; đã hủy toàn bộ lô.");
       var row=new Dictionary<string,object>(original,StringComparer.Ordinal);
+      if(table=="personal_service_records")row["expiry_date"]=feature=="E06"?InsuranceExpiry(XElement.Parse(Text(row,"payload"))):"";
       if(row.ContainsKey("area_id"))row["area_id"]=actor.AreaId;
       if(table=="shared_catalog_items")row["scope_area"]=actor.AreaId;
       foreach(var col in ActorColumns)if(row.ContainsKey(col))row[col]=actor.Id;

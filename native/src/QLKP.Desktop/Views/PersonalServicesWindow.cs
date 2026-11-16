@@ -16,7 +16,7 @@ namespace QLKP.Desktop.Views {
   readonly Dictionary<string,Control> editors=new Dictionary<string,Control>();
   PersonalServiceRecord record;
 
-  internal PersonalServicesWindow(Session session,PersonRow person) {
+  internal PersonalServicesWindow(Session session,PersonRow person,string preferredFeature=null) {
    this.session=session;personId=person.Id;
    Title="Hồ sơ cá nhân theo nhóm nghiệp vụ";
    Width=570;Height=620;MinWidth=420;MinHeight=380;
@@ -37,7 +37,9 @@ namespace QLKP.Desktop.Views {
    Content=root;
    save.Click+=Save;
    services.SelectionChanged+=(_,args)=>LoadService();
-   services.SelectedIndex=0;
+   var options=(List<PersonalServiceDefinition>)services.ItemsSource;
+   int preferred=options.FindIndex(service=>service.Feature==preferredFeature);
+   services.SelectedIndex=preferredFeature==null?0:preferred;
   }
 
   void LoadService() {
