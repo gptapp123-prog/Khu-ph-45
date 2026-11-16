@@ -17,7 +17,8 @@ namespace QLKP.Desktop.Views {
    backlog=feature=="A05";moduleCode=backlog?"A02":feature;
    var spec=ModuleCatalog.Get(moduleCode);
    FeatureTitle.Text=(backlog?"A05 · Công việc tồn đọng":moduleCode+" · "+spec.Label);
-   Guidance.Text=backlog?"Chọn nhiệm vụ rồi bấm Mở nhiệm vụ để xử lý.":"Chọn hồ sơ để cập nhật hoặc tạo hồ sơ mới.";
+   Guidance.Text=backlog?"Chọn nhiệm vụ rồi bấm Mở nhiệm vụ để xử lý.":"";
+   Guidance.Visibility=backlog?Visibility.Visible:Visibility.Collapsed;
    RecordStatus.ItemsSource=spec.Statuses;
    if(moduleCode=="A02")Records.Columns.Insert(4,new DataGridTextColumn {Header="Tình trạng hạn",Binding=new System.Windows.Data.Binding("TaskDueState"),Width=105});
    AssigneePicker.Visibility=spec.Fields.Any(x=>x.Type=="account")?Visibility.Visible:Visibility.Collapsed;
@@ -141,8 +142,8 @@ namespace QLKP.Desktop.Views {
    bool compact=ActualWidth<900;
    RecordsLayout.ColumnDefinitions[0].Width=new GridLength(compact?1:3,GridUnitType.Star);
    RecordsLayout.ColumnDefinitions[1].Width=compact?new GridLength(0):new GridLength(2.5,GridUnitType.Star);
-   RecordsLayout.RowDefinitions[0].Height=compact?new GridLength(190):new GridLength(1,GridUnitType.Star);
-   RecordsLayout.RowDefinitions[1].Height=compact?new GridLength(1,GridUnitType.Star):new GridLength(0);
+   RecordsLayout.RowDefinitions[0].Height=new GridLength(compact?4:1,GridUnitType.Star);
+   RecordsLayout.RowDefinitions[1].Height=compact?new GridLength(5,GridUnitType.Star):new GridLength(0);
    Grid.SetRow(DetailRegion,compact?1:0);Grid.SetColumn(DetailRegion,compact?0:1);
    ListRegion.Margin=compact?new Thickness(0,0,0,8):new Thickness(0,0,10,0);
   }
@@ -208,7 +209,7 @@ namespace QLKP.Desktop.Views {
     SaveButton.IsEnabled=!backlog&&DataStore.Can(session,moduleCode,"update");
     TrackPublicProjectButton.IsEnabled=TrackPublicProjectButton.Visibility==Visibility.Visible;
     ExportTaskButton.IsEnabled=value.Status!="Hoàn thành nội bộ"&&value.Status!="Tạm dừng";
-    Notice.Text="Đã đọc theo ID: "+activeId+" · Phiên bản "+version;
+    Notice.Text="";
    }catch(Exception ex){ResetEditor();Notice.Text="Không thể mở hồ sơ: "+ex.Message;}
   }
   void LoadAssignees_Click(object sender,RoutedEventArgs e){
