@@ -164,7 +164,8 @@ namespace QLKP.Desktop.Core {
   }
   // Pilot protection against repeated incorrect passwords. No default credentials.
   public static Session Login(string username,string password) {
-   if(String.IsNullOrWhiteSpace(username)||String.IsNullOrEmpty(password)||username.Length>128)return null;
+   username=(username??"").Trim();
+   if(username.Length==0||String.IsNullOrEmpty(password)||username.Length>128)return null;
    using(var c=Open())using(var tx=c.BeginTransaction()) {
     string id=null, user=null,hash=null,salt64=null,role=null,area=null;
     long version=0;int active=0;
@@ -246,8 +247,11 @@ namespace QLKP.Desktop.Core {
   }
   static void InsertAccount(SQLiteConnection c,SQLiteTransaction tx,string username,string password,string role,string areaId,string actorId,out string userId) {
    if(String.IsNullOrWhiteSpace(username)||username.Trim().Length>128)throw new InvalidOperationException("Tên tài khoản phải có từ 1 đến 128 ký tự.");
+   string normalized=username.Trim();
+   if(Convert.ToInt64(Scalar(c,tx,"SELECT COUNT(*) FROM accounts WHERE username=@user COLLATE NOCASE",P("@user",normalized)))>0)
+    throw new InvalidOperationException("Tên đăng nhập đã được sử dụng. Chọn tên khác.");
    var secret=NewPassword(password);userId=Id();
-   Exec(c,tx,"INSERT INTO accounts(id,username,hash_b64,salt_b64,role,area_id,created_utc) VALUES(@i,@u,@h,@s,@r,@a,@t)",P("@i",userId),P("@u",username.Trim()),P("@h",secret.Item1),P("@s",secret.Item2),P("@r",role),P("@a",areaId),P("@t",Now));
+   Exec(c,tx,"INSERT INTO accounts(id,username,hash_b64,salt_b64,role,area_id,created_utc) VALUES(@i,@u,@h,@s,@r,@a,@t)",P("@i",userId),P("@u",normalized),P("@h",secret.Item1),P("@s",secret.Item2),P("@r",role),P("@a",areaId),P("@t",Now));
    Audit(c,tx,actorId,"CREATE_ACCOUNT","account",userId);
   }
   static void Grant(SQLiteConnection c,SQLiteTransaction tx,string target,string feature,string action,string areaId,string actorId) {

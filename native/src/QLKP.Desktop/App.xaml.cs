@@ -24,8 +24,9 @@ namespace QLKP.Desktop {
     }
    }
    try {
-    if(uiSmoke) { NativeUiSelfTest.Run(); Shutdown(0); return; }
+    if(uiSmoke) { DisplayMode.Persist=false; NativeUiSelfTest.Run(); Shutdown(0); return; }
     if(selfTest) { SelfTest.Run(); Shutdown(0); return; }
+    DisplayMode.LoadPreference();
     StartupDiagnostics.CheckApplicationFiles();
     StartupDiagnostics.CheckPlaintextMaintenanceArtifacts();
     DataStore.Initialize();

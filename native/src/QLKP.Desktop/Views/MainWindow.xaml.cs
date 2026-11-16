@@ -10,7 +10,7 @@ namespace QLKP.Desktop.Views {
   readonly List<Feature> authorized;
   readonly List<string> visibleGroups;bool scopeReady;
   public MainWindow(Session s){
-   InitializeComponent();WindowLayout.FitInitialSize(this);session=s;
+   InitializeComponent();WindowLayout.FitInitialSize(this);session=s;UpdateDisplayModeLabel();
    authorized=FeatureCatalog.All.Where(f =>
     ((ModuleCatalog.IsEditable(f.Code) || f.Code=="A01" || (f.Code=="A05" && DataStore.Can(s,"A02","read"))) && DataStore.Can(s,f.Code,"read")) ||
     (f.Code.Length==3 && f.Code[0]=='H' && DataStore.Can(s,f.Code,"read")) ||
@@ -44,6 +44,15 @@ namespace QLKP.Desktop.Views {
    Groups.ItemsSource=visibleGroups;
    if(visibleGroups.Count>0)Groups.SelectedIndex=0;
    else FeatureContent.Content=new NoticeView("Tài khoản chưa được cấp quyền sử dụng chức năng. Liên hệ quản trị khu phố.");
+  }
+  void DisplayMode_Click(object sender,RoutedEventArgs e) {
+   DisplayMode.Apply(!DisplayMode.Depth);
+   DisplayMode.SavePreference();
+   UpdateDisplayModeLabel();
+  }
+  void UpdateDisplayModeLabel() {
+   DisplayModeButton.Content=DisplayMode.Depth?"Giao diện 3D":"Giao diện 2D";
+   DisplayModeButton.ToolTip=DisplayMode.Depth?"Chuyển sang giao diện phẳng 2D":"Chuyển sang giao diện có chiều sâu 3D";
   }
   void RefreshOpenFeature() {
    if(FeatureContent.Content is HouseholdView households)households.Reload();

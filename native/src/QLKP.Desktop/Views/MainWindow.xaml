@@ -1,6 +1,6 @@
-<Window x:Class="QLKP.Desktop.Views.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Quản lý Khu phố" Icon="pack://application:,,,/Assets/qlkp.ico" WindowState="Maximized" MinWidth="960" MinHeight="560" Background="#F3F7FC">
+<Window x:Class="QLKP.Desktop.Views.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Quản lý Khu phố" Icon="pack://application:,,,/Assets/qlkp.ico" WindowState="Maximized" MinWidth="960" MinHeight="560" Background="{DynamicResource ThemeWorkspace}">
  <DockPanel>
-  <Border DockPanel.Dock="Top" Background="#102D59" Padding="14,9">
+  <Border DockPanel.Dock="Top" Background="{DynamicResource ThemeHeader}" Padding="14,9">
    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <Image Source="pack://application:,,,/Assets/qlkp-icon.png" Width="42" Height="42" Margin="0,0,12,0" RenderOptions.BitmapScalingMode="HighQuality"/>
     <TextBlock Grid.Column="1" Text="QUẢN LÝ KHU PHỐ" Foreground="White" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -9,6 +9,7 @@
      <Button x:Name="AccountButton" Click="Account_Click" Background="#102D59" BorderBrush="#577299" ToolTip="Quản trị tài khoản" Padding="8,5">
       <TextBlock x:Name="AccountLabel" Foreground="#E2ECFC" FontSize="13" MaxWidth="320" TextWrapping="Wrap"/>
      </Button>
+     <Button x:Name="DisplayModeButton" Click="DisplayMode_Click" Padding="10,5" Margin="8,0,0,0"/>
      <Button x:Name="LogoutButton" Content="Đăng xuất" Click="Logout_Click" Margin="8,0,0,0" Padding="10,5"/>
     </StackPanel>
    </Grid>
@@ -39,7 +40,7 @@
      <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0"/></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
    </DockPanel></Border>
-   <Border Grid.Column="2" Padding="10">
+   <Border Grid.Column="2" Margin="12" Padding="5" Style="{StaticResource WorkspacePanel}">
     <ScrollViewer x:Name="ContentViewport" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="False">
      <ContentControl x:Name="FeatureContent" Width="{Binding ViewportWidth, ElementName=ContentViewport}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
     </ScrollViewer>

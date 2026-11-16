@@ -207,11 +207,28 @@ namespace QLKP.Desktop.Core {
      bool duplicateDenied=false;try{DataStore.SetupOwner("ui_second_root",rootSecret,"OTHER","Other");}catch(InvalidOperationException){duplicateDenied=true;}
      if(!duplicateDenied)throw new InvalidDataException("Setup created a second root.");
      var root=DataStore.Login("ui_root",rootSecret);
+     run.BeginStep("UI_DISPLAY_MODE_2D_3D");
+     var mode=Control<Button>(rootWindow,"DisplayModeButton");
+     if(DisplayMode.Depth)throw new InvalidDataException("Theme test must start in 2D.");
+     Click(mode);
+     if(!DisplayMode.Depth||!Object.Equals(mode.Content,"Giao diện 3D"))throw new InvalidDataException("Could not activate 3D appearance.");
+     Snapshot(rootWindow,evidence,"giao-dien-3d");
+     Click(mode);
+     if(DisplayMode.Depth||!Object.Equals(mode.Content,"Giao diện 2D"))throw new InvalidDataException("Could not restore 2D appearance.");
+     Snapshot(rootWindow,evidence,"giao-dien-2d");
      run.BeginStep("UI_ACCOUNT_HEADER_BUTTON");Click(Control<Button>(rootWindow,"AccountButton"));
      if(!(Control<ContentControl>(rootWindow,"FeatureContent").Content is AccountsView))throw new InvalidDataException("Account header route failed.");
      run.BeginStep("UI_CREATE_ADMIN");var accounts=Navigate(rootWindow,"I01");
      Control<TextBox>(accounts,"Username").Text="ui_admin";Control<PasswordBox>(accounts,"Password").Password=adminSecret;
+     Control<PasswordBox>(accounts,"ConfirmNewPassword").Password=adminSecret+"x";
      Click(Control<Button>(accounts,"CreateButton"));
+     if(DataStore.ListAccounts(root).Any(row=>row.Username=="ui_admin")||
+        !Control<TextBlock>(accounts,"AccountsFeedback").Text.Contains("chưa trùng khớp"))
+      throw new InvalidDataException("Account confirmation did not block the write.");
+     Control<PasswordBox>(accounts,"ConfirmNewPassword").Password=adminSecret;
+     Click(Control<Button>(accounts,"CreateButton"));
+     if((Control<DataGrid>(accounts,"Accounts").SelectedItem as AccountRow)?.Username!="ui_admin")
+      throw new InvalidDataException("New user was not selected in the account list.");
      var admin=DataStore.Login("ui_admin",adminSecret);if(admin==null||admin.Role!="KP_ADMIN")throw new InvalidDataException("Account UI create failed.");
      if(FeatureCatalog.All.Any(f=>!DataStore.Can(admin,f.Code,"read")))throw new InvalidDataException("New KP admin does not see all features by default.");
      if(DataStore.Can(admin,"B02","identity_lookup")||DataStore.Can(admin,"B02","identity_write"))
@@ -342,7 +359,9 @@ namespace QLKP.Desktop.Core {
      run.BeginStep("UI_CREATE_DEFAULT_ORDINARY_ACCOUNT");var accountPanel=Navigate(main,"I01");
      string ordinarySecret="T-"+Guid.NewGuid().ToString("N")+"!";
      Control<TextBox>(accountPanel,"Username").Text="ui_ordinary";Control<PasswordBox>(accountPanel,"Password").Password=ordinarySecret;
-     Click(Control<Button>(accountPanel,"CreateButton"));main.Close();
+     var confirmation=Control<PasswordBox>(accountPanel,"ConfirmNewPassword");confirmation.Password=ordinarySecret;
+     confirmation.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,PresentationSource.FromVisual(main),0,Key.Enter){RoutedEvent=Keyboard.KeyDownEvent});Drain();
+     main.Close();
      var ordinary=DataStore.Login("ui_ordinary",ordinarySecret);main=Login("ui_ordinary",ordinarySecret);
      foreach(var feature in FeatureCatalog.All.Where(f=>f.Code!="I03")){run.BeginStep("UI_ORDINARY_NAV_"+feature.Code);var panel=Navigate(main,feature.Code);if(ModuleCatalog.IsEditable(feature.Code)){run.BeginStep("UI_ORDINARY_WRITE_"+feature.Code);ExerciseModule(ordinary,(ModuleRecordsView)panel,ModuleCatalog.Get(feature.Code),"USER-");}}
      var protectedAccounts=Navigate(main,"I01");if(Control<Border>(protectedAccounts,"CreateSection").Visibility!=Visibility.Collapsed)throw new InvalidDataException("Ordinary account can create administrator accounts.");

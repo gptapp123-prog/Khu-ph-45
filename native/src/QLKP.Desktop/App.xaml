@@ -3,6 +3,17 @@
   <SolidColorBrush x:Key="Navy" Color="#102D59"/>
   <SolidColorBrush x:Key="Blue" Color="#1263D6"/>
   <SolidColorBrush x:Key="Pale" Color="#F4F7FC"/>
+  <SolidColorBrush x:Key="ThemeHeader" Color="#102D59"/>
+  <SolidColorBrush x:Key="ThemeWorkspace" Color="#F3F7FC"/>
+  <SolidColorBrush x:Key="ThemeAction" Color="#1263D6"/>
+  <SolidColorBrush x:Key="ThemeOutline" Color="#D5E0ED"/>
+  <Style x:Key="WorkspacePanel" TargetType="Border">
+   <Setter Property="Background" Value="White"/>
+   <Setter Property="BorderBrush" Value="{DynamicResource ThemeOutline}"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="CornerRadius" Value="8"/>
+   <Setter Property="Effect" Value="{DynamicResource ThemeCardEffect}"/>
+  </Style>
   <Style TargetType="Window">
    <Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/>
    <Setter Property="UseLayoutRounding" Value="True"/><Setter Property="SnapsToDevicePixels" Value="True"/>
@@ -10,7 +21,7 @@
   </Style>
   <Style TargetType="Button">
    <Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/>
-   <Setter Property="MinHeight" Value="34"/><Setter Property="Background" Value="#1263D6"/>
+   <Setter Property="MinHeight" Value="34"/><Setter Property="Background" Value="{DynamicResource ThemeAction}"/>
    <Setter Property="Foreground" Value="White"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Cursor" Value="Hand"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
