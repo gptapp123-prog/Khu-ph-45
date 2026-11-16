@@ -30,7 +30,7 @@ def snapshot(name):
     (OUT/(name+'.png')).write_bytes(call('exec-out','screencap','-p'))
     return ET.parse(OUT/(name+'.xml')).getroot()
 def launch():
-    call('shell','am','start','-W','-n',APP+'/.MainActivity')
+    call('shell','am','start','-W','-n',APP+'/vn.qlkp.companion.MainActivity')
     if not call('shell','pidof',APP).strip():raise RuntimeError('Activity stopped')
     screen=snapshot('main-screen')
     texts=[node.attrib.get('text','') for node in screen.iter()]
@@ -61,7 +61,7 @@ def compact_rotate_back():
     call('shell','wm','density','320')
     call('shell','settings','put','system','font_scale','1.3')
     call('shell','cmd','window','user-rotation','lock','0')
-    call('shell','am','start','-W','-n',APP+'/.MainActivity')
+    call('shell','am','start','-W','-n',APP+'/vn.qlkp.companion.MainActivity')
     tap_text(snapshot('compact-home'),'Đọc ảnh và mã QR')
     tap_text(snapshot('compact-scan'),'Văn bản OCR')
     tap_text(snapshot('scan-mode'),'QR hồ sơ')
