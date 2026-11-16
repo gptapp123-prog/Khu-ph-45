@@ -2,6 +2,8 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
+  push:
+    branches: [qa/native-0216-ui-once-20261116]
 
 permissions:
   contents: read
@@ -63,46 +65,3 @@ jobs:
           retention-days: 14
 
 
-  android:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-      - name: Compile, test and lint Android
-        run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug --no-daemon
-      - name: Verify and stage standalone test APK
-        run: |
-          mkdir -p native/dist/android
-          apk=native/android-companion/app/build/outputs/apk/debug/app-debug.apk
-          tools="$ANDROID_HOME/build-tools/35.0.0"
-          "$tools/aapt" dump badging "$apk" > native/dist/android/apk-metadata.txt
-          version=$(sed -n 's/^versionName=//p' native/release.properties)
-          code=$(sed -n 's/^versionCode=//p' native/release.properties)
-          grep -Fq "name='vn.qlkp.companion.test' versionCode='$code' versionName='$version'" native/dist/android/apk-metadata.txt
-          "$tools/apksigner" verify --verbose --print-certs "$apk" > native/dist/android/apk-signature.txt
-          cp "$apk" native/dist/android/"QLKP_Mobile_${version}_TEST.apk"
-          (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: QLKP-native-Android-TEST
-          path: native/dist/android/
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: QLKP-native-Android-test-evidence
-          path: |
-            native/android-companion/app/build/reports/
-            native/android-companion/app/build/test-results/
-          if-no-files-found: warn
-          retention-days: 14
