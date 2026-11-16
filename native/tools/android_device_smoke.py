@@ -30,7 +30,7 @@ def snapshot(name):
     (OUT/(name+'.png')).write_bytes(call('exec-out','screencap','-p'))
     return ET.parse(OUT/(name+'.xml')).getroot()
 def launch():
-    call('shell','am','start','-W','-n',APP+'/.MainActivity')
+    call('shell','am','start','-W','-n',APP+'/vn.qlkp.companion.MainActivity')
     if not call('shell','pidof',APP).strip():raise RuntimeError('Activity stopped')
     screen=snapshot('main-screen')
     texts=[node.attrib.get('text','') for node in screen.iter()]
@@ -61,7 +61,7 @@ def compact_rotate_back():
     call('shell','wm','density','320')
     call('shell','settings','put','system','font_scale','1.3')
     call('shell','cmd','window','user-rotation','lock','0')
-    call('shell','am','start','-W','-n',APP+'/.MainActivity')
+    call('shell','am','start','-W','-n',APP+'/vn.qlkp.companion.MainActivity')
     tap_text(snapshot('compact-home'),'Đọc ảnh và mã QR')
     tap_text(snapshot('compact-scan'),'Văn bản OCR')
     tap_text(snapshot('scan-mode'),'QR hồ sơ')
@@ -75,10 +75,13 @@ def compact_rotate_back():
         if time.monotonic()>=deadline:raise RuntimeError('Rotation lost the selected scanning mode')
         time.sleep(0.5)
     tap_text(rotated,'Quay lại')
+    deadline=time.monotonic()+12
+    while True:
+        home=snapshot('return-from-scanner')
+        if any(n.attrib.get('text')=='QUẢN LÝ KHU PHỐ' for n in home.iter()):break
+        if time.monotonic()>=deadline:raise RuntimeError('Could not return to companion home')
+        time.sleep(0.5)
     call('shell','cmd','window','user-rotation','lock','0')
-    home=snapshot('return-from-scanner')
-    if not any(n.attrib.get('text')=='QUẢN LÝ KHU PHỐ' for n in home.iter()):
-        raise RuntimeError('Could not return to companion home')
 log=(OUT/'emulator.log').open('wb')
 emulator=None
 save()
