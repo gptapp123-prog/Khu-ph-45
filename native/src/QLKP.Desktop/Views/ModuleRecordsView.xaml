@@ -46,7 +46,7 @@
    <ScrollViewer x:Name="DetailRegion" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="8,0,0,0">
      <TextBlock Text="Hồ sơ chi tiết" FontWeight="Bold" Foreground="#123663" FontSize="17"/>
-     <TextBlock Text="Mã định danh (không cho sửa khi cập nhật)" Margin="0,10,0,0"/>
+     <TextBlock Text="Mã hồ sơ" Margin="0,10,0,0"/>
      <TextBox x:Name="RecordCode"/>
      <TextBlock Text="Tiêu đề / mô tả ngắn" Margin="0,8,0,0"/>
      <TextBox x:Name="RecordTitle"/>
@@ -57,7 +57,7 @@
      <TextBlock Text="Thông tin nghiệp vụ" FontWeight="Bold" Margin="0,12,0,0" Foreground="#123663"/>
      <StackPanel x:Name="TypedFields"/>
      <StackPanel x:Name="AssigneePicker" Margin="0,7,0,0">
-      <TextBlock Text="Chọn người phụ trách công việc theo tài khoản" FontWeight="Bold"/>
+      <TextBlock Text="Người phụ trách" FontWeight="Bold"/>
       <Button Content="Tải tài khoản cùng khu phố" HorizontalAlignment="Left" Click="LoadAssignees_Click"/>
       <ListBox x:Name="AssigneeOptions" Height="80" DisplayMemberPath="Username" SelectionChanged="AssigneeOptions_SelectionChanged"/>
      </StackPanel>

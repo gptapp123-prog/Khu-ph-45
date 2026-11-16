@@ -21,7 +21,6 @@
   </DataGrid>
   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="16"><TextBlock Text="HỒ SƠ CÁ NHÂN" FontSize="18" Foreground="#102D59" FontWeight="Bold"/><TextBlock x:Name="Detail" TextWrapping="Wrap" FontSize="15"/><Button x:Name="OpenHousehold" Content="Mở hồ sơ hộ liên quan" Click="OpenHousehold_Click"/>
    <Button x:Name="EditPerson" Content="Cập nhật hồ sơ đã chọn" Click="EditPerson_Click" Style="{StaticResource PrimaryAction}" Visibility="Collapsed"/>
-   <TextBlock Text="Liên kết hộ dùng khóa định danh và kiểm tra quyền riêng; không tự mở hồ sơ chỉ vì trùng tên." TextWrapping="Wrap" Foreground="#60728A"/>
    <Button x:Name="PersonalServices" Content="NVQS, trẻ em, BHYT, người có công" Click="PersonalServices_Click" Visibility="Collapsed"/>
    <Button x:Name="EditIdentity" Content="Ghi hoặc sửa CCCD" Click="EditIdentity_Click" Visibility="Collapsed"/>
    <Button x:Name="OpenResidencePeriods" Content="Lịch sử địa chỉ cư trú" Click="OpenResidencePeriods_Click" Visibility="Collapsed"/>

@@ -2,7 +2,6 @@
  <DockPanel Margin="12">
   <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
    <TextBlock x:Name="Heading" FontSize="23" FontWeight="Bold" Foreground="#123563" Text="Báo cáo và thống kê"/>
-   <TextBlock Text="Dữ liệu truy vấn trực tiếp theo phạm vi quyền. Không phải báo cáo đã ký, duyệt hoặc gửi." Foreground="#785223" Margin="0,4,0,8"/>
    <WrapPanel>
     <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0"/>
     <TextBox x:Name="FromDate" Width="116" ToolTip="Ngày đầu kỳ: dd-MM-yyyy" Margin="0,0,12,0"/>

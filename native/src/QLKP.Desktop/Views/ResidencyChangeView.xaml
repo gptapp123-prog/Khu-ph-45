@@ -7,7 +7,7 @@
   </Grid.RowDefinitions>
   <StackPanel Grid.Row="0">
    <TextBlock Text="B03 · BIẾN ĐỘNG DÂN CƯ" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
-   <TextBlock Text="Chuyển nhân khẩu giữa các hộ trong cùng khu phố, lưu đầy đủ lịch sử và mã liên kết. Không thay chủ hộ qua màn hình này." Foreground="#526781" TextWrapping="Wrap"/>
+   <TextBlock Text="Chuyển nhân khẩu giữa các hộ trong cùng khu phố." Foreground="#526781" TextWrapping="Wrap"/>
   </StackPanel>
   <Border Grid.Row="1" Margin="0,10,0,6" Padding="12" BorderThickness="1" BorderBrush="#D8E5F2" Background="#F6FAFF">
    <StackPanel>
@@ -19,7 +19,7 @@
       <ComboBoxItem Content="Con"/><ComboBoxItem Content="Vợ/Chồng"/><ComboBoxItem Content="Cha/Mẹ"/><ComboBoxItem Content="Cháu"/><ComboBoxItem Content="Người thân"/><ComboBoxItem Content="Khác"/>
      </ComboBox></StackPanel>
     </WrapPanel>
-    <TextBlock Text="Chọn đúng nhân khẩu trong hộ nguồn (người cùng tên phải đối chiếu mã hồ sơ và ngày sinh)" Foreground="#526781"/>
+    <TextBlock Text="Chọn nhân khẩu theo mã hồ sơ và ngày sinh." Foreground="#526781"/>
     <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" x:Name="CurrentMembers" Height="105" SelectionChanged="CurrentMembers_SelectionChanged">
      <DataGrid.Columns><DataGridTextColumn Header="Họ tên" Binding="{Binding FullName}" Width="*"/>
       <DataGridTextColumn Header="Quan hệ" Binding="{Binding Relationship}" Width="100"/>

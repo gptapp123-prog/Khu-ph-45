@@ -253,7 +253,7 @@ namespace QLKP.Desktop.Views {
    RelatedId.Clear();LinkResults.ItemsSource=page.Items;
    LinkPrevious.IsEnabled=linkPageIndex>0;LinkNext.IsEnabled=page.TotalPages>linkPageIndex+1;
    LinkPageInfo.Text="Trang "+(page.TotalPages==0?0:linkPageIndex+1)+"/"+page.TotalPages+" · "+page.TotalCount+" kết quả";
-   Notice.Text="Chọn kết quả đúng theo ID; trùng tên không tự ghép hoặc tự mở hồ sơ.";
+   Notice.Text="Chọn hồ sơ cần liên kết.";
   }
   void LinkPrevious_Click(object sender,RoutedEventArgs e){if(linkPageIndex>0){try{linkPageIndex--;LoadLinkPage();}catch(Exception ex){Notice.Text=ex.Message;}}}
   void LinkNext_Click(object sender,RoutedEventArgs e){try{linkPageIndex++;LoadLinkPage();}catch(Exception ex){Notice.Text=ex.Message;}}
@@ -330,11 +330,11 @@ namespace QLKP.Desktop.Views {
     foreach(var field in ModuleCatalog.Get(moduleCode).Fields.Where(x=>x.Type=="date"))
      draft.Fields[field.Key]=DisplayLabels.IsoDate(draft.Fields[field.Key]);
     string saved=DataStore.SaveModuleRecord(session,moduleCode,draft,version);
-    Notice.Text="Đã ghi hồ sơ theo ID "+saved+". Tải lại để kiểm tra phiên bản mới.";
     // A new or updated record can move to another page or leave the current search.
     // Reopen the saved ID instead of leaving an obsolete editor/version on screen.
     preselectId=saved;pendingPreselection=true;
     Search.Clear();Reload();
+    if(activeId==saved)Notice.Text="Đã lưu hồ sơ "+draft.Code+".";
    }catch(Exception ex){Notice.Text="Không ghi hồ sơ: "+ex.Message;}
   }
  }

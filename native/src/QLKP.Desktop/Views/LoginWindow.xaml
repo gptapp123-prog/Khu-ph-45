@@ -3,7 +3,6 @@
   <Border Background="{DynamicResource ThemeHeader}" Grid.Column="0"><StackPanel VerticalAlignment="Center" Margin="25">
    <Image Width="88" Height="88" HorizontalAlignment="Center" Margin="0,0,0,20" RenderOptions.BitmapScalingMode="HighQuality"><Image.Source><BitmapImage UriSource="pack://application:,,,/Assets/qlkp-icon.png" CacheOption="OnLoad" DecodePixelWidth="304"/></Image.Source></Image>
    <TextBlock Text="QUẢN LÝ KHU PHỐ" FontSize="22" FontWeight="Bold" Foreground="White" TextAlignment="Center" TextWrapping="Wrap"/>
-   <TextBlock Text="Quản lý hồ sơ · Điều hành công việc" FontSize="15" Foreground="#C4D8FF" TextAlignment="Center" TextWrapping="Wrap" Margin="4,12"/>
   </StackPanel></Border>
   <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel Margin="32,26">

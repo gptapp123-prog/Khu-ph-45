@@ -2,7 +2,7 @@
  <DockPanel Margin="14">
   <StackPanel DockPanel.Dock="Top">
    <TextBlock Text="I02 · VAI TRÒ, PHẠM VI VÀ QUYỀN TÀI KHOẢN" FontSize="23" FontWeight="Bold" Foreground="#102D59"/>
-   <TextBlock Text="Tài khoản có sẵn quyền nghiệp vụ. Chỉ đặt giới hạn riêng khi cần. Tài khoản quản trị được bảo vệ khỏi khóa hoặc thay thế." TextWrapping="Wrap" Foreground="#526781"/>
+   <TextBlock Text="Chọn tài khoản để chỉnh quyền." TextWrapping="Wrap" Foreground="#526781"/>
    <WrapPanel Margin="0,10"><Button Content="Tải danh sách tài khoản" Click="Reload_Click"/><TextBlock x:Name="Info" Foreground="#A44312" VerticalAlignment="Center" TextWrapping="Wrap"/></WrapPanel>
   </StackPanel>
   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="360"/></Grid.ColumnDefinitions>
@@ -22,7 +22,7 @@
      <CheckBox x:Name="RightI08Read" Margin="8" Content="I08 · Kiểm tra chất lượng dữ liệu (chỉ đọc)"/>
      <TextBlock Text="Các quyền nghiệp vụ bổ sung" FontWeight="Bold" Margin="0,10,0,0"/>
      <StackPanel x:Name="AdditionalRights"/>
-     <TextBlock Text="Lưu quyền sẽ cập nhật phiên bản chính sách và khiến phiên cũ không còn hợp lệ." TextWrapping="Wrap" Foreground="#526781"/>
+     <TextBlock Text="Sau khi đổi quyền, tài khoản cần đăng nhập lại." TextWrapping="Wrap" Foreground="#526781"/>
      <Button x:Name="SaveRights" Content="Lưu thay đổi quyền" Click="Save_Click"/>
      <Button x:Name="ResetPassword" Content="Đặt lại mật khẩu tài khoản được chọn" Click="ResetPassword_Click" IsEnabled="False"/>
      <Button x:Name="BlockAccount" Content="Khóa tài khoản được chọn" Click="Block_Click"/>
