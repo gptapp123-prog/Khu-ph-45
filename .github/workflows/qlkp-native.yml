@@ -2,8 +2,6 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
-  push:
-    branches: [qa/native-0215-once-20261116]
 
 permissions:
   contents: read
@@ -87,9 +85,11 @@ jobs:
           apk=native/android-companion/app/build/outputs/apk/debug/app-debug.apk
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/aapt" dump badging "$apk" > native/dist/android/apk-metadata.txt
-          grep -q "name='vn.qlkp.companion.test' versionCode='29' versionName='0.21.4'" native/dist/android/apk-metadata.txt
+          version=$(sed -n 's/^versionName=//p' native/release.properties)
+          code=$(sed -n 's/^versionCode=//p' native/release.properties)
+          grep -Fq "name='vn.qlkp.companion.test' versionCode='$code' versionName='$version'" native/dist/android/apk-metadata.txt
           "$tools/apksigner" verify --verbose --print-certs "$apk" > native/dist/android/apk-signature.txt
-          cp "$apk" native/dist/android/QLKP_Mobile_0.21.4_TEST.apk
+          cp "$apk" native/dist/android/"QLKP_Mobile_${version}_TEST.apk"
           (cd native/dist/android && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
