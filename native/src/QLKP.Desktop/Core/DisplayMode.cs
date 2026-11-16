@@ -24,12 +24,12 @@ namespace QLKP.Desktop.Core {
   internal static void Apply(bool depth) {
    Depth=depth;
    var resources=Application.Current.Resources;
-   resources["ThemeHeader"]=depth?Gradient("#264E80","#0C2347"):Brush("#102D59");
-   resources["ThemeWorkspace"]=depth?Gradient("#F3F8FF","#DFEAF8"):Brush("#F3F7FC");
-   resources["ThemeAction"]=depth?Gradient("#2B78E4","#1252AC"):Brush("#1263D6");
-   resources["ThemeOutline"]=Brush(depth?"#BCCFE5":"#D5E0ED");
+   resources["ThemeHeader"]=depth?Gradient("#2C4053","#192A3B"):Brush("#192A3B");
+   resources["ThemeWorkspace"]=depth?Gradient("#F5F7F8","#E8EEF0"):Brush("#F0F2F3");
+   resources["ThemeAction"]=depth?Gradient("#247568","#175951"):Brush("#17645C");
+   resources["ThemeOutline"]=Brush(depth?"#AEBFC6":"#D4DCE0");
    if(depth) {
-    var effect=new DropShadowEffect {BlurRadius=18,ShadowDepth=3,Opacity=0.24,Color=Color.FromRgb(26,58,95)};
+    var effect=new DropShadowEffect {BlurRadius=12,ShadowDepth=2,Opacity=0.20,Color=Color.FromRgb(26,58,95)};
     effect.Freeze();resources["ThemeCardEffect"]=effect;
    } else {
     resources.Remove("ThemeCardEffect");

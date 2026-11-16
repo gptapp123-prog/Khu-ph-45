@@ -3,15 +3,15 @@
   <SolidColorBrush x:Key="Navy" Color="#102D59"/>
   <SolidColorBrush x:Key="Blue" Color="#1263D6"/>
   <SolidColorBrush x:Key="Pale" Color="#F4F7FC"/>
-  <SolidColorBrush x:Key="ThemeHeader" Color="#102D59"/>
-  <SolidColorBrush x:Key="ThemeWorkspace" Color="#F3F7FC"/>
-  <SolidColorBrush x:Key="ThemeAction" Color="#1263D6"/>
-  <SolidColorBrush x:Key="ThemeOutline" Color="#D5E0ED"/>
+  <SolidColorBrush x:Key="ThemeHeader" Color="#192A3B"/>
+  <SolidColorBrush x:Key="ThemeWorkspace" Color="#F0F2F3"/>
+  <SolidColorBrush x:Key="ThemeAction" Color="#17645C"/>
+  <SolidColorBrush x:Key="ThemeOutline" Color="#D4DCE0"/>
   <Style x:Key="WorkspacePanel" TargetType="Border">
    <Setter Property="Background" Value="White"/>
    <Setter Property="BorderBrush" Value="{DynamicResource ThemeOutline}"/>
    <Setter Property="BorderThickness" Value="1"/>
-   <Setter Property="CornerRadius" Value="8"/>
+   <Setter Property="CornerRadius" Value="2"/>
    <Setter Property="Effect" Value="{DynamicResource ThemeCardEffect}"/>
   </Style>
   <Style TargetType="Window">
@@ -21,11 +21,11 @@
   </Style>
   <Style TargetType="Button">
    <Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="12,7"/>
-   <Setter Property="MinHeight" Value="34"/><Setter Property="Background" Value="{DynamicResource ThemeAction}"/>
-   <Setter Property="Foreground" Value="White"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="MinHeight" Value="31"/><Setter Property="Background" Value="#FFFFFF"/>
+   <Setter Property="Foreground" Value="#25394A"/><Setter Property="BorderBrush" Value="#BCC9CF"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Cursor" Value="Hand"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-    <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+    <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}">
      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
     </Border>
     <ControlTemplate.Triggers>
@@ -36,6 +36,12 @@
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
+  <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Background" Value="{DynamicResource ThemeAction}"/>
+   <Setter Property="Foreground" Value="White"/>
+   <Setter Property="BorderBrush" Value="#14574F"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
   <Style TargetType="TextBox"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="7"/><Setter Property="MinHeight" Value="32"/><Setter Property="BorderBrush" Value="#B8C9DD"/><Setter Property="SelectionBrush" Value="#B6D3FA"/></Style>
   <Style TargetType="PasswordBox"><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="7"/><Setter Property="MinHeight" Value="32"/><Setter Property="BorderBrush" Value="#B8C9DD"/></Style>
   <Style TargetType="ComboBox"><Setter Property="Margin" Value="4"/><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="5,3"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
@@ -44,22 +50,32 @@
    <Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/>
    <Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HorizontalGridLinesBrush" Value="#E7EDF5"/>
    <Setter Property="SelectionMode" Value="Single"/><Setter Property="Margin" Value="5"/>
-   <Setter Property="RowHeight" Value="36"/><Setter Property="ColumnHeaderHeight" Value="40"/>
+   <Setter Property="RowHeight" Value="30"/><Setter Property="ColumnHeaderHeight" Value="33"/>
    <Setter Property="HeadersVisibility" Value="Column"/><Setter Property="Background" Value="White"/>
-   <Setter Property="AlternatingRowBackground" Value="#F5F8FD"/><Setter Property="BorderBrush" Value="#D5E0ED"/>
+   <Setter Property="AlternatingRowBackground" Value="#F6F8F8"/><Setter Property="BorderBrush" Value="#D5E0ED"/>
    <Setter Property="EnableRowVirtualization" Value="True"/><Setter Property="EnableColumnVirtualization" Value="True"/>
    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/><Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
   </Style>
-  <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#E8F0FA"/><Setter Property="Foreground" Value="#102D59"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="9,5"/><Setter Property="BorderBrush" Value="#D5E0ED"/><Setter Property="BorderThickness" Value="0,0,1,1"/></Style>
+  <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#EEF2F3"/><Setter Property="Foreground" Value="#102D59"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="9,5"/><Setter Property="BorderBrush" Value="#D5E0ED"/><Setter Property="BorderThickness" Value="0,0,1,1"/></Style>
   <Style TargetType="DataGridCell"><Setter Property="Padding" Value="7,4"/><Setter Property="BorderThickness" Value="0"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
   <Style x:Key="NavigationItem" TargetType="ListBoxItem">
-   <Setter Property="Margin" Value="6,3"/><Setter Property="Padding" Value="8,10"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="Margin" Value="0"/>
+   <Setter Property="Padding" Value="11,8"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="Foreground" Value="#344959"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
-    <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+    <Border x:Name="Indicator" BorderThickness="3,0,0,0" BorderBrush="Transparent" Background="Transparent" Padding="{TemplateBinding Padding}">
+     <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+    </Border>
     <ControlTemplate.Triggers>
-     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#244B7E"/><Setter Property="Foreground" Value="White"/></Trigger>
-     <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="#1263D6"/><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
-     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="#D8AD44"/><Setter TargetName="ItemBorder" Property="BorderThickness" Value="1"/></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Indicator" Property="Background" Value="#EEF2F3"/></Trigger>
+     <Trigger Property="IsSelected" Value="True">
+      <Setter TargetName="Indicator" Property="Background" Value="#DCECE8"/>
+      <Setter TargetName="Indicator" Property="BorderBrush" Value="#17645C"/>
+      <Setter Property="Foreground" Value="#133E38"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+     </Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Indicator" Property="BorderBrush" Value="#23596D"/></Trigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>

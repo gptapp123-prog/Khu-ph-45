@@ -14,7 +14,7 @@
     <TextBlock Text="Quyền nghiệp vụ bổ sung (trong phạm vi được ủy quyền)" FontWeight="Bold" Margin="6"/>
     <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto"><WrapPanel x:Name="AdditionalRights"/></ScrollViewer>
    </StackPanel>
-   <Button x:Name="CreateButton" Content="Tạo tài khoản" HorizontalAlignment="Left" Click="Create_Click"/>
+   <Button x:Name="CreateButton" Style="{StaticResource PrimaryAction}" Content="Tạo tài khoản" HorizontalAlignment="Left" Click="Create_Click"/>
   </StackPanel></Border>
   <TextBlock x:Name="AccountsFeedback" TextWrapping="Wrap" Foreground="#67430E" Margin="4,7,4,0" AutomationProperties.LiveSetting="Polite"/>
  </StackPanel></ScrollViewer>

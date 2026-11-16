@@ -2,7 +2,7 @@
  <Grid Margin="12">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <StackPanel Grid.Row="0">
-   <TextBlock x:Name="FeatureTitle" FontWeight="Bold" FontSize="24" Foreground="#123663" TextWrapping="Wrap"/>
+   <TextBlock x:Name="FeatureTitle" FontWeight="Bold" FontSize="21" Foreground="#123663" TextWrapping="Wrap"/>
    <TextBlock x:Name="Guidance" TextWrapping="Wrap" Foreground="#576985" Margin="0,3,0,8"/>
    <DockPanel Margin="0,4,0,8"><Button Content="Làm mới" Click="Refresh_Click" DockPanel.Dock="Right" Padding="12,4"/>
     <TextBlock Text="Tìm mã hoặc tiêu đề: " VerticalAlignment="Center" DockPanel.Dock="Left"/>
@@ -13,6 +13,14 @@
     <Button x:Name="ExportTaskButton" Content="Xuất gói giao việc" Padding="10,5" Margin="0,0,8,0" Click="ExportOfflineTask_Click" IsEnabled="False"/>
     <Button x:Name="ImportTaskButton" Content="Nhận kết quả Android" Padding="10,5" Click="ImportOfflineTask_Click"/>
    </WrapPanel>
+     <WrapPanel Margin="0,0,0,2">
+      <Button x:Name="NewButton" Content="Hồ sơ mới" Margin="0,0,8,0" Padding="10,6" Click="New_Click"/>
+      <Button x:Name="SaveButton" Style="{StaticResource PrimaryAction}" Content="Lưu hồ sơ" Padding="14,6" Click="Save_Click"/>
+      <Button x:Name="CreateTaskButton" Content="Tạo nhiệm vụ A02" Padding="10,6" Margin="8,0,0,0" Click="CreateTask_Click"/>
+      <Button x:Name="TrackPublicProjectButton" Content="Theo dõi công trình công cộng" Padding="10,6" Margin="8,0,0,0" Click="TrackPublicProject_Click" Visibility="Collapsed" IsEnabled="False"/>
+      <Button x:Name="OpenTaskButton" Content="Mở nhiệm vụ để xử lý" Padding="10,6" Margin="8,0,0,0" Click="OpenTask_Click"/>
+     </WrapPanel>
+   <TextBlock x:Name="Notice" TextWrapping="Wrap" Foreground="#9E4A14" Margin="0,2"/>
    <TextBlock x:Name="OfflineTaskNotice" TextWrapping="Wrap" Foreground="#9E4A14"/>
   </StackPanel>
   <Grid Grid.Row="1" x:Name="RecordsLayout">
@@ -27,17 +35,17 @@
     <DataGrid x:Name="Records" AutoGenerateColumns="False" IsReadOnly="True" SelectionChanged="Records_SelectionChanged"
      CanUserAddRows="False" SelectionMode="Single" EnableRowVirtualization="True">
      <DataGrid.Columns>
-      <DataGridTextColumn Header="Mã" Binding="{Binding Code}" Width="110"/>
-      <DataGridTextColumn Header="Tên / trích yếu" Binding="{Binding Title}" Width="*"/>
-      <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="150"/>
-      <DataGridTextColumn Header="Ngày" Binding="{Binding DueDateDisplay}" Width="110"/>
-      <DataGridTextColumn Header="Phiên bản" Binding="{Binding Version}" Width="75"/>
+      <DataGridTextColumn Header="Mã" Binding="{Binding Code}" Width="92"/>
+      <DataGridTextColumn Header="Tên / trích yếu" Binding="{Binding Title}" Width="*" MinWidth="170"/>
+      <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="126"/>
+      <DataGridTextColumn Header="Ngày" Binding="{Binding DueDateDisplay}" Width="92"/>
+      <DataGridTextColumn Header="Phiên bản" Binding="{Binding Version}" Width="63"/>
      </DataGrid.Columns>
     </DataGrid>
    </DockPanel>
    <ScrollViewer x:Name="DetailRegion" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="8,0,0,0">
-     <TextBlock Text="HỒ SƠ CHI TIẾT" FontWeight="Bold" Foreground="#123663" FontSize="17"/>
+     <TextBlock Text="Hồ sơ chi tiết" FontWeight="Bold" Foreground="#123663" FontSize="17"/>
      <TextBlock Text="Mã định danh (không cho sửa khi cập nhật)" Margin="0,10,0,0"/>
      <TextBox x:Name="RecordCode"/>
      <TextBlock Text="Tiêu đề / mô tả ngắn" Margin="0,8,0,0"/>
@@ -46,14 +54,14 @@
      <ComboBox x:Name="RecordStatus"/>
      <TextBlock Text="Thông tin chi tiết" Margin="0,8,0,0"/>
      <TextBox x:Name="RecordNotes" AcceptsReturn="True" Height="62" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
-     <TextBlock Text="TRƯỜNG THEO CHUYÊN NGÀNH" FontWeight="Bold" Margin="0,12,0,0" Foreground="#123663"/>
+     <TextBlock Text="Thông tin nghiệp vụ" FontWeight="Bold" Margin="0,12,0,0" Foreground="#123663"/>
      <StackPanel x:Name="TypedFields"/>
      <StackPanel x:Name="AssigneePicker" Margin="0,7,0,0">
       <TextBlock Text="Chọn người phụ trách công việc theo tài khoản" FontWeight="Bold"/>
       <Button Content="Tải tài khoản cùng khu phố" HorizontalAlignment="Left" Click="LoadAssignees_Click"/>
       <ListBox x:Name="AssigneeOptions" Height="80" DisplayMemberPath="Username" SelectionChanged="AssigneeOptions_SelectionChanged"/>
      </StackPanel>
-     <TextBlock Text="LIÊN KẾT HỒ SƠ (CHỈ KHI CÓ QUAN HỆ THẬT)" FontWeight="Bold" Margin="0,12,0,0" Foreground="#123663" TextWrapping="Wrap"/>
+     <TextBlock Text="Liên kết hồ sơ" FontWeight="Bold" Margin="0,12,0,0" Foreground="#123663" TextWrapping="Wrap"/>
      <ComboBox x:Name="RelatedFeature" Margin="0,4,0,0" SelectionChanged="RelatedFeature_Changed"/>
      <TextBox x:Name="RelatedId" Margin="0,5,0,0" IsReadOnly="True" ToolTip="Chỉ chọn ID từ kết quả tìm kiếm; không gõ liên kết thủ công"/>
      <WrapPanel Margin="0,6,0,0">
@@ -67,8 +75,7 @@
       <TextBlock x:Name="LinkPageInfo" VerticalAlignment="Center" Margin="10,0"/>
       <Button x:Name="LinkNext" Content="Sau ▶" Click="LinkNext_Click" Padding="6,2"/>
      </WrapPanel>
-     <TextBlock Text="Mã liên kết phải đúng loại, đúng ID, đúng địa bàn và tài khoản phải có quyền đọc đích." FontSize="11" TextWrapping="Wrap" Foreground="#58708A"/>
-     <TextBlock Text="CÁC LIÊN KẾT ĐÃ XÁC MINH (NHIỀU HỒ SƠ)" FontWeight="Bold" Margin="0,10,0,0" Foreground="#123663"/>
+     <TextBlock Text="Các hồ sơ đã liên kết" FontWeight="Bold" Margin="0,10,0,0" Foreground="#123663"/>
      <WrapPanel Margin="0,5,0,0">
       <ComboBox x:Name="RelationKind" Width="130"/>
       <Button x:Name="AddRelationButton" Content="Gắn liên kết" Click="AddRelation_Click" Margin="8,0,0,0" Padding="8,3"/>
@@ -76,15 +83,7 @@
      </WrapPanel>
      <ListBox x:Name="Relations" Height="78" DisplayMemberPath="Display" Margin="0,5,0,0"/>
 
-     <WrapPanel Margin="0,10,0,0">
-      <Button x:Name="NewButton" Content="Hồ sơ mới" Margin="0,0,8,0" Padding="10,6" Click="New_Click"/>
-      <Button x:Name="SaveButton" Content="Lưu hồ sơ" Padding="14,6" Click="Save_Click"/>
-      <Button x:Name="CreateTaskButton" Content="Tạo nhiệm vụ A02" Padding="10,6" Margin="8,0,0,0" Click="CreateTask_Click"/>
-      <Button x:Name="TrackPublicProjectButton" Content="Theo dõi công trình công cộng" Padding="10,6" Margin="8,0,0,0" Click="TrackPublicProject_Click" Visibility="Collapsed" IsEnabled="False"/>
-      <Button x:Name="OpenTaskButton" Content="Mở nhiệm vụ để xử lý" Padding="10,6" Margin="8,0,0,0" Click="OpenTask_Click"/>
-     </WrapPanel>
-     <TextBlock x:Name="Notice" TextWrapping="Wrap" Foreground="#9E4A14" Margin="0,9"/>
-     <TextBlock Text="LỊCH SỬ THAY ĐỔI" FontWeight="Bold" Margin="0,15,0,0" Foreground="#123663"/>
+     <TextBlock Text="Lịch sử thay đổi" FontWeight="Bold" Margin="0,15,0,0" Foreground="#123663"/>
      <DataGrid x:Name="History" AutoGenerateColumns="False" IsReadOnly="True" Height="150" CanUserAddRows="False">
       <DataGrid.Columns><DataGridTextColumn Header="Thời điểm" Binding="{Binding OccurredDisplay}" Width="*"/><DataGridTextColumn Header="Trước" Binding="{Binding Before}" Width="100"/><DataGridTextColumn Header="Sau" Binding="{Binding After}" Width="100"/></DataGrid.Columns>
      </DataGrid>
