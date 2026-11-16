@@ -1,0 +1,44 @@
+name: QLKP Android 15 device layout verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [qa/android-0218-screen-final-once-20261116]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '43898211599'
+          name: QLKP-native-Android-TEST
+          path: android-test
+      - name: Start dedicated Android 15 emulator and check compact screens
+        run: |
+          if test -e /dev/kvm; then sudo chmod a+rw /dev/kvm; fi
+          export ANDROID_USER_HOME="$RUNNER_TEMP/qlkp-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" emulator 'system-images;android-35;google_apis;x86_64'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n qlkp_smoke -p "$ANDROID_AVD_HOME/qlkp_smoke.avd" -k 'system-images;android-35;google_apis;x86_64' -f
+          if ! test -f "$ANDROID_AVD_HOME/qlkp_smoke.ini" && test -f "$ANDROID_AVD_HOME/qlkp_smoke.avd/config.ini"; then
+            printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/qlkp_smoke.avd" > "$ANDROID_AVD_HOME/qlkp_smoke.ini"
+          fi
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -Fx qlkp_smoke
+          QLKP_SMOKE_APP=vn.qlkp.companion.test QLKP_SMOKE_APK=android-test/QLKP_Mobile_0.21.8_TEST.apk python native/tools/android_device_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: QLKP-Android-0218-device-verified
+          path: native/build-logs/android/
+          if-no-files-found: warn
+          retention-days: 14
