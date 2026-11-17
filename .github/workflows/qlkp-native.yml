@@ -2,8 +2,6 @@ name: QLKP native Windows and Android installers
 
 on:
   workflow_dispatch:
-  push:
-    branches: [qa/native-0219-release-once-20261117]
 
 permissions:
   contents: read
@@ -80,7 +78,7 @@ jobs:
       - name: Compile, test and lint Android
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug lintRelease assembleRelease --no-daemon
+          gradle -p native/android-companion testDebugUnitTest lintDebug assembleDebug --no-daemon
       - name: Verify and stage standalone test APK
         run: |
           mkdir -p native/dist/android
@@ -107,22 +105,4 @@ jobs:
             native/android-companion/app/build/reports/
             native/android-companion/app/build/test-results/
           if-no-files-found: warn
-          retention-days: 14
-
-      - name: Prepare official Android ID package for offline signing
-        run: |
-          build_tools="$ANDROID_HOME/build-tools/35.0.0"
-          apk=native/android-companion/app/build/outputs/apk/release/app-release-unsigned.apk
-          mkdir -p native/dist/release-unsigned
-          "$build_tools/aapt" dump badging "$apk" > native/dist/release-unsigned/metadata.txt
-          grep -Fq "name='vn.qlkp.companion' versionCode='32' versionName='0.21.9'" native/dist/release-unsigned/metadata.txt
-          if grep -q application-debuggable native/dist/release-unsigned/metadata.txt; then exit 1; fi
-          "$build_tools/zipalign" -P 16 -f 4 "$apk" native/dist/release-unsigned/QLKP_Mobile_0.21.9_UNSIGNED.apk
-          "$build_tools/zipalign" -c -P 16 4 native/dist/release-unsigned/QLKP_Mobile_0.21.9_UNSIGNED.apk
-          (cd native/dist/release-unsigned && sha256sum *.apk > SHA256SUMS.txt)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: QLKP-Android-0.21.9-unsigned-for-offline-signing
-          path: native/dist/release-unsigned/
-          if-no-files-found: error
           retention-days: 14
